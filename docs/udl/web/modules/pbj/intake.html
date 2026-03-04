@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Operational Health Snapshot — Intake Form (v1)</title>
+  <link rel="stylesheet" href="/ui/shared/tokens.css"/>
+  <link rel="stylesheet" href="/ui/shared/components.css"/>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; line-height: 1.35; }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .sub { margin: 0 0 18px; color: #444; }
+    fieldset { border: 1px solid #ddd; padding: 14px 16px; margin: 14px 0; }
+    legend { padding: 0 8px; font-weight: 600; }
+    label { display: block; margin: 10px 0 4px; font-weight: 600; }
+    input[type="text"], input[type="email"], input[type="tel"], input[type="url"], textarea, select {
+      width: 100%; max-width: 860px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: 14px; box-sizing: border-box;
+    }
+    textarea { min-height: 86px; resize: vertical; }
+    .row { display: flex; flex-wrap: wrap; gap: 14px; }
+    .col { flex: 1 1 320px; }
+    .checks { margin: 6px 0 0; }
+    .checks label { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 6px 0; }
+    .hint { color: #555; font-size: 12px; margin-top: 4px; }
+    .tight textarea { min-height: 64px; }
+    .small { max-width: 420px; }
+    .footer { margin-top: 18px; color: #555; font-size: 12px; }
+    button { padding: 10px 14px; border: 1px solid #333; border-radius: 8px; background: #111; color: #fff; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h1>Operational Health Snapshot — Intake Form (v1)</h1>
+  <p class="sub">Fill out what you know. If you’re unsure, “Not sure” is acceptable.</p>
+
+  <form id="ohs-intake" autocomplete="on">
+  <div style="display:flex; justify-content:flex-end; gap:10px; margin: 0 0 10px;">
+    <button type="button" id="mockFillBtn">Auto-Fill (Mock)</button>
+    <button type="button" id="mockClearBtn" style="background:#333;">Clear</button>
+  </div>
+
+    <fieldset>
+      <legend>Client Info</legend>
+
+      <div class="row">
+        <div class="col">
+          <label for="client_name">Client Name</label>
+          <input id="client_name" name="client_name" type="text" />
+        </div>
+        <div class="col">
+          <label for="business_name">Business Name</label>
+          <input id="business_name" name="business_name" type="text" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="role_title">Your Role/Title</label>
+          <input id="role_title" name="role_title" type="text" />
+        </div>
+        <div class="col">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" />
+        </div>
+        <div class="col">
+          <label for="phone">Phone</label>
+          <input id="phone" name="phone" type="tel" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="address">Business Address (city/state is fine)</label>
+          <input id="address" name="address" type="text" />
+        </div>
+        <div class="col">
+          <label for="industry">Industry</label>
+          <input id="industry" name="industry" type="text" />
+        </div>
+        <div class="col">
+          <label for="website">Website (if any)</label>
+          <input id="website" name="website" type="url" placeholder="https://..." />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>A) Company Basics</legend>
+
+      <div class="row">
+        <div class="col small">
+          <label for="employees">1) # of employees (incl. owners)</label>
+          <input id="employees" name="employees" type="text" />
+        </div>
+        <div class="col small">
+          <label for="locations">2) # of locations</label>
+          <input id="locations" name="locations" type="text" />
+        </div>
+      </div>
+
+      <label>3) Annual revenue range (optional)</label>
+      <div class="checks" role="group" aria-label="Annual revenue range">
+        <label><input type="radio" name="revenue_range" value="&lt;$250k" /> &lt;$250k</label>
+        <label><input type="radio" name="revenue_range" value="$250k–$1M" /> $250k–$1M</label>
+        <label><input type="radio" name="revenue_range" value="$1M–$5M" /> $1M–$5M</label>
+        <label><input type="radio" name="revenue_range" value="$5M+" /> $5M+</label>
+        <label><input type="radio" name="revenue_range" value="Prefer not to say" /> Prefer not to say</label>
+      </div>
+
+      <label>4) Primary business model</label>
+      <div class="checks" role="group" aria-label="Primary business model">
+        <label><input type="radio" name="business_model" value="Service" /> Service</label>
+        <label><input type="radio" name="business_model" value="Product" /> Product</label>
+        <label><input type="radio" name="business_model" value="Both" /> Both</label>
+        <label><input type="radio" name="business_model" value="Subscription" /> Subscription</label>
+        <label><input type="radio" name="business_model" value="Project-based" /> Project-based</label>
+      </div>
+
+      <label for="acquisition_payment">5) Top 3 ways customers find/pay you today</label>
+      <textarea id="acquisition_payment" name="acquisition_payment" placeholder="1) ... 2) ... 3) ..."></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>B) “What Are We Checking?” (Your Snapshot Goal)</legend>
+
+      <label>6) Why are you getting this snapshot right now? (pick up to 2)</label>
+      <div class="checks" role="group" aria-label="Snapshot goals">
+        <label><input type="checkbox" name="snapshot_goal" value="Proof nothing is quietly breaking" /> I want proof things aren’t quietly breaking</label>
+        <label><input type="checkbox" name="snapshot_goal" value="Too many tools / too many bills" /> Too many tools / too many bills</label>
+        <label><input type="checkbox" name="snapshot_goal" value="Worried about vendor lock-in" /> I’m worried about vendor lock-in</label>
+        <label><input type="checkbox" name="snapshot_goal" value="Don’t trust reporting" /> I don’t trust my reporting</label>
+        <label><input type="checkbox" name="snapshot_goal" value="Reduce owner-dependence" /> I want to reduce owner-dependence</label>
+        <label><input type="checkbox" name="snapshot_goal" value="Preparing for growth / hiring" /> Preparing for growth / hiring</label>
+        <label><input type="checkbox" name="snapshot_goal" value="Preparing for sale / exit" /> Preparing for sale / exit</label>
+        <label><input type="checkbox" name="snapshot_goal" value="Other" /> Other: <input type="text" name="snapshot_goal_other" placeholder="..." /></label>
+      </div>
+      <p class="hint">Tip: pick the two most important. If you pick more, we’ll prioritize the first two.</p>
+
+      <label for="win_definition">7) What would a “win” look like from this report? (1–2 sentences)</label>
+      <textarea id="win_definition" name="win_definition" class="tight"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>C) Tools & Vendors</legend>
+
+      <label for="tools_accounting">8) Accounting / Finance tool(s)</label>
+      <input id="tools_accounting" name="tools_accounting" type="text" />
+
+      <label for="tools_crm">9) CRM / Sales tool(s)</label>
+      <input id="tools_crm" name="tools_crm" type="text" />
+
+      <label>10) Email / Workspace</label>
+      <div class="checks" role="group" aria-label="Email / Workspace">
+        <label><input type="radio" name="workspace" value="Google Workspace" /> Google Workspace</label>
+        <label><input type="radio" name="workspace" value="Microsoft 365" /> Microsoft 365</label>
+        <label><input type="radio" name="workspace" value="Other" /> Other: <input type="text" name="workspace_other" placeholder="..." /></label>
+      </div>
+
+      <label for="tools_web">11) Website / hosting / ecommerce (if applicable)</label>
+      <input id="tools_web" name="tools_web" type="text" />
+
+      <label for="tools_payments">12) Payment processing (Stripe/Square/etc.)</label>
+      <input id="tools_payments" name="tools_payments" type="text" />
+
+      <label for="tools_phone">13) Phone system / VoIP</label>
+      <input id="tools_phone" name="tools_phone" type="text" />
+
+      <label for="tools_storage">14) File storage / sharing (Drive/OneDrive/Dropbox/etc.)</label>
+      <input id="tools_storage" name="tools_storage" type="text" />
+
+      <label for="tools_industry">15) Any industry-specific software (scheduling, estimating, EMR, etc.)</label>
+      <input id="tools_industry" name="tools_industry" type="text" />
+
+      <label>16) IT support today</label>
+      <div class="checks" role="group" aria-label="IT support">
+        <label><input type="radio" name="it_support" value="None / DIY" /> None / DIY</label>
+        <label><input type="radio" name="it_support" value="Part-time help" /> Part-time help</label>
+        <label><input type="radio" name="it_support" value="MSP" /> MSP</label>
+        <label><input type="radio" name="it_support" value="Internal IT" /> Internal IT</label>
+        <label><input type="radio" name="it_support" value="Mixed" /> Mixed</label>
+      </div>
+
+      <label for="top_subscriptions">17) Top 5 recurring subscriptions you know you pay for monthly/annually</label>
+      <textarea id="top_subscriptions" name="top_subscriptions" placeholder="1) ...&#10;2) ...&#10;3) ...&#10;4) ...&#10;5) ..."></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>D) Operations & Process Stability</legend>
+
+      <label>18) If you were unavailable for 2 weeks, would the business run?</label>
+      <div class="checks" role="group" aria-label="2-week absence">
+        <label><input type="radio" name="two_weeks" value="Yes" /> Yes</label>
+        <label><input type="radio" name="two_weeks" value="Mostly" /> Mostly</label>
+        <label><input type="radio" name="two_weeks" value="Not really" /> Not really</label>
+        <label><input type="radio" name="two_weeks" value="No" /> No</label>
+      </div>
+
+      <label>19) Where are your key processes documented (if anywhere)?</label>
+      <div class="checks" role="group" aria-label="Documentation location">
+        <label><input type="radio" name="process_docs" value="Nowhere" /> Nowhere</label>
+        <label><input type="radio" name="process_docs" value="Google Docs" /> Google Docs</label>
+        <label><input type="radio" name="process_docs" value="Word/PDF" /> Word/PDF</label>
+        <label><input type="radio" name="process_docs" value="Notion" /> Notion</label>
+        <label><input type="radio" name="process_docs" value="SOP binder" /> SOP binder</label>
+        <label><input type="radio" name="process_docs" value="Other" /> Other: <input type="text" name="process_docs_other" placeholder="..." /></label>
+      </div>
+
+      <label for="fragile_processes">20) Top 3 processes that feel “fragile” or owner-dependent</label>
+      <textarea id="fragile_processes" name="fragile_processes" placeholder="1) ...&#10;2) ...&#10;3) ..."></textarea>
+
+      <label for="pain_issue">21) Most painful recurring operational issue (if any)</label>
+      <textarea id="pain_issue" name="pain_issue" class="tight"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>E) Data & Reporting Confidence</legend>
+
+      <label>22) How confident are you in your numbers (sales, expenses, pipeline, etc.)?</label>
+      <div class="checks" role="group" aria-label="Data confidence">
+        <label><input type="radio" name="data_confidence" value="High" /> High</label>
+        <label><input type="radio" name="data_confidence" value="Medium" /> Medium</label>
+        <label><input type="radio" name="data_confidence" value="Low" /> Low</label>
+        <label><input type="radio" name="data_confidence" value="I don’t know" /> I don’t know</label>
+      </div>
+
+      <label for="kpis">23) What do you look at weekly/monthly to run the business? (reports/KPIs)</label>
+      <textarea id="kpis" name="kpis"></textarea>
+
+      <label for="suspected_wrong">24) Where do you suspect the data is wrong or incomplete?</label>
+      <textarea id="suspected_wrong" name="suspected_wrong" class="tight"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>F) Risk & Continuity</legend>
+
+      <label>25) Backups: Do you believe your critical data is backed up?</label>
+      <div class="checks" role="group" aria-label="Backups">
+        <label><input type="radio" name="backups" value="Yes" /> Yes</label>
+        <label><input type="radio" name="backups" value="No" /> No</label>
+        <label><input type="radio" name="backups" value="Not sure" /> Not sure</label>
+      </div>
+
+      <label>26) Security: Any recent incidents, hacks, ransomware, fraud, or scary moments?</label>
+      <div class="checks" role="group" aria-label="Incidents">
+        <label><input type="radio" name="incidents" value="No" /> No</label>
+        <label><input type="radio" name="incidents" value="Yes" /> Yes (briefly): <input type="text" name="incidents_notes" placeholder="..." /></label>
+      </div>
+
+      <label>27) Access: Who has admin access to your key systems?</label>
+      <div class="checks" role="group" aria-label="Admin access">
+        <label><input type="radio" name="admin_access" value="Mostly me" /> Mostly me</label>
+        <label><input type="radio" name="admin_access" value="Me + 1 person" /> Me + 1 person</label>
+        <label><input type="radio" name="admin_access" value="Multiple people" /> Multiple people</label>
+        <label><input type="radio" name="admin_access" value="I’m not sure" /> I’m not sure</label>
+      </div>
+
+      <label>28) Any compliance obligations you’re aware of? (OSHA, HIPAA, PCI, etc.)</label>
+      <div class="checks" role="group" aria-label="Compliance obligations">
+        <label><input type="radio" name="compliance" value="None" /> None</label>
+        <label><input type="radio" name="compliance" value="Not sure" /> Not sure</label>
+        <label><input type="radio" name="compliance" value="Yes" /> Yes: <input type="text" name="compliance_notes" placeholder="..." /></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>G) What You Can Provide</legend>
+
+      <label>29) Choose ONE data source you can share for the snapshot (pick 1–2)</label>
+      <div class="checks" role="group" aria-label="Data sources">
+        <label><input type="checkbox" name="data_source" value="QuickBooks/Xero export" /> QuickBooks / Xero export (P&amp;L or transactions)</label>
+        <label><input type="checkbox" name="data_source" value="CRM export" /> CRM export (pipeline/deals)</label>
+        <label><input type="checkbox" name="data_source" value="Subscription/vendor list" /> Subscription/vendor list (even a screenshot of statements)</label>
+        <label><input type="checkbox" name="data_source" value="Tool list" /> Tool list (screenshot of password manager vault list is fine)</label>
+        <label><input type="checkbox" name="data_source" value="Prior report/audit" /> Prior report/audit (PDF)</label>
+        <label><input type="checkbox" name="data_source" value="Other" /> Other: <input type="text" name="data_source_other" placeholder="..." /></label>
+      </div>
+
+      <label>30) Preferred method to share files</label>
+      <div class="checks" role="group" aria-label="File sharing method">
+        <label><input type="radio" name="share_method" value="Email attachment" /> Email attachment</label>
+        <label><input type="radio" name="share_method" value="Share link" /> Share link</label>
+        <label><input type="radio" name="share_method" value="Upload portal" /> Upload portal (if provided)</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>H) Constraints & Preferences</legend>
+
+      <label for="do_not_review">31) Anything you do NOT want reviewed or included?</label>
+      <textarea id="do_not_review" name="do_not_review" class="tight"></textarea>
+
+      <label>32) Preferred tone of the report</label>
+      <div class="checks" role="group" aria-label="Report tone">
+        <label><input type="radio" name="report_tone" value="Executive-simple" /> Executive-simple</label>
+        <label><input type="radio" name="report_tone" value="Balanced" /> Balanced</label>
+        <label><input type="radio" name="report_tone" value="Technical-leaning" /> Technical-leaning</label>
+      </div>
+
+      <label>33) Do you want a 15-minute walkthrough after delivery?</label>
+      <div class="checks" role="group" aria-label="Walkthrough">
+        <label><input type="radio" name="walkthrough" value="Yes" /> Yes</label>
+        <label><input type="radio" name="walkthrough" value="No" /> No</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Final Confirmation</legend>
+
+      <div class="checks" role="group" aria-label="Confirmation">
+        <label><input type="checkbox" name="confirm_one_time" value="Yes" /> 34) I confirm this is a one-time snapshot and not ongoing monitoring.</label>
+      </div>
+
+      <label for="best_contact">35) Best contact for questions during the snapshot window</label>
+      <input id="best_contact" name="best_contact" type="text" placeholder="Name + best method (email/text/call)" />
+    </fieldset>
+
+    <!-- Optional: leave buttons out if your host tool handles submission -->
+    <button type="submit">Submit</button>
+
+    <p class="footer">
+      Note: This form does not transmit anywhere by itself. Integrate with your tool to handle submission, storage, and validation.
+    </p>
+  </form>
+
+  <script>
+    // Optional: basic client-side guardrails (can be removed if your host tool handles validation)
+    (function () {
+      const form = document.getElementById('ohs-intake');
+
+  function setVal(name, value){
+    const el = form.querySelector(`[name="${CSS.escape(name)}"]`);
+    if(el) el.value = value;
+  }
+  function setRadio(name, value){
+    const el = form.querySelector(`input[type="radio"][name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`);
+    if(el) el.checked = true;
+  }
+  function setChecks(name, values){
+    form.querySelectorAll(`input[type="checkbox"][name="${CSS.escape(name)}"]`).forEach(c => c.checked = false);
+    values.forEach(v=>{
+      const el = form.querySelector(`input[type="checkbox"][name="${CSS.escape(name)}"][value="${CSS.escape(v)}"]`);
+      if(el) el.checked = true;
+    });
+  }
+
+  function fillMock(){
+    // Client Info
+    setVal("client_name", "Jordan Reyes");
+    setVal("business_name", "Queen City HVAC & Plumbing");
+    setVal("role_title", "Owner");
+    setVal("email", "jordan@queencityhvac.example");
+    setVal("phone", "(513) 555-0199");
+    setVal("address", "Cincinnati, OH");
+    setVal("industry", "Trades (HVAC/Plumbing)");
+    setVal("website", "https://queencityhvac.example");
+
+    // A) Basics
+    setVal("employees", "12");
+    setVal("locations", "2");
+    setRadio("revenue_range", "$1M–$5M");
+    setRadio("business_model", "Service");
+    setVal("acquisition_payment", "1) Google reviews / local search\n2) Referrals\n3) Facebook ads (seasonal)");
+
+    // B) Snapshot Goal (pick up to 2)
+    setChecks("snapshot_goal", [
+      "Proof nothing is quietly breaking",
+      "Too many tools / too many bills"
+    ]);
+    setVal("win_definition", "A short report that tells me what’s brittle, what’s wasteful, and what to fix first.");
+
+    // C) Tools & Vendors
+    setVal("tools_accounting", "QuickBooks Online");
+    setVal("tools_crm", "HubSpot (free tier)");
+    setRadio("workspace", "Microsoft 365");
+    setVal("tools_web", "WordPress + shared hosting");
+    setVal("tools_payments", "Square");
+    setVal("tools_phone", "RingCentral");
+    setVal("tools_storage", "OneDrive + SharePoint");
+    setVal("tools_industry", "ServiceTitan (trial) / Housecall Pro");
+    setRadio("it_support", "Mixed");
+    setVal("top_subscriptions", "1) Microsoft 365\n2) RingCentral\n3) QuickBooks\n4) Square fees\n5) Hosting/Domain");
+
+    // D) Ops & Stability
+    setRadio("two_weeks", "Mostly");
+    setRadio("process_docs", "Google Docs");
+    setVal("fragile_processes", "1) Dispatch + schedule changes\n2) Invoicing follow-up\n3) Password/admin access tracking");
+    setVal("pain_issue", "“Who has access to what” is unclear and it bites us when staff changes happen.");
+
+    // E) Reporting
+    setRadio("data_confidence", "Medium");
+    setVal("kpis", "Revenue per tech, backlog, close rate, cash on hand, AR aging.");
+    setVal("suspected_wrong", "Subscription renewals and vendor charges feel messy; not sure what’s redundant.");
+
+    // F) Risk & Continuity
+    setRadio("backups", "Not sure");
+    setRadio("incidents", "No");
+    setRadio("admin_access", "Me + 1 person");
+    setRadio("compliance", "Not sure");
+
+    // G) Provide
+    setChecks("data_source", ["Tool list", "Subscription/vendor list"]);
+    setRadio("share_method", "Share link");
+
+    // H) Constraints
+    setVal("do_not_review", "Do not audit employee personal devices; business systems only.");
+    setRadio("report_tone", "Balanced");
+    setRadio("walkthrough", "Yes");
+
+    // Final confirmation
+    const confirm = form.querySelector(`input[type="checkbox"][name="confirm_one_time"]`);
+    if(confirm) confirm.checked = true;
+    setVal("best_contact", "Jordan Reyes — email is best, text ok for urgent questions");
+
+    console.log("Mock intake filled.");
+  }
+
+  function clearAll(){
+    form.querySelectorAll("input, textarea, select").forEach(el=>{
+      if(el.type === "checkbox" || el.type === "radio") el.checked = false;
+      else el.value = "";
+    });
+    console.log("Form cleared.");
+  }
+
+  document.getElementById("mockFillBtn")?.addEventListener("click", fillMock);
+  document.getElementById("mockClearBtn")?.addEventListener("click", clearAll);
+
+
+      // Enforce "pick up to 2" for snapshot_goal checkboxes
+      const goalChecks = Array.from(form.querySelectorAll('input[name="snapshot_goal"][type="checkbox"]'));
+      function enforceMaxTwoGoals() {
+        const checked = goalChecks.filter(c => c.checked);
+        if (checked.length > 2) {
+          // uncheck the last one toggled (simple rule)
+          const last = checked[checked.length - 1];
+          last.checked = false;
+          alert('Please pick up to 2 snapshot goals.');
+        }
+      }
+      goalChecks.forEach(c => c.addEventListener('change', enforceMaxTwoGoals));
+
+      form.addEventListener('submit', function (e) {
+        // prevent actual submit unless you wire action/endpoint
+        e.preventDefault();
+
+        // Example: serialize to JSON for integration
+        const data = new FormData(form);
+        const obj = {};
+        for (const [k, v] of data.entries()) {
+          if (obj[k] === undefined) obj[k] = v;
+          else if (Array.isArray(obj[k])) obj[k].push(v);
+          else obj[k] = [obj[k], v];
+        }
+
+        // Show serialized payload (replace with your integration)
+        console.log('PBJ Intake Payload:', obj);
+
+        // Send to parent PBJ module (same-origin iframe). The PBJ module will persist to Records.
+        try{
+          window.parent?.postMessage({ type: 'pbj-intake-submit', payload: obj }, '*');
+        }catch(e){ console.warn('postMessage failed', e); }
+
+        // Inline confirmation (no blocking alert)
+        const note = document.getElementById('submit-note');
+        if(note){ note.textContent = 'Submitted to PBJ module. (If nothing appears, check PBJ module console.)'; }
+
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+/* Button upgrades (Azure-ish) */
+.btn{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.28);
+  background: rgba(255,255,255,.92);
+  color: rgba(15,23,42,.92);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 750;
+  letter-spacing: .2px;
+  box-shadow: 0 10px 24px rgba(15,23,42,.10);
+  cursor:pointer;
+}
+.btn:hover{ filter: brightness(0.99); box-shadow: 0 14px 30px rgba(15,23,42,.14); }
+
+.btn.primary{
+  border-color: rgba(59,130,246,.35);
+  background: linear-gradient(180deg, rgba(37,99,235,1), rgba(30,64,175,1));
+  color: white;
+  box-shadow: 0 18px 38px rgba(37,99,235,.30);
+}
+
+.btn.subtle{
+  background: rgba(2,10,22,.20);
+  color: rgba(255,255,255,.92);
+  border-color: rgba(148,163,184,.22);
+  box-shadow: none;
+}
+
+.btn.smallbtn{ padding: 8px 10px; border-radius: 12px; font-weight: 700; }
+/* Azure-ish buttons (override) */
+.btn, button.btn {
+  background: rgba(37, 99, 235, 0.10);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  color: rgba(15, 23, 42, 0.92);
+  font-weight: 650;
+  border-radius: 10px;
+}
+
+.btn.primary, button.btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.btn:hover, button.btn:hover {
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.btn.primary:hover, button.btn.primary:hover {
+  filter: brightness(1.05);
+}

@@ -1,0 +1,8 @@
+version: 1
+network:
+  allowed_subnets:
+    - 192.168.40.0/24
+api:
+  max_payload_kb: 256
+  retries: 2
+  timeout_seconds: 15

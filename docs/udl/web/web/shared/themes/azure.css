@@ -1,0 +1,13 @@
+:root{--t-surface:#fff;--t-surface-2:#f8fafc;--t-border:rgba(15,23,42,.12);--t-border-strong:rgba(15,23,42,.18);--t-text:rgba(10,20,40,.92);--t-accent:#0078d4;--t-accent-2:#106ebe;--t-shadow-2:0 12px 28px rgba(2,6,23,.12);--t-shadow-3:0 18px 48px rgba(2,6,23,.16)}
+body{background:transparent;color:var(--t-text)}
+.card,.panel{background:linear-gradient(180deg,var(--t-surface),var(--t-surface-2));border:1px solid var(--t-border);box-shadow:var(--t-shadow-2)}
+.card:hover,.panel:hover{box-shadow:var(--t-shadow-3);border-color:var(--t-border-strong)}
+.btn.primary{background:linear-gradient(180deg,var(--t-accent),var(--t-accent-2));border-color:rgba(0,120,212,.65);color:#fff}
+.table,table{background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:12px;overflow:hidden}
+.table thead th,table thead th{background:#f1f5f9;color:#475569;border-bottom:1px solid rgba(15,23,42,.10)}
+.table tbody tr:hover,table tbody tr:hover{background:rgba(0,120,212,.06)}
+
+[data-theme="dark"] body{ color: rgba(255,255,255,.92); }
+[data-theme="dark"] .card,[data-theme="dark"] .panel{ background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.05)); border-color: rgba(255,255,255,.14); }
+[data-theme="dark"] .table,[data-theme="dark"] table{ background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
+[data-theme="dark"] .table thead th,[data-theme="dark"] table thead th{ background: rgba(0,0,0,.18); color: rgba(255,255,255,.78); }

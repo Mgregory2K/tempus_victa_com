@@ -1,0 +1,7 @@
+Claim_ID,Claim,Axis,Score_Impact,Source_IDs,Tier_Min,Contrarian_Source_IDs,Notes
+C-001,Moral-emotional language increases diffusion of political/moral content; engagement favors outrage signals.,Behavioral Alignment,High,B-001;B-003,A,K-001,Supports misalignment between governance (friction) and viral dynamics.
+C-002,False news spreads faster/farther than true news; human novelty-seeking drives sharing.,Mass User Demand,High,B-002,A,K-001,Supports preference for immediacy/novelty over accuracy.
+C-003,Trust & Safety / moderation is labor-intensive and economically/organizationally precarious; governance adds ongoing cost.,Governance Cost,High,G-001;G-002,B,K-001,Supports cost and fragility of governance operations.
+C-004,"Content moderation is a large and growing services market, implying substantial cost/need at scale.",Economic Viability,Medium,M-001,B,K-001,Suggests governance is expensive; ad model tension.
+C-005,Consumers show mixed willingness to pay for social media; subscription willingness is limited/price-sensitive.,Economic Viability,Medium,M-002,B,K-001,Supports niche viability and pricing constraints.
+C-006,"Regulatory mechanisms for platform observability/transparency are emerging, increasing governance expectations.",Regulatory Fit,Medium,R-001;G-002,B,K-001,Supports institutional/regulatory alignment even if user adoption lags.

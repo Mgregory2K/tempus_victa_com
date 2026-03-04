@@ -1,0 +1,156 @@
+/* ======================================================
+   EXECDASH THEME (PBJ)
+   Purpose: vibrant dashboard vibe BUT readable in both
+   light + dark, regardless of module.css overrides.
+   ====================================================== */
+
+:root{
+  --ed-accent:#3aa9ff;
+  --ed-accent2:#1e7fd4;
+
+  --ed-text-light: rgba(15,23,42,0.92);
+  --ed-muted-light: rgba(15,23,42,0.62);
+  --ed-surface-light: rgba(255,255,255,0.88);
+  --ed-border-light: rgba(15,23,42,0.14);
+
+  --ed-text-dark: rgba(248,250,252,0.94);
+  --ed-muted-dark: rgba(248,250,252,0.72);
+  --ed-surface-dark: rgba(255,255,255,0.06);
+  --ed-border-dark: rgba(255,255,255,0.14);
+}
+
+/* ---------------- LIGHT MODE ---------------- */
+html[data-theme="light"] body{
+  background:
+    radial-gradient(1200px 700px at 12% 0%, rgba(0,120,212,0.14), transparent 60%),
+    radial-gradient(900px 600px at 85% 10%, rgba(53,210,224,0.12), transparent 65%),
+    linear-gradient(180deg, #f7fafc, #eef2f7);
+  color: var(--ed-text-light);
+}
+
+html[data-theme="light"] .card,
+html[data-theme="light"] .panel,
+html[data-theme="light"] fieldset{
+  background: var(--ed-surface-light);
+  border: 1px solid var(--ed-border-light);
+  box-shadow: 0 12px 28px rgba(2,6,23,.10);
+  border-radius: 16px;
+}
+
+/* ---------------- DARK MODE ---------------- */
+html[data-theme="dark"] body{
+  background:
+    radial-gradient(900px 600px at 20% 0%, rgba(58,169,255,.22), transparent 60%),
+    radial-gradient(900px 700px at 70% 0%, rgba(255,204,102,.16), transparent 62%),
+    linear-gradient(180deg,#070a10,#0b0f18);
+  color: var(--ed-text-dark);
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] fieldset{
+  background: var(--ed-surface-dark);
+  border: 1px solid var(--ed-border-dark);
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  border-radius: 16px;
+}
+
+/* ======================================================
+   FORCE READABLE TYPOGRAPHY (beats module.css)
+   This is what fixes “black text on dark intake”.
+   ====================================================== */
+
+html[data-theme="light"] :is(.card,.panel,fieldset,form) :is(h1,h2,h3,h4,h5,h6,label,legend,p,span,div,small,li){
+  color: var(--ed-text-light) !important;
+}
+html[data-theme="light"] :is(.card,.panel,fieldset,form) :is(.muted,.subtle,.help,.hint){
+  color: var(--ed-muted-light) !important;
+}
+
+html[data-theme="dark"] :is(.card,.panel,fieldset,form) :is(h1,h2,h3,h4,h5,h6,label,legend,p,span,div,small,li){
+  color: var(--ed-text-dark) !important;
+}
+html[data-theme="dark"] :is(.card,.panel,fieldset,form) :is(.muted,.subtle,.help,.hint){
+  color: var(--ed-muted-dark) !important;
+}
+
+/* Fieldset borders/lines */
+html[data-theme="light"] fieldset{ border-color: var(--ed-border-light) !important; }
+html[data-theme="dark"] fieldset{ border-color: var(--ed-border-dark) !important; }
+
+/* Inputs */
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea{
+  background:#fff !important;
+  border:1px solid rgba(15,23,42,0.18) !important;
+  color: var(--ed-text-light) !important;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea{
+  background: rgba(0,0,0,0.35) !important;
+  border:1px solid rgba(255,255,255,0.16) !important;
+  color: var(--ed-text-dark) !important;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder{
+  color: rgba(15,23,42,0.50) !important;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder{
+  color: rgba(255,255,255,0.55) !important;
+}
+
+/* Buttons (kept consistent) */
+.btn.primary, button.primary{
+  background: linear-gradient(180deg, var(--ed-accent), var(--ed-accent2)) !important;
+  border: 0 !important;
+  color: #fff !important;
+}
+/* ======================================================
+   PBJ DARK FIX (NUCLEAR) — make dark readable no matter what
+   This wins because execdash.css loads AFTER module.css.
+   ====================================================== */
+
+/* Dark background stays dark */
+html[data-theme="dark"] body{
+  background:
+    radial-gradient(900px 600px at 18% 0%, rgba(58,169,255,0.24), transparent 60%),
+    radial-gradient(900px 700px at 72% 0%, rgba(255,204,102,0.18), transparent 62%),
+    linear-gradient(180deg, #070a10, #0b1220) !important;
+}
+
+/* The kill-shot: force ALL PBJ text to inherit a readable color */
+html[data-theme="dark"] body{
+  color: rgba(248,250,252,0.94) !important;
+}
+html[data-theme="dark"] body #root{
+  color: rgba(248,250,252,0.94) !important;
+}
+
+/* override any “black text” rules in module.css */
+html[data-theme="dark"] body #root *{
+  color: inherit !important;
+}
+
+/* keep hierarchy */
+html[data-theme="dark"] body #root :is(p,small,.muted,.hint,.help,.subtle){
+  color: rgba(248,250,252,0.72) !important;
+}
+
+/* Inputs readable */
+html[data-theme="dark"] body #root :is(input,select,textarea){
+  background: rgba(0,0,0,0.35) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  color: rgba(248,250,252,0.94) !important;
+}
+html[data-theme="dark"] body #root ::placeholder{
+  color: rgba(248,250,252,0.58) !important;
+}

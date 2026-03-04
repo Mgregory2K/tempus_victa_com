@@ -1,0 +1,27 @@
+@import url("/ui/shared/tokens.css");
+@import url("/ui/shared/components.css");
+body{ background: transparent; }
+.wrap{ padding: 18px; }
+.hdr{ display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.boardWrap{ display:grid; grid-template-columns: 1fr 360px; gap: 14px; }
+@media (max-width: 1100px){ .boardWrap{ grid-template-columns: 1fr; } }
+.columns{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 980px){ .columns{ grid-template-columns: 1fr; } }
+.colHead{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.colTitle{ display:flex; align-items:center; gap:10px; font-weight:850; }
+.colCount{ color: var(--muted); font-size: 12px; }
+.ticket{
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.22);
+  display:grid; gap:6px;
+}
+.ticket:hover{ border-color: rgba(47,140,255,0.24); box-shadow: var(--shadow-tight); }
+.ticket .k{ font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.ticket .t{ font-weight: 850; }
+.ticket .meta{ display:flex; gap:8px; flex-wrap:wrap; }
+.smallbtn{ padding: 7px 10px; border-radius: 12px; }
+.sideList{ display:grid; gap:10px; }
+.sideRow{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.pair{ display:grid; gap:6px; }

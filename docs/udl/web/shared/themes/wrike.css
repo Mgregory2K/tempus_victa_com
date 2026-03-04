@@ -1,0 +1,8 @@
+:root{--t-border:rgba(17,24,39,.10);--t-border-strong:rgba(17,24,39,.16);--t-text:rgba(17,24,39,.92);--t-accent:#0b5cab;--t-accent-2:#094e93;--t-shadow-1:0 1px 2px rgba(0,0,0,.05);--t-shadow-2:0 10px 24px rgba(0,0,0,.10)}
+body{background:transparent;color:var(--t-text)}
+.card,.panel{background:#fff;border:1px solid var(--t-border);box-shadow:var(--t-shadow-1)}
+.card:hover,.panel:hover{border-color:var(--t-border-strong);box-shadow:var(--t-shadow-2)}
+.btn.primary{background:linear-gradient(180deg,var(--t-accent),var(--t-accent-2));color:#fff;border-color:rgba(11,92,171,.55)}
+
+[data-theme="dark"] body{ color: rgba(255,255,255,.92); }
+[data-theme="dark"] .card,[data-theme="dark"] .panel{ background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.05)); border-color: rgba(255,255,255,.14); }

@@ -1,0 +1,3 @@
+Claim_ID,Claim,Axis,Score_Impact,Source_IDs,Tier_Min,Contrarian_Source_IDs,Notes
+C-001,Example: Users prefer immediacy over accuracy in mass social platforms,Mass User Demand,High,B-001;B-002,B,K-001,Replace with your claims
+C-002,Example: Governance increases operating cost while reducing ad inventory,Economic Viability,High,M-003;M-004,B,K-002,Replace with your claims

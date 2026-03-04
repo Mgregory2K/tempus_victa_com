@@ -1,0 +1,11 @@
+<h1>Reports</h1>
+<ul id="out"></ul>
+<script>
+const items=JSON.parse(localStorage.getItem("udl_records_projects")||"[]");
+const out=document.getElementById('out');
+items.forEach(p=>{
+ const li=document.createElement('li');
+ li.textContent=p.title+" @ "+p.createdAt;
+ out.appendChild(li);
+});
+</script>

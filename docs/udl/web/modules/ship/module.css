@@ -1,0 +1,226 @@
+@import url("/ui/shared/tokens.css");
+@import url("/ui/shared/components.css");
+body{ background: transparent; }
+.wrap{ padding: 18px; }
+.hdr{ display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.boardWrap{ display:grid; grid-template-columns: 1fr 360px; gap: 14px; }
+@media (max-width: 1100px){ .boardWrap{ grid-template-columns: 1fr; } }
+.columns{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 980px){ .columns{ grid-template-columns: 1fr; } }
+.colHead{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.colTitle{ display:flex; align-items:center; gap:10px; font-weight:850; }
+.colCount{ color: var(--muted); font-size: 12px; }
+.ticket{
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.22);
+  display:grid; gap:6px;
+}
+.ticket:hover{ border-color: rgba(47,140,255,0.24); box-shadow: var(--shadow-tight); }
+.ticket .k{ font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.ticket .t{ font-weight: 850; }
+.ticket .meta{ display:flex; gap:8px; flex-wrap:wrap; }
+.smallbtn{ padding: 7px 10px; border-radius: 12px; }
+.sideList{ display:grid; gap:10px; }
+.sideRow{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.pair{ display:grid; gap:6px; }
+
+
+/* --- ServiceNow-ish Record Drawer --- */
+.drawerBackdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+  z-index: 50;
+}
+.drawerBackdrop.open{ opacity: 1; pointer-events: auto; }
+
+.drawer{
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 440px;
+  max-width: min(92vw, 440px);
+  transform: translateX(102%);
+  transition: transform .22s ease;
+  z-index: 60;
+  padding: 14px;
+}
+.drawer.open{ transform: translateX(0); }
+
+.drawerInner{
+  height: calc(100vh - 28px);
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(8,10,14,0.78);
+  backdrop-filter: blur(var(--blur));
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  overflow: hidden;
+}
+
+.drawerHeader{
+  padding: 14px 14px 10px 14px;
+  display:flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.drawerTitle{ font-weight: 900; font-size: 16px; margin-top: 4px; }
+
+.drawerTabs{
+  padding: 10px 14px;
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.drawerTabs .btn.active{
+  border-color: rgba(47,140,255,0.40);
+  background: rgba(47,140,255,0.16);
+}
+
+.drawerBody{
+  padding: 14px;
+  overflow: auto;
+}
+.drawerFooter{
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.drawerGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.drawerField label{
+  display:block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-weight: 750;
+}
+.drawerField input, .drawerField select, .drawerField textarea{
+  width: 100%;
+}
+.drawerField textarea{
+  min-height: 120px;
+}
+
+.drawerAudit{ display:grid; gap: 10px; }
+.auditRow{
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.22);
+  display:grid;
+  gap: 6px;
+}
+
+
+/* === Drawer readability fix === */
+.drawerInner {
+  background: rgba(10, 14, 22, 0.96);
+}
+.drawerBody {
+  background: rgba(18, 22, 32, 0.98);
+  border-radius: 12px;
+}
+.drawer, .drawer * { color: #e8edf7; }
+.drawerField label { color: #9fb2d9; font-weight: 700; }
+.drawerField input, .drawerField select, .drawerField textarea {
+  background: rgba(255,255,255,0.08);
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.18);
+}
+.drawerField input::placeholder, .drawerField textarea::placeholder { color: rgba(255,255,255,0.45); }
+.drawerTabs .btn { color: #c6d3f3; }
+.drawerTabs .btn.active {
+  color: #ffffff;
+  background: rgba(47,140,255,0.35);
+  border-color: rgba(47,140,255,0.6);
+}
+.drawerFooter { background: rgba(10, 14, 22, 0.96); }
+
+
+/* === Unsaved change indicators === */
+.dirtyField{
+  border-color: rgba(47,140,255,0.75) !important;
+  box-shadow: 0 0 0 2px rgba(47,140,255,0.18);
+}
+.btn.pulse{
+  animation: pulseGlow 1.2s ease-in-out infinite;
+}
+@keyframes pulseGlow{
+  0%{ filter: brightness(1); }
+  50%{ filter: brightness(1.15); }
+  100%{ filter: brightness(1); }
+}
+.chip.pbjChip{
+  border-color: rgba(255, 199, 47, 0.55);
+  background: rgba(255, 199, 47, 0.14);
+}
+.chip.dirtyChip{
+  border-color: rgba(47,140,255,0.55);
+  background: rgba(47,140,255,0.14);
+}
+.chip.okChip{
+  border-color: rgba(56, 190, 120, 0.45);
+  background: rgba(56, 190, 120, 0.10);
+}
+
+/* === Toasts === */
+.toastHost{
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  z-index: 999999;
+}
+.toast{
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(10, 14, 22, 0.96);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(8px);
+  opacity: 0;
+  transition: all .18s ease;
+  font-weight: 750;
+  max-width: 320px;
+}
+.toast.show{ transform: translateY(0); opacity: 1; }
+.toast.hide{ transform: translateY(6px); opacity: 0; }
+.toast.warn{
+  border-color: rgba(255,199,47,0.55);
+}
+.toast.err{
+  border-color: rgba(255,82,82,0.55);
+}
+
+
+/* === Dropdown visibility (native select menus) === */
+.drawerField select{
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(255,255,255,0.10);
+  color: #ffffff;
+}
+.drawerField select option{
+  background: #ffffff;
+  color: #111827;
+}

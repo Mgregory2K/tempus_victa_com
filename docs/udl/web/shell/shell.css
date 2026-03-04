@@ -1,0 +1,305 @@
+.app{
+  height: 100vh;
+  display:grid;
+  grid-template-columns: 280px 1fr;
+}
+
+.sidebar{
+  padding: 16px;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  backdrop-filter: blur(var(--blur));
+}
+.brand{
+  display:flex; align-items:center; gap:12px;
+  padding: 10px 10px 14px 10px;
+  margin-bottom: 10px;
+}
+.logo{
+  width: 34px; height:34px; border-radius: 12px;
+  display:grid; place-items:center;
+  background: radial-gradient(circle at 30% 30%, rgba(110,168,255,0.35), rgba(110,168,255,0.10));
+  border: 1px solid rgba(110,168,255,0.35);
+  box-shadow: var(--shadow-soft);
+  font-weight: 800;
+}
+.brand .title{ font-weight: 750; line-height: 1.05; }
+.brand .title small{ display:block; color: var(--muted); font-size: var(--fs-2); font-weight: 600; margin-top: 2px; }
+
+.nav{ margin-top: 12px; display:grid; gap: 6px; }
+.nav .section{ margin-top: 14px; color: var(--muted-2); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 8px 10px; }
+.nav a{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: var(--fs-3);
+  transition: background .12s ease, border-color .12s ease;
+}
+.nav a:hover{ background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+.nav a.active{ background: rgba(110,168,255,0.12); border-color: rgba(110,168,255,0.28); color: var(--text); }
+
+.sidebar .footer{
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 248px;
+}
+.usercard{
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.18);
+  box-shadow: var(--shadow-soft);
+}
+.usercard .row1{ display:flex; align-items:center; justify-content:space-between; }
+.userpill{ display:flex; align-items:center; gap:10px; }
+.avatar{
+  width: 30px; height:30px; border-radius: 12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+}
+
+.main{
+  display:grid;
+  grid-template-rows: 64px 1fr;
+  min-width: 0;
+}
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(var(--blur));
+  background: rgba(0,0,0,0.18);
+}
+.crumbs{ display:flex; align-items:center; gap:10px; color: var(--muted); font-size: var(--fs-3); }
+.crumbs b{ color: var(--text); }
+.actions{ display:flex; align-items:center; gap:10px; }
+
+.content{
+  padding: 18px;
+  overflow:auto;
+  min-width: 0;
+}
+
+.frame{
+  width: 100%;
+  height: calc(100vh - 64px - 36px);
+  border: 0;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.02);
+}
+
+/* analytics layout */
+.page-title{ font-size: var(--fs-6); font-weight: 780; margin: 0 0 12px 0; }
+.subtle{ color: var(--muted); font-size: var(--fs-3); margin-top: 4px; }
+.ring{
+  height: 220px;
+  display:grid;
+  place-items:center;
+}
+.ring .big{ font-size: 30px; font-weight: 800; }
+.ring .small{ color: var(--muted); margin-top: 6px; font-size: var(--fs-2); }
+.barbox{ height: 220px; display:grid; place-items:center; color: var(--muted); }
+
+/* ==========================================================
+   UDL v2 — PRODUCTION SKIN (Azure × Jira × ServiceNow Lite)
+   This block intentionally overrides earlier shell rules.
+   Drop-in: overwrite /web/shell/shell.css and /web/shell/index.html
+   ========================================================== */
+
+:root{
+  --udl-bg0:#060a12;
+  --udl-bg1:#0a1120;
+  --udl-panel:rgba(255,255,255,0.05);
+  --udl-panel2:rgba(255,255,255,0.03);
+  --udl-border:rgba(255,255,255,0.10);
+
+  --udl-blue:#3aa9ff;
+  --udl-cyan:#35d2e0;
+  --udl-purple:#b36bff;
+
+  --udl-shadow: 0 18px 60px rgba(0,0,0,0.55);
+  --udl-shadow-soft: 0 12px 40px rgba(0,0,0,0.40);
+  --udl-glow: 0 0 0 1px rgba(58,169,255,0.28), 0 0 26px rgba(58,169,255,0.18);
+  --udl-glow-cyan: 0 0 0 1px rgba(53,210,224,0.24), 0 0 22px rgba(53,210,224,0.14);
+}
+
+/* Whole app background: depth, not flat black */
+html, body{
+  height:100%;
+}
+body{
+  background:
+    radial-gradient(1100px 700px at 18% 8%, rgba(58,169,255,0.18), transparent 62%),
+    radial-gradient(900px 650px at 84% 16%, rgba(53,210,224,0.14), transparent 64%),
+    radial-gradient(900px 700px at 60% 92%, rgba(179,107,255,0.10), transparent 62%),
+    linear-gradient(180deg, var(--udl-bg0), var(--udl-bg1)) !important;
+  color: var(--text);
+}
+
+/* subtle scanlines / texture */
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,0.018), rgba(255,255,255,0.018) 1px, transparent 1px, transparent 6px);
+  mix-blend-mode: overlay;
+  opacity: 0.18;
+}
+body::after{
+  content:"";
+  position:fixed; inset:-80px;
+  pointer-events:none;
+  background: radial-gradient(circle at 50% 12%, transparent 45%, rgba(0,0,0,0.55) 85%);
+  opacity:0.75;
+}
+
+/* App grid: give breathing room */
+.app{
+  gap: 0;
+}
+
+/* Sidebar: Azure depth + accent rail */
+.sidebar{
+  background:
+    radial-gradient(800px 360px at 25% 0%, rgba(58,169,255,0.14), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
+}
+
+/* Brand: a little “expensive” */
+.brand{
+  padding: 10px 10px 14px 10px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: var(--udl-shadow-soft);
+}
+
+/* Nav: Jira-like active highlight + left rail */
+.nav a{
+  position:relative;
+  border-radius: 14px;
+  transition: background .12s ease, border-color .12s ease, transform .10s ease, box-shadow .12s ease;
+  border: 1px solid transparent;
+}
+.nav a::before{
+  content:"";
+  position:absolute; left:0; top:10px; bottom:10px;
+  width:3px; border-radius: 6px;
+  background: linear-gradient(180deg, rgba(58,169,255,0.0), rgba(53,210,224,0.70), rgba(58,169,255,0.0));
+  opacity:0;
+}
+.nav a:hover{
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+}
+.nav a.active{
+  background: linear-gradient(90deg, rgba(58,169,255,0.22), rgba(58,169,255,0.06)) !important;
+  border-color: rgba(58,169,255,0.28);
+  box-shadow: var(--udl-glow);
+}
+.nav a.active::before,
+.nav a:hover::before{
+  opacity: .92;
+}
+
+/* Topbar: glass + edge */
+.topbar{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.38);
+}
+
+/* Breadcrumb accent */
+.crumbs b{
+  background: linear-gradient(90deg, rgba(58,169,255,0.95), rgba(53,210,224,0.85));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Cards: deeper, non-generic */
+.card{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025)) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  box-shadow: var(--udl-shadow-soft) !important;
+  backdrop-filter: blur(18px);
+  position:relative;
+  overflow:hidden;
+}
+.card::before{
+  content:"";
+  position:absolute; inset:0;
+  pointer-events:none;
+  background: radial-gradient(900px 240px at 18% 0%, rgba(58,169,255,0.10), transparent 60%);
+  opacity: .9;
+}
+.card:hover{
+  border-color: rgba(58,169,255,0.22) !important;
+  box-shadow: var(--udl-shadow), var(--udl-glow) !important;
+}
+
+/* Card header separator line */
+.card .hd{
+  position:relative;
+}
+.card .hd::after{
+  content:"";
+  position:absolute; left:14px; right:14px; bottom:0;
+  height:1px;
+  background: linear-gradient(90deg, rgba(58,169,255,0.0), rgba(58,169,255,0.35), rgba(53,210,224,0.25), rgba(58,169,255,0.0));
+  opacity:.75;
+}
+
+/* Page title pop */
+.page-title{
+  letter-spacing: .2px;
+  text-shadow: 0 10px 30px rgba(0,0,0,0.45);
+}
+
+/* Pill / user card polish */
+.usercard, .userpill{
+  background: rgba(0,0,0,0.18) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.35);
+}
+
+/* Buttons: make primary feel “real” */
+.btn.primary{
+  background: linear-gradient(180deg, rgba(58,169,255,0.85), rgba(29,127,232,0.65)) !important;
+  border-color: rgba(58,169,255,0.45) !important;
+  box-shadow: var(--udl-glow) !important;
+}
+.btn.primary:hover{
+  filter: brightness(1.06);
+  box-shadow: var(--udl-glow), 0 16px 34px rgba(0,0,0,0.45) !important;
+}
+
+/* Chips: accent */
+.chip.good{ box-shadow: var(--udl-glow-cyan); border-color: rgba(53,210,224,0.26) !important; }
+
+/* ---- Skin Override Layer (force wins without touching HTML/JS) ---- */
+:root body .sidebar,
+:root body .topbar,
+:root body .card,
+:root body .panel,
+:root body .nav,
+:root body .btn,
+:root body .table,
+:root body .chip {
+  /* this block intentionally increases specificity */
+}
+
+/* As a visible proof (remove later): */
+:root body .card,
+:root body .panel {
+  outline: 2px solid rgba(0,120,212,.35) !important;
+}

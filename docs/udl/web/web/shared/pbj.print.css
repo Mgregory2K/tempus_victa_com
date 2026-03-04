@@ -1,0 +1,11 @@
+@media print{
+  html, body{ background:#fff !important; color:#000 !important; }
+  .sidebar, .topbar, .actions, .nav, .footer { display:none !important; }
+  .content{ padding:0 !important; }
+  .card, .panel{
+    box-shadow:none !important;
+    border:1px solid #bbb !important;
+    page-break-inside: avoid;
+  }
+  a{ color:#000 !important; text-decoration:none !important; }
+}

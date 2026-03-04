@@ -1,0 +1,13 @@
+version: 1
+authority:
+  human_authority_absolute: true
+  require_explicit_consent_for_irreversible: true
+locality:
+  local_first: true
+  remote_calls: false   # explicit + gated later
+  storage_mode: server  # local | server (server = local file persistence via /api/records)
+demo_mode:
+  enabled: true
+  purge_on_logout: true
+notes:
+  source: ai_government.zip (prime_directive.md, doctrine.md, mode_invocation_and_precedence.md)

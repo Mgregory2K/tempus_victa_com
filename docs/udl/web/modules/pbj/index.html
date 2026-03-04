@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>PBJ</title>
+  <link rel="stylesheet" href="/ui/shared/tokens.css"/>
+  <link rel="stylesheet" href="/ui/shared/components.css"/>
+  <link rel="stylesheet" href="/ui/modules/pbj/module.css"/>
+<script>
+  // FORCE PBJ iframe to honor ?theme=dark|light from the URL
+  (function () {
+    try {
+      var p = new URLSearchParams(location.search);
+      var theme = (p.get("theme") || "light").toLowerCase();
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) {}
+  })();
+</script>
+<script type="module">
+  const params = new URLSearchParams(location.search);
+
+  // 1) Theme: make PBJ actually respond to the shell toggle
+  // Priority: explicit ?theme= > existing html[data-theme] > default light
+  const theme = (params.get("theme") || document.documentElement.getAttribute("data-theme") || "light").toLowerCase();
+  document.documentElement.setAttribute("data-theme", theme);
+
+  // Also listen to shell broadcasts (in case you use postMessage later/now)
+  window.addEventListener("message", (ev) => {
+    if (!ev?.data) return;
+    if (ev.data.type === "udl-theme" && ev.data.theme) {
+      document.documentElement.setAttribute("data-theme", String(ev.data.theme).toLowerCase());
+    }
+  });
+
+  // 2) Skin
+  const skin = params.get("skin") || "execdash";
+  document.documentElement.setAttribute("data-skin", skin);
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `/ui/shared/themes/${skin}.css`;
+  document.head.appendChild(link);
+
+  // 3) PBJ print styling
+  const p = document.createElement("link");
+  p.rel = "stylesheet";
+  p.href = "/ui/shared/print/pbj.print.css";
+  document.head.appendChild(p);
+</script>
+
+</head>
+<style>
+  /* PBJ SCREEN OVERRIDE — force readable contrast */
+  html[data-theme="dark"] body,
+  html[data-theme="dark"] body #root,
+  html[data-theme="dark"] body #root * {
+    color: #f8fafc !important;
+  }
+
+  html[data-theme="dark"] body {
+    background:
+      radial-gradient(900px 600px at 18% 0%, rgba(58,169,255,0.24), transparent 60%),
+      radial-gradient(900px 700px at 72% 0%, rgba(255,204,102,0.18), transparent 62%),
+      linear-gradient(180deg, #070a10, #0b1220) !important;
+  }
+
+  html[data-theme="dark"] body #root :is(input,select,textarea) {
+    background: rgba(0,0,0,0.35) !important;
+    border: 1px solid rgba(255,255,255,0.16) !important;
+    color: #f8fafc !important;
+  }
+
+  html[data-theme="dark"] body #root ::placeholder {
+    color: rgba(248,250,252,0.58) !important;
+  }
+
+  /* Light mode: not dull */
+  html[data-theme="light"] body {
+    background:
+      radial-gradient(1100px 650px at 10% 0%, rgba(0,120,212,0.14), transparent 60%),
+      radial-gradient(900px 600px at 85% 10%, rgba(53,210,224,0.12), transparent 65%),
+      linear-gradient(180deg, #f7fafc, #eef2f7) !important;
+    color: #0f172a !important;
+  }
+</style>
+
+<body>
+  <div class="wrap" id="root"></div>
+  <script type="module" src="/ui/modules/pbj/module.js"></script>
+</body>
+</html>

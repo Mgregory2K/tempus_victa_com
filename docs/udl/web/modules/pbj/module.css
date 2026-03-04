@@ -1,0 +1,101 @@
+/* PBJ module styles with resizable/collapsible intake */
+:root{
+  --pbj-leftW: 720px;
+}
+
+.splitGrid{
+  display: grid;
+  grid-template-columns: var(--pbj-leftW) 10px 1fr;
+  gap: 0;
+  align-items: stretch;
+  min-height: calc(100vh - 120px);
+}
+@media (max-width: 1100px){
+  .splitGrid{
+    grid-template-columns: 1fr;
+  }
+  .splitter{ display:none; }
+}
+
+.pane{ min-width: 0; }
+.leftPane{ overflow: hidden; }
+.rightPane{ min-width: 0; }
+
+.intakeFrame{
+  width: 100%;
+  height: 760px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+}
+
+.listHost{ display:grid; gap: 12px; }
+
+.splitter{
+  cursor: col-resize;
+  position: relative;
+  background: rgba(255,255,255,0.06);
+}
+.splitter:hover{ background: rgba(47,140,255,0.16); }
+.splitterGrip{
+  position:absolute;
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 90px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.22);
+}
+
+body.resizing *{
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+#root.intake-collapsed .splitGrid{
+  grid-template-columns: 0px 0px 1fr;
+}
+#root.intake-collapsed .leftPane{ display:none; }
+#root.intake-collapsed .splitter{ display:none; }
+
+.pbjCard{ margin-bottom: 0; }
+
+.focusPulse{
+  outline: 2px solid rgba(47,140,255,0.85);
+  box-shadow: 0 0 0 6px rgba(47,140,255,0.14);
+  border-radius: 14px;
+  animation: focusPulse 0.9s ease-in-out 2;
+}
+@keyframes focusPulse{
+  0%{ transform: scale(1); }
+  50%{ transform: scale(1.01); }
+  100%{ transform: scale(1); }
+}
+
+/* Toasts */
+.toastHost{
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  z-index: 999999;
+}
+.toast{
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(10, 14, 22, 0.96);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(8px);
+  opacity: 0;
+  transition: all .18s ease;
+  font-weight: 750;
+  max-width: 320px;
+}
+.toast.show{ transform: translateY(0); opacity: 1; }
+.toast.hide{ transform: translateY(6px); opacity: 0; }
+.toast.warn{ border-color: rgba(255,199,47,0.55); }
+.toast.err{ border-color: rgba(255,82,82,0.55); }

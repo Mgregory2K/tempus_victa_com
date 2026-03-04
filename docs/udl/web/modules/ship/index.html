@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Ship</title>
+  <link rel="stylesheet" href="/ui/modules/ship/module.css"/>
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  const skin = params.get("skin") || "azure";
+  // Propagate theme from shell (same-origin iframe)
+  let theme = params.get("theme");
+  if (!theme) {
+    try { theme = window.parent?.document?.documentElement?.getAttribute("data-theme"); } catch(e) {}
+  }
+  theme = theme || "light";
+  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-skin", skin);
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `/ui/shared/themes/${skin}.css`;
+  document.head.appendChild(link);
+
+  // PBJ print styling
+  if(location.pathname.includes("/pbj/")){
+    const p = document.createElement("link");
+    p.rel = "stylesheet";
+    p.href = "/ui/shared/print/pbj.print.css";
+    document.head.appendChild(p);
+  }
+</script>
+</head>
+<body>
+  <div class="wrap" id="root"></div>
+  <script type="module" src="/ui/modules/ship/module.js"></script>
+</body>
+</html>

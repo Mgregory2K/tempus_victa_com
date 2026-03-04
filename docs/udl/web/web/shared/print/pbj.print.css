@@ -1,0 +1,48 @@
+/* ======================================================
+   PBJ PRINT STYLES — PRINT ONLY
+   IMPORTANT: must NOT affect screen theme.
+   ====================================================== */
+
+@media print {
+
+  :root, html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Remove glass/shadows for clean printing */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  .sidebar,
+  .topbar,
+  .nav,
+  .btn,
+  button,
+  .chip,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Make forms look like a report */
+  fieldset, .card, .panel, section, article {
+    background: #ffffff !important;
+    border: 1px solid #d0d0d0 !important;
+    page-break-inside: avoid;
+  }
+
+  h1, h2, h3, h4, h5, h6,
+  label, legend, p, span, div, small, li, a {
+    color: #000000 !important;
+  }
+
+  input, select, textarea {
+    border: 1px solid #c0c0c0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+}

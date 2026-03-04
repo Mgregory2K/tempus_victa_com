@@ -1,0 +1,382 @@
+/* ======================================================
+   PBJ MODULE — THEME-AWARE FIX
+   Respects shell light/dark + fixes unreadable text
+   ====================================================== */
+
+/* Inherit theme tokens */
+:root {
+  --pbj-bg-light: linear-gradient(135deg, #f8fafc, #eef2f7);
+  --pbj-bg-dark: radial-gradient(1200px 700px at 15% 0%, #0b1c2d, #020617);
+
+  --pbj-surface-light: #ffffff;
+  --pbj-surface-dark: rgba(255,255,255,0.06);
+
+  --pbj-border-light: rgba(15,23,42,0.12);
+  --pbj-border-dark: rgba(255,255,255,0.14);
+
+  --pbj-text-light: #0f172a;
+  --pbj-text-muted-light: #475569;
+
+  --pbj-text-dark: #f8fafc;
+  --pbj-text-muted-dark: rgba(248,250,252,0.7);
+}
+
+/* ======================================================
+   BACKGROUND
+   ====================================================== */
+
+html[data-theme="light"] body {
+  background: var(--pbj-bg-light);
+  color: var(--pbj-text-light);
+}
+
+html[data-theme="dark"] body {
+  background: var(--pbj-bg-dark);
+  color: var(--pbj-text-dark);
+}
+
+/* ======================================================
+   CARDS / PANELS
+   ====================================================== */
+
+.card,
+.panel,
+fieldset {
+  border-radius: 16px;
+  padding: 16px;
+}
+
+html[data-theme="light"] .card,
+html[data-theme="light"] .panel,
+html[data-theme="light"] fieldset {
+  background: var(--pbj-surface-light);
+  border: 1px solid var(--pbj-border-light);
+  color: var(--pbj-text-light);
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] fieldset {
+  background: var(--pbj-surface-dark);
+  border: 1px solid var(--pbj-border-dark);
+  color: var(--pbj-text-dark);
+}
+
+/* ======================================================
+   HEADINGS / TEXT
+   ====================================================== */
+
+h1, h2, h3, h4, h5 {
+  font-weight: 700;
+}
+
+html[data-theme="light"] h1,
+html[data-theme="light"] h2,
+html[data-theme="light"] h3 {
+  color: var(--pbj-text-light);
+}
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3 {
+  color: var(--pbj-text-dark);
+}
+
+p, label, legend {
+  line-height: 1.5;
+}
+
+html[data-theme="light"] p,
+html[data-theme="light"] label,
+html[data-theme="light"] legend {
+  color: var(--pbj-text-muted-light);
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] label,
+html[data-theme="dark"] legend {
+  color: var(--pbj-text-muted-dark);
+}
+
+/* ======================================================
+   INPUTS
+   ====================================================== */
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  background: #ffffff;
+  border: 1px solid var(--pbj-border-light);
+  color: var(--pbj-text-light);
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--pbj-border-dark);
+  color: var(--pbj-text-dark);
+}
+
+input::placeholder,
+textarea::placeholder {
+  opacity: 0.7;
+}
+
+/* ======================================================
+   BUTTONS
+   ====================================================== */
+
+button,
+.btn {
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, #3aa9ff, #1e7fd4);
+  color: #ffffff;
+  border: none;
+}
+
+.btn.secondary {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+
+/* ======================================================
+   RIGHT-SIDE INFO PANELS
+   ====================================================== */
+
+.aside,
+.side-panel {
+  border-radius: 16px;
+}
+
+html[data-theme="light"] .aside,
+html[data-theme="light"] .side-panel {
+  background: #f1f5f9;
+  color: var(--pbj-text-light);
+}
+
+html[data-theme="dark"] .aside,
+html[data-theme="dark"] .side-panel {
+  background: rgba(255,255,255,0.05);
+  color: var(--pbj-text-dark);
+}
+/* ======================================================
+   PBJ THEME OVERRIDE (FIX BLACK-ON-BLACK)
+   Paste at bottom of modules/pbj/module.css
+   ====================================================== */
+
+/* LIGHT */
+html[data-theme="light"] body,
+html[data-theme="light"] .wrap,
+html[data-theme="light"] #root{
+  background: #f6f8fb !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] :is(h1,h2,h3,h4,h5,h6,label,legend,p,span,div,small,li,a){
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] :is(.card,.panel,fieldset,section,article){
+  background: #ffffff !important;
+  border: 1px solid rgba(15,23,42,0.12) !important;
+  box-shadow: 0 12px 28px rgba(2,6,23,0.10) !important;
+}
+
+html[data-theme="light"] :is(input,select,textarea){
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15,23,42,0.18) !important;
+}
+
+/* DARK */
+html[data-theme="dark"] body,
+html[data-theme="dark"] .wrap,
+html[data-theme="dark"] #root{
+  background: #0b0f18 !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] :is(h1,h2,h3,h4,h5,h6,label,legend,p,span,div,small,li,a){
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] :is(.card,.panel,fieldset,section,article){
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45) !important;
+}
+
+html[data-theme="dark"] :is(input,select,textarea){
+  background: rgba(0,0,0,0.35) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+}
+
+html[data-theme="dark"] ::placeholder{
+  color: rgba(248,250,252,0.60) !important;
+}
+html[data-theme="light"] ::placeholder{
+  color: rgba(15,23,42,0.45) !important;
+}
+/* =========================================================
+   PBJ FINAL OVERRIDE — fixes dark black-on-black + boosts light
+   Paste at VERY BOTTOM of modules/pbj/module.css
+   ========================================================= */
+
+/* ---- LIGHT: less dull, more "Azure glass" ---- */
+html[data-theme="light"] body,
+html[data-theme="light"] #root,
+html[data-theme="light"] .wrap{
+  background:
+    radial-gradient(1100px 650px at 10% 0%, rgba(0,120,212,0.14), transparent 60%),
+    radial-gradient(900px 600px at 85% 10%, rgba(53,210,224,0.12), transparent 65%),
+    linear-gradient(180deg, #f7fafc, #eef2f7) !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] #root :is(.card,.panel,fieldset,section,article,div.panel){
+  background: rgba(255,255,255,0.90) !important;
+  border: 1px solid rgba(15,23,42,0.12) !important;
+  box-shadow: 0 14px 34px rgba(2,6,23,0.10) !important;
+  border-radius: 16px !important;
+}
+
+html[data-theme="light"] #root :is(h1,h2,h3,h4,h5,h6,label,legend,p,span,div,small,li,a){
+  color: rgba(15,23,42,0.92) !important;
+}
+
+html[data-theme="light"] #root :is(input,select,textarea){
+  background: #ffffff !important;
+  border: 1px solid rgba(15,23,42,0.18) !important;
+  color: rgba(15,23,42,0.92) !important;
+}
+
+/* ---- DARK: force readable text everywhere (fixes black-on-black) ---- */
+html[data-theme="dark"] body,
+html[data-theme="dark"] #root,
+html[data-theme="dark"] .wrap{
+  background:
+    radial-gradient(900px 600px at 18% 0%, rgba(58,169,255,0.24), transparent 60%),
+    radial-gradient(900px 700px at 72% 0%, rgba(255,204,102,0.18), transparent 62%),
+    linear-gradient(180deg, #070a10, #0b1220) !important;
+  color: rgba(248,250,252,0.96) !important;
+}
+
+/* Panels/surfaces */
+html[data-theme="dark"] #root :is(.card,.panel,fieldset,section,article,div.panel){
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.05)) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.55) !important;
+  border-radius: 16px !important;
+}
+
+/* This is the kill-shot: maximum specificity + !important.
+   Anything in PBJ becomes readable even if earlier rules used !important. */
+html[data-theme="dark"] body #root *{
+  color: rgba(248,250,252,0.92) !important;
+}
+
+/* Then explicitly restore muted hierarchy (so not everything screams) */
+html[data-theme="dark"] body #root :is(p,small,.muted,.hint,.help,.subtle){
+  color: rgba(248,250,252,0.72) !important;
+}
+
+/* Inputs */
+html[data-theme="dark"] body #root :is(input,select,textarea){
+  background: rgba(0,0,0,0.35) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  color: rgba(248,250,252,0.92) !important;
+}
+
+html[data-theme="dark"] body #root ::placeholder{
+  color: rgba(248,250,252,0.58) !important;
+}
+
+/* Make checkbox/radio labels readable too */
+html[data-theme="dark"] body #root :is(label,legend){
+  color: rgba(248,250,252,0.90) !important;
+}
+/* =========================================================
+   PBJ DARK MODE HARDENING
+   Fixes unreadable form controls + select/option rendering
+   ========================================================= */
+
+html[data-theme="dark"]{
+  color-scheme: dark; /* makes native controls obey dark mode */
+}
+
+/* Force readable text everywhere under PBJ root */
+html[data-theme="dark"] body #root{
+  color: rgba(248,250,252,0.94) !important;
+}
+
+/* Labels/legends/headings */
+html[data-theme="dark"] body #root :is(h1,h2,h3,h4,h5,h6,label,legend){
+  color: rgba(248,250,252,0.94) !important;
+}
+
+/* Body text */
+html[data-theme="dark"] body #root :is(p,span,small,li,div){
+  color: rgba(248,250,252,0.86) !important;
+}
+
+/* Cards/panels: slightly lifted so “black on black” doesn’t happen visually */
+html[data-theme="dark"] body{
+  background:
+    radial-gradient(900px 600px at 18% 0%, rgba(58,169,255,0.24), transparent 60%),
+    radial-gradient(900px 700px at 72% 0%, rgba(255,204,102,0.18), transparent 62%),
+    linear-gradient(180deg, #070a10, #0b1220) !important;
+}
+
+html[data-theme="dark"] body #root :is(.card,.panel,fieldset,section,article){
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.55) !important;
+  border-radius: 16px !important;
+}
+
+/* FORM CONTROLS (this is usually the real offender) */
+html[data-theme="dark"] body #root :is(input,textarea,select){
+  background: rgba(0,0,0,0.35) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  color: rgba(248,250,252,0.94) !important;
+  caret-color: rgba(248,250,252,0.94) !important;
+}
+
+/* Placeholder text */
+html[data-theme="dark"] body #root :is(input,textarea)::placeholder{
+  color: rgba(248,250,252,0.60) !important;
+}
+
+/* SELECT OPTIONS (Windows/Chrome can render these “wrong” unless forced) */
+html[data-theme="dark"] body #root select,
+html[data-theme="dark"] body #root option{
+  background-color: #0b1220 !important;
+  color: rgba(248,250,252,0.94) !important;
+}
+
+/* Buttons */
+html[data-theme="dark"] body #root :is(button,.btn){
+  color: rgba(248,250,252,0.92) !important;
+}
+html[data-theme="dark"] body #root .btn.primary{
+  background: linear-gradient(180deg,#3aa9ff,#1e7fd4) !important;
+  border: 0 !important;
+  color: #fff !important;
+}
+

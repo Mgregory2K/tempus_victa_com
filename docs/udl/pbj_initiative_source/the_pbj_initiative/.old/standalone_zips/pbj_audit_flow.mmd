@@ -1,0 +1,14 @@
+%% pbj_audit_flow.mmd
+flowchart TD
+  A["IDEA / QUESTION EMERGES"] --> B["SOURCE REGISTER CREATION<br/>(External Evidence Only)"]
+  B --> C{"SOURCE SUFFICIENCY CHECK<br/>(Enough to Proceed?)"}
+
+  C -- "YES" --> D["PBJ ANALYSIS<br/>(Weighted Logic)"]
+  C -- "NO" --> E["EXPLORATORY / HOLD<br/>(No Verdict Allowed)"]
+
+  D --> F["ASSUMPTION & BIAS DECLARATION"]
+  F --> G["GO / NO-GO DECISION<br/>+ CONFIDENCE RANGE"]
+  G --> H["POST-DECISION LEARNING LOOP<br/>(Reality → Source Register)"]
+
+  %% Optional: keep the system honest by looping learning back into the register
+  H -. "feeds back" .-> B

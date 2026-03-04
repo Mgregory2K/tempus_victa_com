@@ -1,26 +1,167 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #010103;
+  --foreground: #e2e8f0;
+  --accent: #00d4ff; /* Neon Blue */
+  --accent-glow: rgba(0, 212, 255, 0.5);
+  --hud-border: rgba(0, 212, 255, 0.15);
+  --neon-green: #22c55e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow: hidden;
+}
+
+.system-text {
+  font-family: var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* --- THE COCKPIT HUD --- */
+.hud-panel {
+  background: linear-gradient(180deg, rgba(10, 10, 15, 0.9) 0%, rgba(2, 2, 5, 0.95) 100%);
+  border: 1px solid var(--hud-border);
+  backdrop-filter: blur(25px);
+  position: relative;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 212, 255, 0.05);
+}
+
+.hud-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 212, 255, 0.02) 3px);
+  pointer-events: none;
+}
+
+/* Corner Brackets */
+.bracket-tl { position: absolute; top: -2px; left: -2px; width: 15px; height: 15px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.bracket-tr { position: absolute; top: -2px; right: -2px; width: 15px; height: 15px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.bracket-bl { position: absolute; bottom: -2px; left: -2px; width: 15px; height: 15px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.bracket-br { position: absolute; bottom: -2px; right: -2px; width: 15px; height: 15px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* --- ENHANCED FULL SCREEN MATRIX RAIN --- */
+.matrix-container {
+  background: #000;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+  pointer-events: none;
+}
+
+.matrix-column {
+  color: var(--neon-green);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  animation: matrix-fall linear infinite;
+  text-shadow: 0 0 12px rgba(34, 197, 94, 0.8), 0 0 20px rgba(34, 197, 94, 0.4);
+  white-space: nowrap;
+  user-select: none;
+  opacity: 0.8;
+}
+
+@keyframes matrix-fall {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(200vh); }
+}
+
+.scanline {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent 50%, rgba(0, 212, 255, 0.05) 50%);
+  background-size: 100% 4px;
+  position: absolute;
+  top: 0; left: 0;
+  z-index: 100;
+  pointer-events: none;
+  animation: scan-move 10s linear infinite;
+}
+
+@keyframes scan-move {
+  from { background-position: 0 0; }
+  to { background-position: 0 100%; }
+}
+
+.neural-pulse {
+  animation: pulse-glow 6s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { filter: brightness(1) blur(80px); opacity: 0.15; }
+  50% { filter: brightness(1.4) blur(100px); opacity: 0.3; }
+}
+
+.module-enter {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slide-up {
+  from { transform: translateY(30px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Fix Dropdown Visibility */
+select {
+  background-color: #0a0a0c !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  font-family: var(--font-mono);
+  appearance: none;
+  cursor: pointer;
+}
+
+select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+}
+
+select option {
+  background-color: #0a0a0c !important;
+  color: white !important;
+}
+
+/* Scrollbar Style */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+::-webkit-scrollbar-thumb { background: var(--accent); }
+
+.hud-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 0.75rem;
+  font-family: var(--font-mono);
+}
+
+.hud-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+}
+
+/* Ensure user input doesn't force uppercase */
+input[type="text"], textarea {
+  text-transform: none !important;
 }

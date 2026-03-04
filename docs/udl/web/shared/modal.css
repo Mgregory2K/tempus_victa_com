@@ -1,0 +1,166 @@
+/* Shared modal styles (Enterprise A) */
+.udl-modal-overlay,
+.udl-modal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.udl-modal{
+  width: 720px;
+  max-width: 95%;
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: 14px;
+  padding: 18px 20px 16px 20px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+  border: 1px solid rgba(148,163,184,0.15);
+}
+
+.udl-modal-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148,163,184,0.12);
+  margin-bottom: 14px;
+}
+
+.udl-modal h2{
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  color: #f8fafc;
+}
+
+.udl-modal-x{
+  background: transparent;
+  border: 1px solid rgba(148,163,184,0.25);
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.udl-modal-body{
+  max-height: 60vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.udl-modal-field{ margin-bottom: 12px; }
+
+.udl-modal label{
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.udl-modal input,
+.udl-modal select,
+.udl-modal textarea{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.25);
+  background: rgba(30,41,59,0.85);
+  color: #f1f5f9;
+  font-size: 14px;
+  outline: none;
+}
+
+.udl-modal input::placeholder,
+.udl-modal textarea::placeholder{ color: #94a3b8; }
+
+.udl-modal textarea{
+  resize: vertical;
+  min-height: 90px;
+}
+
+.udl-modal-help{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(203,213,225,0.8);
+}
+
+.udl-modal-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148,163,184,0.12);
+  margin-top: 14px;
+}
+
+.udl-modal .btn-primary,
+.udl-modal .btn-secondary{
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.udl-modal .btn-primary{
+  background: #2563eb;
+  color: #fff;
+}
+
+.udl-modal .btn-secondary{
+  background: rgba(148,163,184,0.18);
+  color: #e2e8f0;
+  border: 1px solid rgba(148,163,184,0.22);
+}
+
+
+/* --- Fixes: checkbox alignment + no horizontal scroll + larger modal --- */
+.udl-modal{
+  width: min(840px, 96vw) !important;
+  max-height: 88vh !important;
+  overflow: hidden !important;
+}
+.udl-modal-content{
+  max-height: calc(88vh - 120px) !important;
+  overflow: auto !important;
+  padding-right: 6px;
+}
+.udl-modal form{
+  overflow-x: hidden !important;
+}
+.udl-modal .row{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 720px){
+  .udl-modal .row{ grid-template-columns: 1fr; }
+}
+/* Checkbox field: keep label + box together, no random floating */
+.udl-modal .field.checkbox{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148,163,184,.25);
+  border-radius: 10px;
+  background: rgba(15,23,42,.35);
+}
+.udl-modal .field.checkbox label{
+  margin: 0 !important;
+}
+.udl-modal .field.checkbox input[type="checkbox"]{
+  width: auto !important;
+  margin: 0 !important;
+  accent-color: #2563eb;
+}
+/* Prevent textarea from creating horizontal scroll */
+.udl-modal textarea{
+  max-width: 100% !important;
+}

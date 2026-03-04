@@ -1,0 +1,2274 @@
+Twin+ Doctrine
+Tempus Victa — Day-One Behavioral Model, Not a Feature
+Version: 2026-02-24
+Status: Canonical doctrine (implementation-binding)
+________________________________________
+0. Prime Directive
+Twin+ is not:
+•	a plugin
+•	a module you “turn on later”
+•	a screen (“Analyze”) that reads data after the fact
+•	a single model or provider (OpenAI/Gemini)
+Twin+ is:
+The app’s continuous behavioral substrate: a local, inspectable, evolving model of “Michael-as-system” that shapes every interaction from day one.
+If Twin+ can be “implemented later,” the architecture is already wrong.
+________________________________________
+1. Twin+ Core Goals
+Twin+ must, from day one:
+1.	Mirror
+•	Learn your language, cadence, tone, and decision patterns.
+•	Reduce friction by anticipating intent, not by asking dumb questions.
+2.	Predict
+•	Forecast what you’ll do next, what you’ll forget, what will derail you.
+•	Offer “next best action” rooted in your patterns and constraints.
+3.	Optimize
+•	Suggest automations and reductions in cognitive load.
+•	Track what actually worked and what you rejected.
+4.	Remain local-first
+•	Twin+ memory is never “in the cloud.”
+•	AI may interpret state; AI never is the state.
+5.	Stay inspectable and overrideable
+•	Every learned conclusion is viewable, correctable, and resettable.
+6.	Respect escalation doctrine
+•	Local → Internet → Opt-in AI is an escalation ladder, not a search order.
+________________________________________
+2. What “Day One Wiring” Means
+Twin+ is considered “wired” only if:
+•	Every meaningful user interaction generates an event into a single canonical stream.
+•	Every meaningful app output passes through Twin+ shaping before rendering.
+•	Routing decisions (local/web/ai) are influenced by Twin+ state (preferences, frustration triggers, “Just the facts…”, results mode, etc.).
+•	Twin+ updates its internal state continuously (or via rollups) with deterministic logic.
+•	AI is optional and cannot become a requirement to use the app.
+If any screen can bypass Twin+ shaping, Twin+ is not real yet.
+________________________________________
+3. Non-Negotiable Principles
+3.1 Twin+ is a behavior model, not a feature
+•	Twin+ lives at the runtime core: it is a first-class dependency.
+•	UI features (Analyze, Ready Room, etc.) are merely windows into Twin+.
+3.2 Twin+ is deterministic first
+•	The backbone must be deterministic and cheap:
+o	stats
+o	time series
+o	embeddings (optional)
+o	scoring models
+o	reinforcement weights
+•	AI is optional augmentation.
+3.3 Twin+ is explainable
+For any meaningful output, Twin+ must be able to answer:
+•	“Why did you suggest that?”
+•	“What evidence did you use?”
+•	“How confident are you?”
+•	“What would change your mind?”
+3.4 Twin+ never silently enforces
+Twin+ can:
+•	recommend
+•	queue
+•	nudge
+•	automate with explicit user approvals and confidence thresholds
+Twin+ must not:
+•	auto-delete
+•	auto-send
+•	auto-commit to calendar
+•	auto-change settings
+…without explicit gating and inspectable logs.
+3.5 Twin+ must handle drift
+You are not static. The model must support:
+•	recency weighting
+•	stability score
+•	volatility index
+•	seasonality patterns
+•	“freeze preference” capability
+________________________________________
+4. Twin+ Runtime Architecture (Canonical)
+Twin+ is a runtime kernel, with three primary surfaces:
+4.1 Observe
+observe(event) ingests everything that matters.
+4.2 Shape
+shape(outputIntent) modifies output before it is shown or sent:
+•	response length
+•	tone
+•	bluntness
+•	formatting
+•	“Just the facts…” compression
+•	sarcasm tolerance
+•	profanity autocorrect suppression
+4.3 Route
+route(queryIntent) decides:
+•	local-only
+•	local→web
+•	web→ai
+•	local→ai
+…based on time sensitivity, verifiability needs, and your learned preferences.
+Twin+ is not a room.
+Rooms call Twin+.
+________________________________________
+5. Canonical Data Model
+Twin+ is powered by three layers of storage:
+5.1 Raw Event Ledger (append-only)
+•	Immutable, timestamped events
+•	Small, structured payloads
+•	Stored locally (JSONL or SQLite)
+Rule: No derived opinions stored here. Only “what happened.”
+5.2 Feature Store (derived, deterministic)
+•	Aggregations
+•	Counters
+•	histograms
+•	rolling windows
+•	clusters
+•	embeddings (optional)
+Rule: Rebuildable from the ledger.
+5.3 Identity Graph / Preference Ledger
+•	High-level state that evolves:
+o	stable preferences
+o	volatile preferences
+o	constraints
+o	triggers
+o	learned mappings (“duck≠fuck”)
+o	modes (“Results Mode”)
+o	“response contract”
+Rule: Inspectable, diffable, resettable.
+________________________________________
+6. Event Doctrine (The Heart of Twin+)
+6.1 “Everything meaningful is an event”
+From day one, log events for:
+Language + writing
+•	TextComposed
+•	TextEdited
+•	TextSubmitted
+•	ToneOverride (user changes tone)
+•	LengthOverride (user requests shorter/longer)
+•	ProfanityOverride (duck/fuck, etc.)
+•	StyleCheckRequested (paragraph fit)
+Decisions
+•	SuggestionShown
+•	SuggestionAccepted
+•	SuggestionRejected
+•	SuggestionDismissed
+•	ActionExecuted
+•	ActionUndone
+Friction + frustration
+•	RapidRetry
+•	UserComplaint (short tags, not essays)
+•	RageSignal (caps/profanity spikes)
+•	ClarificationRejected
+•	StaleInfoDetected
+•	HallucinationDetected (user flags wrongness)
+Time + urgency
+•	DeadlineDeclared
+•	TimePressureDetected
+•	LateRisk
+Routing + sources
+•	LocalAnswerUsed
+•	WebAnswerUsed
+•	AIAnswerUsed
+•	SourceOverride (“use internet” / “no AI”)
+App usage (Phase 1: in-app only)
+•	RoomOpened
+•	RoomClosed
+•	SessionDuration
+•	SearchPerformed
+•	TaskCreated
+•	TaskCompleted
+•	TaskDeferred
+•	CorkNoteCreated
+•	etc.
+UsageStats (system-wide) is Phase 2+, explicitly gated.
+6.2 Event Quality Rules
+•	Events are small, structured, and cheap.
+•	Never store sensitive content unless explicitly allowed.
+•	Prefer hashing/feature extraction for privacy where possible.
+•	Every event has:
+o	timestamp
+o	room/surface
+o	intent label (if known)
+o	confidence (if inferred)
+________________________________________
+7. Learning Doctrine (How Twin+ Learns Without Burning Tokens)
+7.1 Deterministic learning is primary
+Twin+ learns via:
+•	frequency
+•	recency-weighted counts
+•	acceptance/rejection ratios
+•	time-of-day clustering
+•	co-occurrence (“when X, then Y”)
+•	edit distance corrections
+•	stable phrase templates
+•	cadence distributions
+7.2 AI is never the memory
+AI can:
+•	summarize
+•	propose
+•	classify intent
+•	generate wording
+•	suggest rules
+AI cannot:
+•	be the only place memory exists
+•	store the long-term truth
+7.3 Rollups are the “secret weapon”
+To keep tokens low:
+•	Run local rollups nightly or periodically:
+o	daily summary of behaviors
+o	reinforcement updates
+o	drift updates
+o	“top pain points today”
+•	This means you’re not re-sending raw history to AI repeatedly.
+7.4 Reinforcement is king
+Twin+ trusts:
+•	explicit accept/reject signals
+•	manual corrections
+•	“No. Do it this way.”
+•	“Just the facts…”
+•	“Stop asking questions.”
+Those are stronger than passive observation.
+________________________________________
+8. Twin+ Submodels (Canonical)
+Twin+ is composed of several local submodels. These are not “modules,” they are organs.
+8.1 Lexicon Model
+Tracks:
+•	token frequency
+•	phrase templates (n-grams)
+•	misspelling clusters
+•	correction overrides
+•	profanity intent score
+•	abbreviation expansions
+•	sarcasm markers
+•	punctuation/cadence stats
+Outcome:
+•	“duck” suppression when intent is “fuck”
+•	consistent your-style phrasing
+•	better autocomplete and rephrasing
+8.2 Response Style Model
+Learns:
+•	default response length preference
+•	“Just the facts” compression behavior
+•	“Results Mode” triggers
+•	exploratory vs blunt modes
+•	formatting preferences (lists, bullets, sections)
+•	when you want references and when you want action
+Outcome:
+•	the app speaks like you want, without you restating it
+8.3 Friction Model
+Learns triggers for anger/frustration:
+•	stale info
+•	verbose answers
+•	irrelevant detours
+•	repeated clarifying questions
+•	low-confidence handwaving
+•	“didn’t use the internet”
+•	“didn’t follow constraints”
+Outcome:
+•	routing and output shaping becomes self-protective
+8.4 Behavioral Rhythm Model
+Learns:
+•	time-of-day patterns
+•	day-of-week routines
+•	task creation/completion rhythms
+•	procrastination signals (Phase 1: in-app; Phase 2: UsageStats)
+Outcome:
+•	predicts when to nudge, when to shut up, when to automate
+8.5 Drift Analyzer
+Tracks:
+•	stability score per preference
+•	volatility index
+•	recency decay curves
+•	seasonal changes
+Outcome:
+•	avoids fossilizing “old you”
+8.6 Reinforcement Engine
+Updates weights based on:
+•	explicit confirmation
+•	overrides
+•	rejects
+•	repeated behaviors
+Outcome:
+•	learned behaviors become stronger only when they prove themselves
+________________________________________
+9. Routing Doctrine (Local → Internet → Opt-in AI)
+9.1 The Ladder
+1.	Local: if it’s about your data, app behavior, habits, preferences, stored content
+2.	Internet: if it’s time-sensitive, verifiable facts, events, routing, prices, schedules
+3.	Opt-in AI: for synthesis, planning, summarization, interpretation, style rewriting
+Key rule: Local-first does not mean “local-only.”
+It means local is always attempted and leveraged, then escalated.
+9.2 “No hardcoded keyword routing”
+Routing is driven by:
+•	inferred time-sensitivity
+•	verifiability requirement
+•	your frustration triggers
+•	your preference for brevity
+•	context (deadlines, travel, purchases)
+•	confidence thresholds
+9.3 Cheap classifier, structured output
+When needed, use a minimal classification step producing a Router Decision Object:
+•	time_sensitivity
+•	needs_verifiable_facts
+•	user_memory_relevance
+•	recommended_sources
+•	budget
+•	cache_ttl
+•	answer_style
+This is not keyword hardcoding; it is policy + inference.
+________________________________________
+10. Token & Cost Discipline
+Twin+ must enforce budget governance:
+10.1 Budgets
+•	Daily token/cost cap
+•	Per-request budget class: tiny/small/medium/large
+•	Auto-downgrade after soft cap
+•	Hard failover: web/local if AI cap reached
+10.2 Caching
+•	Cache answers with TTL:
+o	time-sensitive: minutes/hours
+o	stable facts: days/weeks
+o	personal/habit queries: until next rollup
+10.3 Minimize repeated context
+•	Use local summaries and extracted features
+•	Never re-send raw logs unless explicitly requested
+________________________________________
+11. Privacy & Governance Boundaries
+11.1 Local-only by default
+•	Twin+ memory stays on-device.
+•	Sync (future) must be explicit, gated, and alarmed.
+11.2 Inspectability
+Provide:
+•	event viewer
+•	feature viewer
+•	preference ledger viewer
+•	drift stats
+•	“why” explanations
+11.3 Resetability
+Must support:
+•	reset lexicon only
+•	reset style only
+•	reset friction only
+•	full reset
+•	export for backup (user-controlled)
+11.4 Permission governance
+UsageStats and other invasive permissions:
+•	are Phase 2+
+•	require explicit user enablement
+•	require visible audit trails
+________________________________________
+12. Twin+ UX Doctrine (So It Feels Like “You”)
+12.1 Feedback chips are mandatory
+After suggestions/responses, present quick feedback:
+•	“Too long”
+•	“Too vague”
+•	“Wrong source”
+•	“Use internet for this”
+•	“Stop asking questions”
+•	“That’s my style”
+•	“Not my voice”
+•	“Correct intent”
+These are reinforcement events.
+12.2 “Modes” are signals, not settings
+“Just the facts…” is a runtime signal.
+“Results Mode” is a detected state + optional toggle, not a buried setting.
+12.3 Twin+ should reduce questions
+Twin+ should ask fewer questions over time, because it learns:
+•	your defaults
+•	your preferred stores
+•	your typical trip style
+•	your response expectations
+________________________________________
+13. Definition of Done (Twin+ Day One)
+Twin+ is “Day-One Wired” if:
+1.	Event ledger exists and is recording meaningful events across rooms
+2.	Twin+ kernel initializes at app start and runs continuously
+3.	At least these submodels are active:
+o	Lexicon model (basic)
+o	Response style model (basic)
+o	Reinforcement engine (accept/reject/override)
+4.	Output shaping is applied to at least:
+o	Ready Room responses
+o	any text generation surface
+o	suggestion cards
+5.	Router uses policy inference
+o	local vs web vs ai is consistent with doctrine
+6.	Twin+ is inspectable
+o	view top preferences
+o	view recent reinforcements
+o	view “why” for a suggestion
+If any of these are missing, Twin+ is not yet “real.”
+________________________________________
+14. Implementation Guardrails (Anti-Drift Enforcement)
+Any PR/ZIP that:
+•	adds a new feature path without event logging
+•	adds AI calls without budget + routing metadata
+•	stores memory only inside AI prompts
+•	bypasses Twin+ shaping on major output surfaces
+…is a doctrine violation.
+Twin+ is the spine. Features hang off it.
+________________________________________
+15. Twin+ Roadmap Alignment (Phased, Without Delaying Day One)
+Phase 1 (Day One Reality)
+•	event ledger + kernel + basic submodels
+•	feedback chips
+•	deterministic learning and rollups
+•	local-only seed ingestion (asset-based)
+Phase 2 (Expanded sensing)
+•	UsageStats (explicit permission)
+•	cross-app rhythm modeling
+•	distraction scoring
+Phase 3 (Long-horizon prediction)
+•	context influence graphs
+•	“2034 dinner predictor” style modeling
+•	long-term reinforcement curves
+•	simulation and counterfactuals (“if you do X, you’ll likely regret it”)
+________________________________________
+16. Canonical One-Liners (for the project wall)
+•	Twin+ is not a feature. It is the runtime.
+•	AI interprets state; AI is never the state.
+•	Everything meaningful is an event.
+•	Reinforcement beats observation.
+•	Local → Internet → Opt-in AI is escalation, not search.
+•	If it can be “added later,” it’s not Twin+.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Here’s the implementation-binding contract spec that turns the doctrine into wiring that can’t “accidentally become a feature later.”
+Twin+ Implementation Contract
+Tempus Victa — Twin+ Kernel / Event Ledger / Routing / Shaping
+Version: 2026-02-24
+Status: Canonical contract (must be implemented as written)
+________________________________________
+1) Canonical Runtime Components
+Twin+ is “real” only if these exist and are used everywhere.
+1.1 TwinPlusKernel (the spine)
+Responsibility: Owns Twin+ state, consumes events, produces shaping + routing decisions.
+Required API:
+•	init()
+•	observe(TwinEvent e)
+•	shape(OutputIntent intent, {TwinContext? ctx}) -> ShapedOutput
+•	route(QueryIntent intent, {TwinContext? ctx}) -> RoutePlan
+•	explain(ExplainRequest req) -> TwinExplanation
+•	snapshot() -> TwinSnapshot (for inspector UI)
+Twin+ is “not implemented” if any room bypasses these calls.
+________________________________________
+1.2 TwinEventLedger (append-only truth)
+Responsibility: Store what happened (not opinions). Rebuildable. Local-only.
+Required API:
+•	append(TwinEvent e)
+•	stream({filters}) -> Stream<TwinEvent> (optional for live UI)
+•	query({filters, limit}) -> List<TwinEvent>
+•	export() / import() (user-controlled backup)
+Storage:
+•	JSONL or SQLite/Drift. Must be durable offline.
+________________________________________
+1.3 TwinFeatureStore (derived, deterministic)
+Responsibility: Derived aggregates + models that are rebuildable from ledger.
+Required API:
+•	apply(TwinEvent e) (incremental updates)
+•	rebuildFromLedger()
+•	getLexiconStats()
+•	getStyleSignature()
+•	getFrictionSignature()
+•	getRhythmStats()
+•	getDriftStats()
+Rule: If it can’t be rebuilt from the ledger, it’s not a “feature store.”
+________________________________________
+1.4 TwinPreferenceLedger (inspectable “identity graph”)
+Responsibility: High-level learned preferences + constraints, with drift controls.
+Required API:
+•	getPreference(key)
+•	setPreference(key, value, {source, confidence, ttl?})
+•	freezePreference(key, on/off)
+•	reset(scope)
+•	diff(sinceSnapshotId)
+Rule: Must store confidence, lastUpdated, source event evidence.
+________________________________________
+2) Canonical Data Schemas
+2.1 TwinEvent schema (must be stable)
+All events MUST include these fields:
+•	id (uuid)
+•	ts (UTC timestamp)
+•	surface (room/screen/widget identifier)
+•	type (enum)
+•	actor (user | system)
+•	intent (optional enum; can be inferred later)
+•	payload (small structured map)
+•	confidence (0.0–1.0, for inferred fields)
+•	privacy (normal | sensitive_redacted | hash_only)
+Hard rules
+•	Never store raw sensitive content unless explicitly allowed.
+•	Prefer storing features (counts, lengths, flags) over full text.
+•	If text is stored, store it under explicit user consent + allow purge.
+________________________________________
+2.2 OutputIntent schema
+This is what rooms pass into shape().
+Fields:
+•	surface
+•	purpose: inform | plan | decide | summarize | rewrite | coach | warn
+•	audience: self | partner | work | public
+•	toneTarget: neutral | blunt | exploratory | supportive | sarcastic
+•	lengthTarget: tiny | short | normal | long
+•	formatTarget: bullets | steps | narrative | table_like
+•	constraints: list of constraints (e.g., “no fluff”, “no questions”, “cite sources”)
+•	draftText: optional (text to refine)
+•	contextRefs: ids pointing to local notes/tasks/events instead of embedding everything
+________________________________________
+2.3 QueryIntent schema
+This is what rooms pass into route().
+Fields:
+•	surface
+•	queryText (or redacted features + pointer)
+•	taskType: personal_state | app_howto | local_search | web_fact | planning | shopping | travel | events | routing
+•	timeHorizon: now | today | week | month | timeless
+•	needsVerifiableFacts: bool
+•	locationNeeded: bool
+•	deadline: optional timestamp
+•	userContextRelevance: low | med | high (can be inferred)
+•	budgetClass: tiny | small | medium | large (can be inferred)
+________________________________________
+2.4 RoutePlan schema (the router decision object)
+This is the enforcement object that prevents accidental token burn.
+Fields:
+•	decisionId
+•	strategy:
+o	local_only
+o	local_then_web
+o	web_then_llm
+o	local_then_llm
+o	local_then_web_then_llm
+•	timeSensitivity: low | med | high
+•	verifiability: none | preferred | required
+•	aiAllowed: bool (must respect opt-in)
+•	aiProvider: openai | gemini | none
+•	aiModelHint: string (optional)
+•	budgetTokensMax: int
+•	cacheTtlSeconds: int
+•	requiresUserConfirmation: bool (for risky outputs)
+•	reasonCodes: list (e.g., deadline_present, user_hates_stale, needs_store_hours, timeless_howto)
+•	localRetrieval: { topK, collections, filters }
+•	webRetrieval: { sources, queryHints, geoBias }
+Hard rule: A request cannot hit AI unless RoutePlan.aiAllowed == true.
+________________________________________
+3) Mandatory Event Types (Day One Minimum)
+These MUST exist and MUST be emitted from the app from day one.
+3.1 Language + Writing
+•	TextComposed (draft started)
+•	TextEdited (edits / major changes; throttle)
+•	TextSubmitted (final send/enter)
+•	StyleCheckRequested (“does this fit my style?”)
+•	AutocorrectOverride (duck↔fuck, etc.)
+Payload MUST include:
+•	length metrics (chars, words)
+•	punctuation/caps flags
+•	profanity flag
+•	surface + field identifier
+•	(optional) hashed n-grams for lexicon learning
+3.2 Decisions + Reinforcement
+•	SuggestionShown
+•	SuggestionAccepted
+•	SuggestionRejected
+•	SuggestionDismissed
+•	FeedbackGiven (chips like “too long”, “wrong source”)
+Payload MUST include:
+•	suggestion id
+•	confidence
+•	reason chip if available
+3.3 Friction / “Anger” Signals
+•	RapidRetry
+•	ClarificationRejected
+•	StaleInfoComplaint
+•	TooVerboseComplaint
+•	LowConfidenceComplaint
+Payload MUST include:
+•	preceding decisionId / responseId
+•	trigger flags (caps/profanity spike, retry count, time pressure)
+3.4 Routing Audit
+•	RouteChosen
+•	SourceUsed (local, web, ai)
+•	SourceOverriddenByUser (“use internet”, “no AI”)
+Payload MUST include:
+•	decisionId
+•	strategy
+•	aiProvider/model (if used)
+•	token estimate if AI used (even approximate)
+3.5 App Behavior (in-app only, Phase 1)
+•	RoomOpened
+•	RoomClosed
+•	SessionPulse (periodic, optional)
+•	TaskCreated/Completed/Deferred
+•	SearchPerformed
+________________________________________
+4) Mandatory Shaping Points (Where Twin+ MUST be called)
+If any of these bypass Twin+, doctrine is violated.
+4.1 Ready Room
+Before rendering any assistant output:
+•	kernel.shape(OutputIntent(...))
+•	If AI response exists, it must be post-shaped before display.
+4.2 Any “suggestion” UI
+Before showing suggestions (automation suggestions, next actions):
+•	kernel.shape() on copy + ordering + brevity
+•	Must emit SuggestionShown
+4.3 Any text field with “send/submit”
+Before submit:
+•	emit TextSubmitted
+•	optional: offer style fit score (local) for “writing mode”
+•	apply lexicon/correction overrides if enabled
+4.4 Any routing that could call internet/AI
+Every query that could leave device must go through:
+•	kernel.route(QueryIntent)
+•	emit RouteChosen
+No exceptions.
+________________________________________
+5) Learning Mechanics (Deterministic, Token-Lite)
+5.1 Lexicon updates (local)
+On TextSubmitted / AutocorrectOverride:
+•	update token frequency
+•	update correction overrides
+•	update phrase templates (n-grams)
+•	update “profanity intent score”
+•	update cadence metrics (avg sentence length, punctuation density)
+5.2 Style signature (local)
+Maintain:
+•	sentence length distribution
+•	punctuation pattern vector
+•	caps usage
+•	profanity probability by context
+•	“bluntness index” (bullets vs narrative, short verbs, imperative use)
+Output:
+•	styleFitScore(draft) -> 0..100 plus top 3 reasons
+5.3 Friction signature (local)
+Track:
+•	“complaint types” frequency
+•	correlation to routing decisions (stale vs verbose vs too many questions)
+•	triggers (deadline, repetition, time of day)
+This directly influences routing and shaping:
+•	user hates verbose → shrink lengthTarget
+•	user hates stale → raise verifiability and prefer web
+5.4 Rollups (scheduled, local)
+Nightly (or periodic) rollup writes a compact DailyTwinSummary:
+•	top behaviors
+•	top friction causes
+•	preference drift notes
+•	suggested automations (as candidates, not enforced)
+This is where AI can optionally assist once per day (opt-in), not per interaction.
+________________________________________
+6) Provider Strategy (OpenAI + Gemini without chaos)
+Implement AIProvider interface, then let RoutePlan pick.
+6.1 AIProvider contract
+•	complete(prompt, config) -> text
+•	classify(prompt, schema) -> json
+•	embed(texts) -> vectors (optional)
+•	estimateCost(tokens)
+6.2 Allowed use cases (policy)
+•	Tiny classifier call (routing decision) → cheapest model
+•	Synthesis after local/web retrieval → normal model
+•	Streaming UX (optional) → provider that supports best streaming
+Hard rule: “Up-to-date” comes from web retrieval, not provider mythology.
+________________________________________
+7) Enforcement: “Twin+ Compliance Gate”
+Add a simple internal dev check list. A build is rejected if:
+1.	A screen makes network calls without a RouteChosen event.
+2.	A Ready Room response renders without shape() being called.
+3.	Suggestions show without SuggestionShown events.
+4.	Feedback chips exist but don’t emit FeedbackGiven.
+5.	Any AI call occurs without:
+o	AI opt-in enabled AND
+o	RoutePlan.aiAllowed == true AND
+o	a budget set (budgetTokensMax)
+If you do nothing else, implement this gate and you will not drift into “Twin+ later.”
+________________________________________
+8) Minimal “Day One Wiring” Acceptance Tests
+Twin+ Day One is complete when these work offline:
+Test A — Style Fit
+•	User pastes paragraph → gets styleFitScore and “why” locally.
+•	Emits StyleCheckRequested.
+Test B — Friction Learns
+•	User taps “Too long” chip three times → future outputs default shorter.
+•	Emits FeedbackGiven, updates response style model.
+Test C — Router Obeys Doctrine
+•	“What local events tonight?” → web (if available), no AI required.
+•	“How do I change dark mode in app?” → local only, zero web/ai.
+•	“Optimize my errands by 1:30” → local preferences + web routing, minimal AI.
+Test D — Auditability
+•	Inspector shows last 50 events.
+•	“Why did you route to web?” shows reason codes.
+________________________________________
+9) Required Files (Contract-to-Code Mapping)
+You wanted this to be “not a module,” but code has to live somewhere. This is the canonical structure:
+•	lib/core/twin_plus/twin_plus_kernel.dart
+•	lib/core/twin_plus/twin_event.dart
+•	lib/core/twin_plus/twin_event_ledger.dart
+•	lib/core/twin_plus/twin_feature_store.dart
+•	lib/core/twin_plus/twin_preference_ledger.dart
+•	lib/core/twin_plus/router.dart
+•	lib/core/twin_plus/shaper.dart
+•	lib/core/twin_plus/explain.dart
+•	lib/core/twin_plus/inspector_models.dart
+And you must wire at startup (main init):
+•	initialize kernel
+•	attach ledger
+•	attach feature store
+•	begin observing app lifecycle events
+________________________________________
+10) Final Non-Negotiable: The “Twin+ Spine Hook”
+Every room/screen must have access to:
+•	TwinPlusKernel kernel
+And must do:
+•	kernel.observe(...) for key events
+•	kernel.route(...) before any external call
+•	kernel.shape(...) before any meaningful output
+If a room can’t do that, your architecture is not Twin+ yet.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Here’s the implementation-binding contract spec that turns the doctrine into wiring that can’t “accidentally become a feature later.”
+Twin+ Implementation Contract
+Tempus Victa — Twin+ Kernel / Event Ledger / Routing / Shaping
+Version: 2026-02-24
+Status: Canonical contract (must be implemented as written)
+________________________________________
+1) Canonical Runtime Components
+Twin+ is “real” only if these exist and are used everywhere.
+1.1 TwinPlusKernel (the spine)
+Responsibility: Owns Twin+ state, consumes events, produces shaping + routing decisions.
+Required API:
+•	init()
+•	observe(TwinEvent e)
+•	shape(OutputIntent intent, {TwinContext? ctx}) -> ShapedOutput
+•	route(QueryIntent intent, {TwinContext? ctx}) -> RoutePlan
+•	explain(ExplainRequest req) -> TwinExplanation
+•	snapshot() -> TwinSnapshot (for inspector UI)
+Twin+ is “not implemented” if any room bypasses these calls.
+________________________________________
+1.2 TwinEventLedger (append-only truth)
+Responsibility: Store what happened (not opinions). Rebuildable. Local-only.
+Required API:
+•	append(TwinEvent e)
+•	stream({filters}) -> Stream<TwinEvent> (optional for live UI)
+•	query({filters, limit}) -> List<TwinEvent>
+•	export() / import() (user-controlled backup)
+Storage:
+•	JSONL or SQLite/Drift. Must be durable offline.
+________________________________________
+1.3 TwinFeatureStore (derived, deterministic)
+Responsibility: Derived aggregates + models that are rebuildable from ledger.
+Required API:
+•	apply(TwinEvent e) (incremental updates)
+•	rebuildFromLedger()
+•	getLexiconStats()
+•	getStyleSignature()
+•	getFrictionSignature()
+•	getRhythmStats()
+•	getDriftStats()
+Rule: If it can’t be rebuilt from the ledger, it’s not a “feature store.”
+________________________________________
+1.4 TwinPreferenceLedger (inspectable “identity graph”)
+Responsibility: High-level learned preferences + constraints, with drift controls.
+Required API:
+•	getPreference(key)
+•	setPreference(key, value, {source, confidence, ttl?})
+•	freezePreference(key, on/off)
+•	reset(scope)
+•	diff(sinceSnapshotId)
+Rule: Must store confidence, lastUpdated, source event evidence.
+________________________________________
+2) Canonical Data Schemas
+2.1 TwinEvent schema (must be stable)
+All events MUST include these fields:
+•	id (uuid)
+•	ts (UTC timestamp)
+•	surface (room/screen/widget identifier)
+•	type (enum)
+•	actor (user | system)
+•	intent (optional enum; can be inferred later)
+•	payload (small structured map)
+•	confidence (0.0–1.0, for inferred fields)
+•	privacy (normal | sensitive_redacted | hash_only)
+Hard rules
+•	Never store raw sensitive content unless explicitly allowed.
+•	Prefer storing features (counts, lengths, flags) over full text.
+•	If text is stored, store it under explicit user consent + allow purge.
+________________________________________
+2.2 OutputIntent schema
+This is what rooms pass into shape().
+Fields:
+•	surface
+•	purpose: inform | plan | decide | summarize | rewrite | coach | warn
+•	audience: self | partner | work | public
+•	toneTarget: neutral | blunt | exploratory | supportive | sarcastic
+•	lengthTarget: tiny | short | normal | long
+•	formatTarget: bullets | steps | narrative | table_like
+•	constraints: list of constraints (e.g., “no fluff”, “no questions”, “cite sources”)
+•	draftText: optional (text to refine)
+•	contextRefs: ids pointing to local notes/tasks/events instead of embedding everything
+________________________________________
+2.3 QueryIntent schema
+This is what rooms pass into route().
+Fields:
+•	surface
+•	queryText (or redacted features + pointer)
+•	taskType: personal_state | app_howto | local_search | web_fact | planning | shopping | travel | events | routing
+•	timeHorizon: now | today | week | month | timeless
+•	needsVerifiableFacts: bool
+•	locationNeeded: bool
+•	deadline: optional timestamp
+•	userContextRelevance: low | med | high (can be inferred)
+•	budgetClass: tiny | small | medium | large (can be inferred)
+________________________________________
+2.4 RoutePlan schema (the router decision object)
+This is the enforcement object that prevents accidental token burn.
+Fields:
+•	decisionId
+•	strategy:
+o	local_only
+o	local_then_web
+o	web_then_llm
+o	local_then_llm
+o	local_then_web_then_llm
+•	timeSensitivity: low | med | high
+•	verifiability: none | preferred | required
+•	aiAllowed: bool (must respect opt-in)
+•	aiProvider: openai | gemini | none
+•	aiModelHint: string (optional)
+•	budgetTokensMax: int
+•	cacheTtlSeconds: int
+•	requiresUserConfirmation: bool (for risky outputs)
+•	reasonCodes: list (e.g., deadline_present, user_hates_stale, needs_store_hours, timeless_howto)
+•	localRetrieval: { topK, collections, filters }
+•	webRetrieval: { sources, queryHints, geoBias }
+Hard rule: A request cannot hit AI unless RoutePlan.aiAllowed == true.
+________________________________________
+3) Mandatory Event Types (Day One Minimum)
+These MUST exist and MUST be emitted from the app from day one.
+3.1 Language + Writing
+•	TextComposed (draft started)
+•	TextEdited (edits / major changes; throttle)
+•	TextSubmitted (final send/enter)
+•	StyleCheckRequested (“does this fit my style?”)
+•	AutocorrectOverride (duck↔fuck, etc.)
+Payload MUST include:
+•	length metrics (chars, words)
+•	punctuation/caps flags
+•	profanity flag
+•	surface + field identifier
+•	(optional) hashed n-grams for lexicon learning
+3.2 Decisions + Reinforcement
+•	SuggestionShown
+•	SuggestionAccepted
+•	SuggestionRejected
+•	SuggestionDismissed
+•	FeedbackGiven (chips like “too long”, “wrong source”)
+Payload MUST include:
+•	suggestion id
+•	confidence
+•	reason chip if available
+3.3 Friction / “Anger” Signals
+•	RapidRetry
+•	ClarificationRejected
+•	StaleInfoComplaint
+•	TooVerboseComplaint
+•	LowConfidenceComplaint
+Payload MUST include:
+•	preceding decisionId / responseId
+•	trigger flags (caps/profanity spike, retry count, time pressure)
+3.4 Routing Audit
+•	RouteChosen
+•	SourceUsed (local, web, ai)
+•	SourceOverriddenByUser (“use internet”, “no AI”)
+Payload MUST include:
+•	decisionId
+•	strategy
+•	aiProvider/model (if used)
+•	token estimate if AI used (even approximate)
+3.5 App Behavior (in-app only, Phase 1)
+•	RoomOpened
+•	RoomClosed
+•	SessionPulse (periodic, optional)
+•	TaskCreated/Completed/Deferred
+•	SearchPerformed
+________________________________________
+4) Mandatory Shaping Points (Where Twin+ MUST be called)
+If any of these bypass Twin+, doctrine is violated.
+4.1 Ready Room
+Before rendering any assistant output:
+•	kernel.shape(OutputIntent(...))
+•	If AI response exists, it must be post-shaped before display.
+4.2 Any “suggestion” UI
+Before showing suggestions (automation suggestions, next actions):
+•	kernel.shape() on copy + ordering + brevity
+•	Must emit SuggestionShown
+4.3 Any text field with “send/submit”
+Before submit:
+•	emit TextSubmitted
+•	optional: offer style fit score (local) for “writing mode”
+•	apply lexicon/correction overrides if enabled
+4.4 Any routing that could call internet/AI
+Every query that could leave device must go through:
+•	kernel.route(QueryIntent)
+•	emit RouteChosen
+No exceptions.
+________________________________________
+5) Learning Mechanics (Deterministic, Token-Lite)
+5.1 Lexicon updates (local)
+On TextSubmitted / AutocorrectOverride:
+•	update token frequency
+•	update correction overrides
+•	update phrase templates (n-grams)
+•	update “profanity intent score”
+•	update cadence metrics (avg sentence length, punctuation density)
+5.2 Style signature (local)
+Maintain:
+•	sentence length distribution
+•	punctuation pattern vector
+•	caps usage
+•	profanity probability by context
+•	“bluntness index” (bullets vs narrative, short verbs, imperative use)
+Output:
+•	styleFitScore(draft) -> 0..100 plus top 3 reasons
+5.3 Friction signature (local)
+Track:
+•	“complaint types” frequency
+•	correlation to routing decisions (stale vs verbose vs too many questions)
+•	triggers (deadline, repetition, time of day)
+This directly influences routing and shaping:
+•	user hates verbose → shrink lengthTarget
+•	user hates stale → raise verifiability and prefer web
+5.4 Rollups (scheduled, local)
+Nightly (or periodic) rollup writes a compact DailyTwinSummary:
+•	top behaviors
+•	top friction causes
+•	preference drift notes
+•	suggested automations (as candidates, not enforced)
+This is where AI can optionally assist once per day (opt-in), not per interaction.
+________________________________________
+6) Provider Strategy (OpenAI + Gemini without chaos)
+Implement AIProvider interface, then let RoutePlan pick.
+6.1 AIProvider contract
+•	complete(prompt, config) -> text
+•	classify(prompt, schema) -> json
+•	embed(texts) -> vectors (optional)
+•	estimateCost(tokens)
+6.2 Allowed use cases (policy)
+•	Tiny classifier call (routing decision) → cheapest model
+•	Synthesis after local/web retrieval → normal model
+•	Streaming UX (optional) → provider that supports best streaming
+Hard rule: “Up-to-date” comes from web retrieval, not provider mythology.
+________________________________________
+7) Enforcement: “Twin+ Compliance Gate”
+Add a simple internal dev check list. A build is rejected if:
+1.	A screen makes network calls without a RouteChosen event.
+2.	A Ready Room response renders without shape() being called.
+3.	Suggestions show without SuggestionShown events.
+4.	Feedback chips exist but don’t emit FeedbackGiven.
+5.	Any AI call occurs without:
+o	AI opt-in enabled AND
+o	RoutePlan.aiAllowed == true AND
+o	a budget set (budgetTokensMax)
+If you do nothing else, implement this gate and you will not drift into “Twin+ later.”
+________________________________________
+8) Minimal “Day One Wiring” Acceptance Tests
+Twin+ Day One is complete when these work offline:
+Test A — Style Fit
+•	User pastes paragraph → gets styleFitScore and “why” locally.
+•	Emits StyleCheckRequested.
+Test B — Friction Learns
+•	User taps “Too long” chip three times → future outputs default shorter.
+•	Emits FeedbackGiven, updates response style model.
+Test C — Router Obeys Doctrine
+•	“What local events tonight?” → web (if available), no AI required.
+•	“How do I change dark mode in app?” → local only, zero web/ai.
+•	“Optimize my errands by 1:30” → local preferences + web routing, minimal AI.
+Test D — Auditability
+•	Inspector shows last 50 events.
+•	“Why did you route to web?” shows reason codes.
+________________________________________
+9) Required Files (Contract-to-Code Mapping)
+You wanted this to be “not a module,” but code has to live somewhere. This is the canonical structure:
+•	lib/core/twin_plus/twin_plus_kernel.dart
+•	lib/core/twin_plus/twin_event.dart
+•	lib/core/twin_plus/twin_event_ledger.dart
+•	lib/core/twin_plus/twin_feature_store.dart
+•	lib/core/twin_plus/twin_preference_ledger.dart
+•	lib/core/twin_plus/router.dart
+•	lib/core/twin_plus/shaper.dart
+•	lib/core/twin_plus/explain.dart
+•	lib/core/twin_plus/inspector_models.dart
+And you must wire at startup (main init):
+•	initialize kernel
+•	attach ledger
+•	attach feature store
+•	begin observing app lifecycle events
+________________________________________
+10) Final Non-Negotiable: The “Twin+ Spine Hook”
+Every room/screen must have access to:
+•	TwinPlusKernel kernel
+And must do:
+•	kernel.observe(...) for key events
+•	kernel.route(...) before any external call
+•	kernel.shape(...) before any meaningful output
+If a room can’t do that, your architecture is not Twin+ yet.
+________________________________________
+If you want “Make it so!” next, I’ll translate this into a concrete wiring checklist you can hand an engineer: exact injection points (main.dart, Ready Room, Search, Settings, Tasks, Corkboard) + the exact initial event list and throttling rules.
+Make it so
+Make it so.
+Below is the concrete wiring checklist + exact injection points + minimal code skeleton that makes Twin+ day-one runtime, not a room/module. This is written so an engineer can implement it without reinterpretation.
+________________________________________
+Twin+ Day-One Wiring Checklist
+A. Create the Spine (new files)
+Create these files exactly:
+1) lib/core/twin_plus/twin_event.dart
+•	Defines TwinEvent, enums, minimal payload helpers.
+2) lib/core/twin_plus/twin_event_ledger.dart
+•	Append-only local store (JSONL is fastest to ship; SQLite later).
+•	APIs: append, query, optional stream.
+3) lib/core/twin_plus/twin_feature_store.dart
+•	Deterministic learning:
+o	lexicon stats
+o	style signature
+o	friction signature
+o	drift skeleton (recency weighting)
+4) lib/core/twin_plus/twin_preference_ledger.dart
+•	Inspectable preferences:
+o	lengthTargetDefault
+o	toneDefault
+o	hatesVerbose
+o	hatesClarifyingQuestions
+o	hatesStaleInfo
+o	justTheFactsSignal
+o	plus confidence + lastUpdated + evidence refs
+5) lib/core/twin_plus/router.dart
+•	Produces RoutePlan (strategy, budgets, TTL, reason codes).
+•	Must respect AI opt-in + token budgets.
+6) lib/core/twin_plus/shaper.dart
+•	Applies response shaping:
+o	compress when “Just the facts…”
+o	shorten when user hates verbosity
+o	format as bullets when that’s your default
+o	apply tone/length defaults from preferences
+7) lib/core/twin_plus/explain.dart
+•	Returns “why” using:
+o	recent events
+o	reason codes
+o	preferences used
+o	confidence
+8) lib/core/twin_plus/twin_plus_kernel.dart
+•	Owns ledger + feature store + preference ledger + router + shaper.
+•	Exposes:
+o	init()
+o	observe(TwinEvent e)
+o	route(QueryIntent intent)
+o	shape(OutputIntent intent)
+o	explain(...)
+o	snapshot() (for inspector)
+________________________________________
+B. Startup Wiring (must happen before any Room renders)
+Injection point: lib/main.dart
+1.	Instantiate kernel once.
+2.	Initialize it before runApp.
+3.	Provide it globally.
+Canonical pattern (pick one):
+•	Provider / Riverpod
+•	a singleton service locator
+•	or an InheritedWidget
+Non-negotiable: Rooms must be able to call kernel.observe/route/shape without hacks.
+Implementation checklist
+•	await TwinPlusKernel.instance.init();
+•	kernel.observe(AppStarted)
+•	Wrap app with TwinPlusScope(kernel: kernel, child: MyApp())
+________________________________________
+C. Global Event Spine Hooks (day one minimum)
+These are “free data” and should be wired immediately.
+Injection point: App lifecycle
+•	On app resume/pause: emit AppResumed, AppPaused
+•	On navigation: emit RoomOpened, RoomClosed
+Where
+•	If you have a central shell/router, hook there.
+•	If you have per-room frames, hook in RoomFrame base widget.
+________________________________________
+D. Mandatory Room Wiring (exact points)
+1) Ready Room (highest priority)
+File(s): your Ready Room widget + services that call web/AI
+Must implement
+•	Before any external call (web or AI): kernel.route(QueryIntent)
+•	Emit RouteChosen(decisionId, strategy, reasonCodes)
+•	After you have a response (from local/web/AI): kernel.shape(OutputIntent)
+•	Render only the shaped output
+•	Emit SuggestionShown (if you show suggested next steps)
+•	Add feedback chips that emit FeedbackGiven:
+o	Too long
+o	Too vague
+o	Wrong source
+o	Stop asking questions
+o	Use internet for this
+o	This is my style
+Day-one throttling
+•	Log TextEdited at most once per 500–800ms while typing.
+•	Always log TextSubmitted.
+________________________________________
+2) Any “Search” UI (Signal Bay search, global search, etc.)
+Must implement
+•	kernel.route(QueryIntent(taskType: local_search/web_fact/etc))
+•	Use plan to decide local vs web vs AI
+•	Emit SourceUsed(local/web/ai) with decisionId
+•	Cache with TTL from RoutePlan
+________________________________________
+3) Any text input used to create content (Tasks, Corkboard notes, etc.)
+File(s): the shared text field widget (TvTextField) + any raw TextFields still used
+Must implement
+•	Replace raw TextField with TvTextField (or wrap it) everywhere you create/submit text
+•	On submit: emit TextSubmitted with:
+o	word count
+o	caps/profanity flags
+o	punctuation density
+o	surface + field id
+•	On autocorrect override: emit AutocorrectOverride
+Outcome: Style + lexicon learning works from day one without AI.
+________________________________________
+4) Analyze Room becomes “Inspector Window,” not the brain
+Twin+ brain is the kernel. Analyze is a view.
+Must implement
+•	Add a “Twin+ Inspector” section that reads kernel.snapshot()
+•	Show:
+o	top lexicon tokens
+o	style signature summary
+o	friction top triggers
+o	last 50 events (redacted)
+o	recent preference changes
+________________________________________
+5) Settings must expose Twin+ governance
+Must implement
+•	Toggle: AI opt-in (already conceptually there)
+•	Token budget caps (daily/weekly)
+•	Export/Import (optional day one; export minimum)
+•	Reset scopes:
+o	Reset Lexicon
+o	Reset Style
+o	Reset Friction
+o	Full reset
+________________________________________
+E. The “No Drift” Enforcement Gate (must ship with day-one wiring)
+You need a simple runtime assertion system that screams in debug builds if anyone bypasses Twin+.
+Create: lib/core/twin_plus/twin_plus_guard.dart
+Rules enforced
+•	If a web/AI call happens without a RoutePlan decisionId → throw/assert in debug
+•	If Ready Room renders assistant text without calling shape() → throw/assert
+•	If AI call happens when AI opt-in is off → block + emit AiBlocked event
+•	If a suggestion is rendered without emitting SuggestionShown → assert
+This is what prevents “we’ll implement Twin+ later.”
+________________________________________
+F. Day-One Behavior: What Twin+ Must Actually Do Immediately
+1) Style Fit Scoring (offline)
+Add: styleFitScore(draftText) in feature store.
+Metrics (cheap, strong)
+•	avg sentence length
+•	punctuation density
+•	caps ratio
+•	profanity flag frequency
+•	bullet usage ratio
+•	“imperative verb” rough count (optional)
+•	n-gram overlap with your top phrases
+Return:
+•	score 0–100
+•	top 3 reasons (too formal, too long, not punchy, etc.)
+2) Friction learning that changes output automatically
+If user hits “Too long” feedback 3 times in a rolling window:
+•	update preference: lengthTargetDefault = short (confidence increases)
+•	shaper compresses output by default
+If user hits “Wrong source / stale”:
+•	router increases verifiability and favors web for time-sensitive queries
+If user hits “Stop asking questions”:
+•	shaper disallows clarifying questions unless confidence < threshold AND risk is high
+3) “Just the facts…” is a runtime signal
+When user types “Just the facts…” (or selects a chip):
+•	emit ModeSignal(justTheFacts=true)
+•	shaper outputs:
+o	bullets/steps only
+o	no narrative
+o	no extra suggestions
+________________________________________
+G. Minimal Code Skeleton (copy-paste ready)
+1) Kernel singleton entry
+// lib/core/twin_plus/twin_plus_kernel.dart
+class TwinPlusKernel {
+  TwinPlusKernel._();
+  static final TwinPlusKernel instance = TwinPlusKernel._();
+
+  late final TwinEventLedger ledger;
+  late final TwinFeatureStore features;
+  late final TwinPreferenceLedger prefs;
+  late final TwinRouter router;
+  late final TwinShaper shaper;
+
+  Future<void> init() async {
+    ledger = await TwinEventLedger.open();
+    prefs = await TwinPreferenceLedger.open();
+    features = await TwinFeatureStore.open(prefs: prefs);
+    router = TwinRouter(prefs: prefs, features: features);
+    shaper = TwinShaper(prefs: prefs, features: features);
+
+    observe(TwinEvent.appStarted());
+  }
+
+  void observe(TwinEvent e) {
+    ledger.append(e);
+    features.apply(e);
+  }
+
+  RoutePlan route(QueryIntent intent) {
+    final plan = router.route(intent);
+    observe(TwinEvent.routeChosen(plan, intent));
+    return plan;
+  }
+
+  ShapedOutput shape(OutputIntent intent) {
+    final out = shaper.shape(intent);
+    observe(TwinEvent.outputShaped(out, intent));
+    return out;
+  }
+
+  TwinSnapshot snapshot() => TwinSnapshot(
+    prefs: prefs.snapshot(),
+    features: features.snapshot(),
+    recentEvents: ledger.query(limit: 50),
+  );
+}
+2) main.dart init hook
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await TwinPlusKernel.instance.init();
+  runApp(TwinPlusScope(kernel: TwinPlusKernel.instance, child: const App()));
+}
+3) Ready Room route+shape enforcement
+Pseudo-structure:
+final kernel = TwinPlusScope.of(context);
+
+final intent = QueryIntent(
+  surface: 'ready_room',
+  queryText: userText,
+  taskType: TaskType.planning, // inferred or set
+  timeHorizon: TimeHorizon.today,
+  needsVerifiableFacts: false, // router may override
+);
+
+final plan = kernel.route(intent);
+
+// Execute plan steps:
+// - local retrieval
+// - optional web retrieval
+// - optional AI (only if plan.aiAllowed)
+
+final rawAnswer = await executePlan(plan);
+
+// ALWAYS shape before render
+final shaped = kernel.shape(OutputIntent(
+  surface: 'ready_room',
+  purpose: Purpose.inform,
+  toneTarget: ToneTarget.neutral,
+  lengthTarget: LengthTarget.normal,
+  draftText: rawAnswer,
+));
+
+setState(() => displayedText = shaped.text);
+________________________________________
+H. Exact “Day-One Done” Definition
+Ship is acceptable when:
+•	✅ Ready Room always routes via kernel.route()
+•	✅ Ready Room always displays via kernel.shape()
+•	✅ TvTextField emits TextSubmitted and TextEdited (throttled)
+•	✅ Feedback chips emit reinforcement events and immediately affect shaping defaults
+•	✅ Analyze shows Twin+ snapshot (inspector)
+•	✅ Settings exposes AI opt-in + budget + reset scopes
+•	✅ Guard asserts if anything bypasses Twin+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Good.
+Now we’re building something real.
+You’re not asking for:
+•	A productivity app
+•	A rule engine
+•	A suggestion system
+You’re asking for:
+Twin+ — a longitudinal behavioral twin with adaptive cognition.
+That is a foundational architectural pivot, not a feature add.
+So we do this correctly.
+________________________________________
+🔥 Twin+ = Cognitive Mirror + Predictive Model
+Twin+ must learn:
+1️⃣ Lexicon Layer
+•	Your vocabulary
+•	Your slang
+•	Your profanity boundaries (“fuck ≠ duck”)
+•	Your abbreviations
+•	Your sarcasm markers
+•	Your punctuation patterns
+•	Your emphasis patterns (ALL CAPS vs controlled tone)
+•	Your sentence cadence
+This becomes:
+PersonalLanguageModel
+Not an LLM.
+A preference-weighted override layer.
+________________________________________
+2️⃣ Autocorrect Intelligence
+Not global Android autocorrect.
+Twin+-aware correction:
+If:
+•	98% of time you typed “fuck”
+•	Never typed “duck”
+•	And context contains frustration
+Then:
+•	Suppress correction
+But if:
+•	You usually spell “seperate”
+•	And 100% of time meant “separate”
+Then:
+•	Soft auto-correct
+This requires:
+LexiconStats {
+  token,
+  frequency,
+  correctionOverride?,
+  profanityIntentScore
+}
+Stored locally.
+No cloud required.
+________________________________________
+3️⃣ Behavioral Time-Series Engine
+You mentioned:
+•	App linger time
+•	Other apps
+•	Texts
+•	Calls
+•	Emails
+•	Tempus interaction depth
+This means:
+Twin+ must ingest:
+AppSessionEvent {
+  appPackage,
+  startTime,
+  duration,
+  foreground?,
+  interactionIntensity
+}
+And correlate with:
+•	Time of day
+•	Day of week
+•	Stress proxy (interaction speed)
+•	Task completion patterns
+That becomes:
+BehavioralRhythmModel
+________________________________________
+4️⃣ Response Style Model
+Twin+ learns:
+•	Default response length
+•	When you prefer concise vs long
+•	When you want blunt mode
+•	When you want exploratory mode
+•	How often you use sarcasm
+•	What triggers Results Mode
+So it adjusts output before AI ever touches it.
+________________________________________
+5️⃣ Context Drift Tracking
+Twin+ must understand:
+You are not static.
+So we track:
+•	Preference stability score
+•	Volatility index
+•	Recency weight decay
+•	Seasonal patterning
+That’s how it predicts 2034 dinner.
+________________________________________
+🧠 Architectural Shift Required
+We introduce a new core module:
+lib/core/twin_plus/
+Containing:
+•	identity_model.dart
+•	lexicon_model.dart
+•	behavior_model.dart
+•	drift_analyzer.dart
+•	reinforcement_engine.dart
+•	context_buckets.dart
+This is separate from:
+LearningStore.
+LearningStore becomes:
+Event ingestion layer.
+Twin+ becomes:
+Pattern abstraction layer.
+________________________________________
+🛡 Privacy Boundary
+Twin+ must remain:
+• Fully local
+• Fully inspectable
+• Fully overrideable
+• Fully resettable
+AI only interprets the state.
+AI never becomes the memory.
+________________________________________
+⚠️ Hard Engineering Reality
+To learn:
+•	Other app usage
+•	Linger time
+•	Call duration
+•	App switching patterns
+We need:
+Android UsageStats permission.
+That is a new permission category.
+You asked earlier:
+“Did you change AndroidManifest?”
+I did not.
+But Twin+ will require:
+<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
+This is not a normal permission.
+User must manually enable via system settings.
+This is a major decision.
+________________________________________
+🧩 Twin+ Implementation Plan (Phase 1)
+We do this in controlled layers.
+Phase 1 (Next ZIP)
+•	Twin+ scaffolding
+•	Lexicon model
+•	Autocorrect override engine
+•	Behavioral event schema
+•	Drift weighting structure
+•	Dev visibility panel for Twin+
+No system-level permissions yet.
+________________________________________
+Phase 2
+•	UsageStats ingestion
+•	App session modeling
+•	Linger-time modeling
+•	Cross-app correlation
+________________________________________
+Phase 3
+•	Predictive patterning
+•	Dinner prediction level modeling
+•	Long-horizon projection curves
+
+
+
+
+
+
+
+
+
+
+
+Good.
+Then we’re doing this properly.
+Not hype.
+Not vibes.
+Not “AI that feels smart.”
+We’re building Twin+ as a deterministic, inspectable, local cognitive engine.
+Magic comes from structure.
+________________________________________
+⚙️ Locking Twin+ Architecture (No Drift)
+We are officially introducing:
+lib/core/twin_plus/
+Modules
+1️⃣ identity_model.dart
+Long-horizon abstraction layer.
+Stores:
+•	preference stability
+•	volatility index
+•	reinforcement weights
+•	drift curves
+•	context influence graph
+This is the “2034 dinner predictor” substrate.
+________________________________________
+2️⃣ lexicon_model.dart
+Personal language intelligence.
+Tracks:
+•	token frequency
+•	correction overrides
+•	profanity intent
+•	misspelling clusters
+•	phrase templates
+•	cadence patterns
+Result:
+Your typing becomes uniquely yours.
+“fuck” never becomes “duck.”
+________________________________________
+3️⃣ behavior_model.dart
+Event ingestion + pattern extraction.
+Tracks:
+•	app session events
+•	linger time
+•	response latency
+•	friction proxy
+•	override frequency
+•	suppression signals
+________________________________________
+4️⃣ drift_analyzer.dart
+Weights:
+•	recency vs lifetime data
+•	seasonal behavior
+•	context shifts
+•	stress indicators
+Prevents fossilization of old you.
+________________________________________
+5️⃣ reinforcement_engine.dart
+Weights learning differently based on:
+•	Dev Mode
+•	Explicit confirmation
+•	Override events
+•	Suppress events
+Dev Mode does NOT contaminate baseline.
+________________________________________
+🧠 What Makes This Real
+Twin+ is NOT:
+•	A static profile
+•	A settings screen
+•	A suggestion counter
+Twin+ is:
+A continuously updated identity graph with weighted context memory.
+And it must be:
+•	Transparent
+•	Inspectable
+•	Overridable
+•	Resettable
+Always.
+________________________________________
+🔬 Dev Mode Evolution
+Dev Mode now becomes:
+Twin+ Inspector Mode
+You will see:
+• Lexicon heatmap
+• Most frequent phrases
+• Correction overrides
+• Drift graph
+• Reinforcement weight changes
+• Habit strength score
+• Volatility index
+• Context cluster breakdown
+You will be able to:
+• Reset specific models
+• Freeze a preference
+• Boost a signal
+• Suppress a pattern
+• View raw event logs
+No black box.
+________________________________________
+📱 UsageStats — We Will Add It
+Since you’re comfortable with everything:
+Twin+ Phase 2 will include:
+Android UsageStats permission.
+That unlocks:
+• App dwell modeling
+• Interaction intensity
+• Avoidance detection
+• App-switch frequency patterns
+• Micro-distraction scoring
+This is how the assistant knows:
+•	When you’re procrastinating
+•	When you’re in flow
+•	When you’re fatigued
+•	When you’re reward-seeking
+And yes…
+Eventually what you want for dinner in 2034.
+________________________________________
+🚨 Important Constraint
+Twin+ must never:
+• Make silent decisions
+• Auto-enforce without visibility
+• Override without confidence threshold
+• Drift without logging
+That would violate your Operating Manual principles 
+michael_files
+So the twin must always be explainable.
+________________________________________
+🧱 Implementation Plan (Immediate Next ZIP)
+Included:
+•	Full Twin+ core scaffolding
+•	Lexicon model
+•	Reinforcement engine
+•	Behavior event schema
+•	Dev Inspector panel in Settings
+•	Daily Brief drill-down fixes
+•	Bottom nav SafeArea fix
+•	Click-through for AI replies
+Not yet:
+•	UsageStats ingestion (Phase 2)
+•	Full predictive model (Phase 3)
+We build foundation first.
+Then power.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Build/Wiring issues
+•	roomName constructor mismatch is fixed in lib/core/module_registry.dart (builders pass roomName: roomName into rooms like BridgeRoom, SignalBayRoom, etc.).
+✅ This directly addresses the compile error you pasted earlier.
+Corkboard core UX
+In lib/ui/rooms/corkboard_room.dart, the big “Corkboard must…” items are already implemented:
+•	✅ Moves immediately on touch (uses Listener.onPointerDown + pan)
+•	✅ Feels like papers (random-ish rotation, colored notes, pin dot)
+•	✅ Light cork texture (_CorkPainter)
+•	✅ Double-tap anywhere to create (onDoubleTapDown)
+•	✅ Drop shadows and “paper” styling
+So: Corkboard is no longer placeholder in this ZIP. It may still need polish, but the “major UX blocker” list is mostly done.
+Global tap-to-dismiss keyboard
+•	✅ Implemented in lib/main.dart using MaterialApp.builder wrapping a GestureDetector that unfocuses on tap.
+Settings includes Theme Mode switching (Dark Mode exists)
+•	✅ lib/ui/rooms/settings_room.dart has ThemeMode radio options (System/Light/Dark).
+•	✅ Theme persistence exists in lib/core/app_settings_store.dart.
+•	✅ Theme is applied in lib/main.dart with TempusTheme.light() / TempusTheme.dark().
+So the “no way to turn dark mode on” complaint is not true for this ZIP (it may have been true in an earlier state).
+Voice plumbing exists (but not the full “preview + everywhere” behavior)
+•	✅ speech_to_text is in pubspec.yaml
+•	✅ TvTextField (lib/ui/theme/tv_textfield.dart) has a mic button + STT capture
+•	✅ RECORD_AUDIO permission exists in AndroidManifest
+But the specific UX requirement (“6-word preview”, mic icon in all inputs, storing transcript consistently) is not fully finished yet.
+Ready Room notification bar overlap
+•	✅ lib/ui/rooms/ready_room.dart wraps the UI in SafeArea()
+So the “covered by Android notification bar” issue should be resolved in this ZIP.
+________________________________________
+What still needs work (verified issues / gaps)
+1) Analyze “cards overlap”
+In lib/ui/rooms/analyze_room.dart, the hub uses:
+•	Fixed SizedBox(height: 260)
+•	Stack with five cards each width: 140 aligned near edges (e.g. Alignment(0.95, 0.55))
+On narrower devices, larger text scale, or smaller height, these will overlap.
+✅ Your report matches what this layout will do in real life.
+2) Analyze is still “scaffolding”, not the real optimization hub
+•	The hub is mostly visual + static labels.
+•	LearningStore.suggest() is currently count-based and early-stage (no time clustering, no scoring over time, no approval UI, no persistence of “accepted rules” separate from “suggestions”).
+So Analyze exists, but it’s not yet the “brain hub that optimizes your life.”
+3) Seed/profile from /docs is not actually integrated
+You have templates in:
+•	docs/templates/profile/user_profile.dart
+•	docs/templates/profile/user_profile_store.dart
+…but the running app does not reference them (no UserProfileStore usage in /lib).
+So your “AI learning should use conception seed file in /docs” requirement is not met yet.
+4) Voice requirements are only partially met
+•	You have STT capture in TvTextField, but no “~6 word preview” pattern being generated/stored consistently.
+•	Inputs that don’t use TvTextField won’t get voice automatically.
+•	No unified “Voice transcript store” yet (it just writes into the field controller).
+5) Visual personality (neon green + white complaint)
+Theme currently declares:
+•	TempusTheme.neonGreen = Color(0xFF39FF14) and uses it as secondary.
+Even if used “sparingly,” it can still read as “neon on white” depending on where accent is applied. Your complaint is plausible given current theme choices.
+6) Ready Room fuzzy matching is not implemented
+I did not see a global fuzzy search layer. There’s no typo-tolerance abstraction in /lib yet.
+________________________________________
+1-Day Plan (single sprint) — Fix overlaps, lock doctrine, move Analyze toward “real hub,” finish voice UX
+Output of the day (definition of done)
+By end of day, you should have:
+1.	Analyze hub never overlaps on common Android sizes + text scaling
+2.	Seeded “profile/learning baseline” actually loaded (local-only) and visible in Analyze
+3.	Voice UX consistent (mic everywhere via TvTextField, + 6-word preview behavior)
+4.	Theme tuned so it doesn’t look like “white + neon green”
+5.	Zero regressions to Local → Internet → Opt-in AI doctrine (AI never required)
+________________________________________
+09:00–10:00 — Fast verification pass (no new features yet)
+Goal: prove what’s broken vs perception.
+•	Run app and visually validate:
+o	Analyze overlap reproduces (try small width + larger font)
+o	Settings → Theme toggle actually flips light/dark
+o	Corkboard drag is immediate + double-tap create
+o	Ready Room not under notification bar
+•	Code audit confirmations (already done from ZIP):
+o	ModuleRegistry passing roomName
+o	TvTextField exists + speech plugin present
+Deliverable: a short checklist in /docs/ (append to existing handoff) stating “Verified in this ZIP: X/Y/Z”.
+________________________________________
+10:00–11:30 — Fix Analyze overlap (hard requirement)
+Files:
+•	lib/ui/rooms/analyze_room.dart
+Plan:
+•	Refactor _hub() into LayoutBuilder so it knows available width/height.
+•	Replace fixed card width 140 with responsive width:
+o	cardW = clamp(constraints.maxWidth * 0.38, 110, 140) (example)
+•	Adjust alignment set based on width:
+o	On narrow widths, drop from 5 cards → 3 cards shown, or stack them into two rows under the hub.
+•	Ensure “Learning Map” title never collides with top cards (give it padding or move it outside the Stack).
+Acceptance:
+•	No overlap on:
+o	small phone widths
+o	textScaleFactor 1.2–1.4
+o	both themes
+________________________________________
+11:30–13:00 — Seed integration (local baseline, not AI)
+Goal: Integrate the “seed profile” concept without invoking AI and without needing the /docs folder at runtime.
+Files (new under /lib):
+•	lib/core/user_profile_store.dart (copy/adapt from docs/templates/profile/user_profile_store.dart)
+•	lib/core/user_profile.dart (copy/adapt from docs/templates/profile/user_profile.dart)
+Wiring:
+•	Call UserProfileStore.ensureSeeded() at app startup (main.dart during init before first render or right after theme load).
+•	Add a small “Seed Loaded” section in Analyze:
+o	show top trusted people + a couple trusted domains
+o	this proves the seed exists and is being used
+Acceptance:
+•	Fresh install creates user_profile.json in app documents dir
+•	Analyze shows seed-derived info even with AI disabled and offline
+________________________________________
+13:00–14:30 — Voice UX completion (mic everywhere + 6-word preview)
+Goal: Make voice consistent and meet your “preview” behavior.
+Files:
+•	lib/ui/theme/tv_textfield.dart
+•	Any screens still using raw TextField for user input (Ready Room, Tasks, Corkboard edit, etc.)
+Plan:
+•	Ensure all primary input fields use TvTextField unless there’s a strong reason not to.
+•	Add a helper:
+o	String makePreview(String text, {int words = 6})
+•	When STT result comes in:
+o	update controller text (already done)
+o	also compute preview and surface it where relevant (example: Tasks list item subtitle / voice note chip)
+•	If “store transcript” means persistence:
+o	Add a tiny VoiceCaptureStore (JSON file) or attach transcript to the entity being created (Task/Cork note/etc.)
+Acceptance:
+•	Mic appears in:
+o	Ready Room input
+o	Tasks add/edit
+o	Corkboard note editor
+•	Voice produces:
+o	full transcript stored/used
+o	6-word preview visible in UI where applicable
+________________________________________
+14:30–15:30 — Theme cleanup (kill the “neon on white” look)
+Files:
+•	lib/ui/theme/tempus_theme.dart
+Plan:
+•	Keep neon green available, but stop using it as a broad secondary color.
+•	Choose a calmer accent for default UI (emerald/amber/steel) and reserve neon for:
+o	“AI enabled” indicator
+o	small highlights (badges, tiny glow, not buttons/backgrounds)
+Acceptance:
+•	Light theme no longer reads as “white + neon green”
+•	Dark theme still feels intentional, not fluorescent
+________________________________________
+15:30–17:00 — Analyze “real optimization” v0 (minimum viable, but real)
+Goal: Make Analyze start behaving like an optimization hub, not just a stats page.
+Files:
+•	lib/core/learning_store.dart
+•	lib/ui/rooms/analyze_room.dart
+Plan:
+•	Expand LearningStore to record timestamps and action history (still local JSON).
+•	Implement 2–3 real signals:
+1.	Repeated promote-to-task from same source → suggest automation rule
+2.	Repeated mute/recycle from same source → suggest rule
+3.	Time-of-day clustering (rough) → “You tend to create tasks from X between 7–9am”
+•	Add “confidence thresholding” (even simple):
+o	don’t suggest until N actions and ratio exceeds threshold
+Acceptance:
+•	Suggestions become meaningfully “optimization” flavored
+•	Nothing requires AI to function
+________________________________________
+17:00–18:00 — Routing doctrine audit (Local → Internet → Opt-in AI)
+Goal: Ensure nothing accidentally moved AI into the critical path.
+Files to review:
+•	lib/services/web/web_search_client.dart
+•	lib/services/ai/openai_client.dart
+•	lib/services/ai/ai_settings_store.dart
+•	lib/ui/rooms/ready_room.dart
+Plan:
+•	Confirm:
+o	web search works regardless of AI enabled
+o	AI buttons/paths only activate when enabled
+o	no “AI auto-call” happens on normal searches
+Acceptance:
+•	Airplane mode: Local still works (tasks, corkboard, signal viewing)
+•	Internet available + AI disabled: Internet search works
+•	AI enabled: AI is augmentation only, never mandatory
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+🔒 Amendment 1: Hard AI Boundary — Intent-Gated AI
+You’re right.
+If someone searches:
+“Who’s the President?”
+Twin+ must:
+1.	Classify taskType = web_fact
+2.	needsVerifiableFacts = true
+3.	timeSensitivity = high
+4.	AI enhancement = optional
+Default route:
+strategy = web_then_render
+aiAllowed = false (unless user explicitly taps enhance)
+AI must not auto-fire for:
+•	factual lookups
+•	time-sensitive data
+•	basic how-to
+•	store hours
+•	prices
+•	sports scores
+•	routing
+AI becomes a second button, not default behavior.
+So we formalize:
+________________________________________
+🔐 AI Invocation Rule
+AI may only execute when:
+RoutePlan.strategy contains *_llm
+AND
+RoutePlan.aiAllowed == true
+AND
+User explicitly enabled AI
+AND
+Intent.classification ∈ {planning, synthesis, optimization}
+Never for:
+taskType == web_fact
+taskType == local_search
+taskType == app_howto
+That keeps AI enhancement user-driven.
+Not paternal.
+Not automatic.
+Intent-respecting.
+________________________________________
+🔒 Amendment 2: Efficiency-First Algorithm
+Since efficiency is king:
+Twin+ must optimize for:
+Decision Latency Reduction
+Not:
+Prediction beauty.
+Not:
+Cognitive modeling elegance.
+So the objective function becomes:
+EfficiencyScore =
+  (DecisionSpeedImprovement * 0.4)
++ (StepsReduced * 0.3)
++ (RepetitionEliminated * 0.2)
++ (ErrorAvoidance * 0.1)
+Accuracy supports efficiency.
+But perfection slows systems down.
+________________________________________
+🔒 Amendment 3: Anti-Overthinking Guard
+Since efficiency > everything:
+Twin+ must not:
+•	Ask clarifying questions unless confidence < threshold
+•	Reconfirm obvious defaults
+•	Over-explain
+We introduce:
+Clarification Gate
+if confidence >= 0.75
+  AND risk_level <= medium
+then
+  do_not_ask_clarifying_question
+Let the system act with educated assumptions.
+If wrong:
+User corrects.
+Reinforcement adjusts.
+System improves.
+This mirrors real-world efficiency.
+________________________________________
+🔒 Amendment 4: Efficiency Drift Bias
+Since long-term identity is last priority:
+Drift half-lives adjust accordingly:
+Model Type	Half-Life
+Tone prefs	180 days
+Friction triggers	90 days
+Time-of-day patterns	30 days
+Optimization automations	14 days
+Workflow shortcuts	7 days
+Meaning:
+Twin+ aggressively adapts workflow efficiency.
+Less aggressively adapts identity tone.
+________________________________________
+🔒 Amendment 5: “IT Guy Learning Mode”
+You nailed this conceptually.
+When Twin+ confidence < 0.6 on a domain:
+It should:
+1.	Escalate to web
+2.	Store retrieval pattern
+3.	Cache with TTL
+4.	Increase confidence in classification logic, not in the fact
+It learns:
+“How to find it”
+Not:
+“The truth permanently.”
+That’s scalable.
+________________________________________
+🔒 Amendment 6: Invisible but Accountable
+Since you don’t want constant feedback loops:
+We shift from:
+Manual correction dependency
+To:
+Behavior inference dominance.
+Twin+ only surfaces:
+•	Automation opportunities
+•	Major drift
+•	Efficiency reports
+•	High-impact rule suggestions
+Not minor adjustments.
+It becomes:
+A silent optimization daemon.
+________________________________________
+🔒 Amendment 7: Efficiency Feedback Loop
+We add a measurable metric:
+Daily Efficiency Delta
+Twin+ calculates:
+•	Average response length reduction
+•	Clarification reduction
+•	Repeated task consolidation
+•	Search escalation accuracy
+•	AI token avoided count
+And occasionally shows:
+“Twin+ eliminated 23 redundant actions this week.”
+That keeps value visible.
+________________________________________
+🔥 The Core Efficiency Algorithm (Refined)
+Because efficiency > everything:
+We change reinforcement weighting.
+Original:
+Explicit override strongest.
+New:
+Efficiency signal strongest.
+Example weights:
+Event	Weight
+Task completed faster than historical avg	1.0
+Repeated clarification avoided	0.9
+Manual override	0.8
+Feedback chip	0.7
+Passive accept	0.3
+Efficiency wins.
+Not preference alone.
+________________________________________
+🔥 Hard Truth
+When efficiency is primary:
+Twin+ must tolerate minor inaccuracies if:
+Correction cost < clarification cost.
+Example:
+It auto-chooses your typical grocery store.
+If wrong?
+You tap different store.
+Done.
+No interrogation.
+No friction.
+Fast correction.
+That’s IT-world behavior.
+________________________________________
+🔥 Final Structural Shift
+Twin+ is no longer:
+“Identity twin.”
+It becomes:
+Operational Efficiency Engine with Identity Awareness.
+Identity matters.
+But only insofar as it improves execution speed.
+________________________________________
+The Only Real Danger Now
+When efficiency > accuracy:
+You must guard against:
+Runaway automation.
+So we add:
+Automation Safety Threshold
+if confidence < 0.85
+  AND action_has_real_world_effect
+then
+  require_user_confirmation
+No auto-sending emails.
+No auto-calendar commits.
+No silent purchases.
+Efficiency cannot compromise control.
+🔒 Amendment 8 — No Qualitative Logic in Core Engine
+Twin+ core logic may not use:
+•	low / medium / high
+•	small / large
+•	preferred / required
+•	soft / hard
+•	vague thresholds
+Everything becomes numeric.
+All routing.
+All reinforcement.
+All drift.
+All automation gating.
+If it can’t be expressed as a number, it cannot influence behavior.
+________________________________________
+🔥 Full Workflow Chain Optimization (The Real Upgrade)
+You chose:
+FULL workflow chains.
+This changes everything.
+Twin+ no longer optimizes individual decisions.
+It optimizes:
+Chains of actions over time.
+That requires a new object:
+________________________________________
+🧠 WorkflowChain Model
+Every action becomes part of a chain graph.
+WorkflowNode {
+  id
+  action_type
+  timestamp
+  duration
+  result
+  friction_score
+  context_hash
+}
+
+WorkflowEdge {
+  from_node
+  to_node
+  transition_time
+  efficiency_delta
+}
+Twin+ tracks:
+•	How long between steps
+•	Where friction spikes
+•	Where context switching occurs
+•	Where repetition occurs
+This enables:
+Chain compression.
+________________________________________
+🔥 Efficiency Function (Fully Numerical)
+Now we define the real objective function.
+For a workflow chain:
+ChainEfficiencyScore =
+    (1 / total_duration) * w1
+  + (1 / context_switches) * w2
+  + (1 / friction_events) * w3
+  + (automation_ratio) * w4
+  - (error_correction_cost) * w5
+All weights numeric.
+All inputs numeric.
+All measurable.
+No “medium.”
+________________________________________
+🔥 Clarification Gate (Numeric Version)
+Instead of:
+if risk <= medium
+We define:
+risk_score ∈ [0,1]
+confidence_score ∈ [0,1]
+impact_cost ∈ [0,1]
+Then:
+ask_clarification = 
+    (confidence_score * (1 - risk_score) * (1 - impact_cost)) < 0.52
+That’s it.
+Adjust 0.52 only if necessary.
+No language.
+No fuzziness.
+________________________________________
+🔥 Automation Gate (Numeric Version)
+Instead of:
+require confirmation if real-world impact
+We define:
+automation_score =
+    (confidence_score * 0.6)
+  + (historical_success_rate * 0.3)
+  - (impact_cost * 0.7)
+If:
+automation_score >= 0.82
+Auto-execute.
+Else:
+Require confirmation.
+Every component measurable.
+________________________________________
+🔥 IT-Style Learning Trigger (Numeric)
+Instead of:
+confidence < threshold
+We define:
+escalate_to_web =
+    (knowledge_confidence < 0.63)
+  AND (verifiability_requirement > 0.55)
+  AND (network_available == 1)
+AI escalation becomes:
+escalate_to_ai =
+    (complexity_score > 0.71)
+  AND (local_solution_confidence < 0.68)
+  AND (ai_opt_in == 1)
+  AND (ai_budget_remaining > cost_estimate)
+All numerical.
+All explicit.
+________________________________________
+🔥 Drift Model (Numeric Half-Life)
+Each preference has:
+weight(t) = weight_initial * e^(-λt)
+Where:
+λ = ln(2) / half_life_days
+No arbitrary decay.
+Real exponential decay.
+Stable.
+Predictable.
+________________________________________
+🔥 Chain-Level Optimization Engine
+Now we move to what you really asked for:
+FULL chain compression.
+Twin+ should compute:
+ChainCompressionOpportunity =
+    (repeated_pattern_frequency * 0.4)
+  + (time_between_steps_variance * 0.2)
+  + (manual_redundancy_score * 0.3)
+  - (automation_risk_score * 0.5)
+If score > 0.74:
+Suggest automation.
+If > 0.88:
+Offer one-tap chain execution.
+If > 0.94:
+Pre-stage automation.
+No vague triggers.
+________________________________________
+🔥 Efficiency > Accuracy (Numerical Tradeoff)
+You declared:
+Efficiency > Accuracy.
+So we formalize:
+decision_value =
+    (efficiency_gain * 0.55)
+  + (accuracy_score * 0.25)
+  - (friction_cost * 0.1)
+  + (long_term_alignment * 0.1)
+This becomes the primary optimization metric.
+Everything routes through this.
+________________________________________
+🔥 Invisible But 100% Active
+Twin+ becomes:
+A background optimizer that:
+•	Continuously recalculates chain efficiency
+•	Updates weights
+•	Applies decay
+•	Tracks context-switch cost
+•	Detects redundant patterns
+•	Reorders suggestions based on chain gain
+It only surfaces when:
+chain_efficiency_improvement >= 0.18
+(18% improvement threshold as initial baseline)
+No chatter.
+Only material gain.
+
+

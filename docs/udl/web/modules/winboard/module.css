@@ -1,0 +1,14 @@
+@import url("/ui/shared/tokens.css");
+@import url("/ui/shared/components.css");
+body{ background: transparent; }
+.wrap{ padding: 18px; }
+.hdr{ display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.tiles{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1200px){ .tiles{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px){ .tiles{ grid-template-columns: 1fr; } }
+.splitGrid{ display:grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-top: 14px; }
+@media (max-width: 1100px){ .splitGrid{ grid-template-columns: 1fr; } }
+.win{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding: 10px 12px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.20); }
+.win:hover{ border-color: rgba(33,215,198,0.22); }
+.win .t{ font-weight: 850; }

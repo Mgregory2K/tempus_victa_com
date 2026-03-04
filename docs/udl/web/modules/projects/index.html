@@ -1,0 +1,23 @@
+<h1>Projects</h1>
+<button onclick="add()">Add Project</button>
+<ul id="list"></ul>
+<script>
+const KEY="udl_records_projects";
+const list=document.getElementById('list');
+function load(){
+ const items=JSON.parse(localStorage.getItem(KEY)||"[]");
+ list.innerHTML="";
+ items.forEach(p=>{
+  const li=document.createElement('li');
+  li.textContent=p.title+" ("+p.createdAt+")";
+  list.appendChild(li);
+ });
+}
+function add(){
+ const items=JSON.parse(localStorage.getItem(KEY)||"[]");
+ items.push({id:crypto.randomUUID(),title:"Project "+(items.length+1),createdAt:new Date().toISOString()});
+ localStorage.setItem(KEY,JSON.stringify(items));
+ load();
+}
+load();
+</script>

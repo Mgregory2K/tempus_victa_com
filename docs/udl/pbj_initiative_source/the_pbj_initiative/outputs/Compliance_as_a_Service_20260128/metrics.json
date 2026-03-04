@@ -1,0 +1,20 @@
+{
+  "business": "Compliance as a Service",
+  "verdict": "HOLD",
+  "pbj_result": "HOLD",
+  "confidence": 0.64,
+  "primary_reason": "Score: 18/28 with 0 critical FAIL(s). Authorities resolved: 6.",
+  "core_tests": {
+    "ethical": "PASS",
+    "repeatable": "PASS",
+    "profitable": "HOLD",
+    "manageable": "HOLD"
+  },
+  "capital_required_usd": 0,
+  "delegatability_score": 8.0,
+  "build_hours_range": null,
+  "delivery_initial_hours_range": null,
+  "delivery_target_hours": null,
+  "kill_switches": "",
+  "next_actions": ""
+}

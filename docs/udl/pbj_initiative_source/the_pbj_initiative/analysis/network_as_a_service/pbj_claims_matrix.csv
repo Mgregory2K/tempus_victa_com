@@ -1,0 +1,6 @@
+Claim_ID,Claim,Axis,Score_Impact,Source_IDs,Tier_Min,Contrarian_Source_IDs,Notes
+C-001,Multiple market reports project strong NaaS growth (20%+ CAGR) over multi-year horizons.,Market Demand,High,M-001;M-002;M-003,B,K-001,Primary demand signal.
+C-002,"Adjacent managed network services markets are large and growing, supporting outsourced networking demand.",Market Demand,Medium,M-004;M-005,B,K-001,Adjacent category reinforcement.
+C-003,MSP pricing guidance/surveys show common per-user price bands and examples for managed services packaging.,Economic Viability,Medium,O-001;O-002,B,K-001,Benchmarks; validate by vertical and scope.
+C-004,"NaaS definition implies self-service, elastic scaling, OPEX/consumption billing; device ownership deemphasized.",Product Scope,Medium,G-001;G-002,B,K-001,Defines 'true NaaS' vs MSP bundle.
+C-005,Contrarian evidence set is incomplete; confidence must be capped until failures/churn cases are sourced.,Evidence Quality,High,,C,K-001,Keeps gate at WARN until populated.

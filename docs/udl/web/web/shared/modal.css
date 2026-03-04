@@ -1,0 +1,70 @@
+/* Azure-ish Modal (soft deep blue, not black) */
+.udl-modal-overlay{
+  position:fixed; inset:0;
+  background: rgba(3, 13, 28, 0.55);
+  backdrop-filter: blur(2px);
+  display:flex; align-items:center; justify-content:center;
+  z-index: 9999;
+}
+
+.udl-modal.azure{
+  width: min(900px, 96vw);
+  max-height: 88vh;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: linear-gradient(180deg, rgba(14, 46, 86, .92), rgba(8, 26, 48, .92));
+  box-shadow: 0 28px 80px rgba(0,0,0,.55);
+  color: rgba(255,255,255,.92);
+}
+
+.udl-modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(148,163,184,.18);
+}
+
+.udl-modal-header h2{
+  margin:0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.udl-modal-body{
+  padding: 16px 18px;
+  overflow: auto;
+  max-height: calc(88vh - 140px);
+}
+
+.udl-modal label{
+  display:block;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,.88);
+  margin: 0 0 6px 0;
+}
+
+.udl-modal input,
+.udl-modal select,
+.udl-modal textarea{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,.25);
+  background: rgba(2, 10, 22, .35);
+  color: rgba(255,255,255,.95);
+}
+
+.udl-modal textarea{ min-height: 120px; resize: vertical; }
+
+.udl-modal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid rgba(148,163,184,.18);
+}

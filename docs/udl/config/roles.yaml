@@ -1,0 +1,28 @@
+version: 1
+roles:
+  Admin:
+    can_write: true
+    can_configure: true
+    can_export: true
+    can_view_audit: true
+    storage_mode: persistent
+  Contributor:
+    can_write: true
+    can_configure: false
+    can_export: true
+    can_view_audit: false
+    storage_mode: persistent
+  Reader:
+    can_write: false
+    can_configure: false
+    can_export: false
+    can_view_audit: false
+    storage_mode: persistent
+  Demo:
+    can_write: true
+    can_configure: false
+    can_export: false
+    can_view_audit: false
+    storage_mode: ephemeral
+    purge_on_logout: true
+default_role: Admin

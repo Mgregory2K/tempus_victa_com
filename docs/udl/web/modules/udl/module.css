@@ -1,0 +1,18 @@
+@import url("/ui/shared/tokens.css");
+@import url("/ui/shared/components.css");
+body{ background: transparent; }
+.wrap{ padding: 18px; }
+.hdr{ display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.kpiGrid{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1200px){ .kpiGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px){ .kpiGrid{ grid-template-columns: 1fr; } }
+.projectGrid{ display:grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-top: 14px; }
+@media (max-width: 1100px){ .projectGrid{ grid-template-columns: 1fr; } }
+.pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px;
+  border:1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.18); color: var(--muted); font-size: 12px; }
+.pill .dot{ width:8px; height:8px; border-radius:50%; background: var(--accent); box-shadow: 0 0 18px rgba(47,140,255,0.22); }
+.pill.good .dot{ background: var(--good); box-shadow: 0 0 18px rgba(61,255,178,0.20); }
+.pill.warn .dot{ background: var(--warn); }
+.pill.bad .dot{ background: var(--bad); }
+.split{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.mini{ font-size: 12px; color: var(--muted); }

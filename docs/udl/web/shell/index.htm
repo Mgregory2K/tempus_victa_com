@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+
+<html data-theme="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Unified Dashboard Lite v2</title>
+  
+<link href="/ui/shared/tokens.css" rel="stylesheet"/>
+<link href="/ui/shared/components.css" rel="stylesheet"/>
+<link href="/ui/shared/shell.base.css" rel="stylesheet"/>
+<link href="/ui/shared/shell.azure.css" rel="stylesheet"/>
+
+  </head>
+<body>
+<div class="app">
+<aside class="sidebar">
+<div class="brand">
+<div class="logo">U</div>
+<div class="title">
+          Unified Dashboard Lite
+          <small>udl_v2</small>
+</div>
+</div>
+<nav class="nav" id="nav">
+<div class="section">Core</div>
+<a class="active" data-route="/analytics" href="#/analytics"><span>Analytics</span><span class="tag">A</span></a>
+<a data-route="/settings" href="#/settings"><span>Settings</span><span class="tag">S</span></a>
+<div class="section">Modules</div>
+<a data-route="/udl" href="#/udl"><span>UDL</span><span class="tag">M</span></a>
+<a data-route="/pbj" href="#/pbj"><span>PBJ</span><span class="tag">M</span></a>
+<a data-route="/ship" href="#/ship"><span>Ship</span><span class="tag">M</span></a>
+<a data-route="/winboard" href="#/winboard"><span>WinBoard</span><span class="tag">M</span></a>
+<div class="section">Admin</div>
+<a data-route="/audit" href="#/audit"><span>Audit Logs</span><span class="tag">L</span></a>
+</nav>
+<div class="footer">
+<div class="usercard">
+<div class="row1">
+<div class="userpill">
+<div class="avatar"></div>
+<div>
+<div style="font-weight:700;">Local Operator</div>
+<div class="muted" id="roleLabel" style="font-size:12px;">Role: Admin</div>
+</div>
+</div>
+<button class="btn ghost" id="themeBtn" title="Toggle theme">🌓</button>
+</div>
+<div style="margin-top:10px; display:flex; gap:10px;">
+<button class="btn" id="workspaceBtn" style="flex:1;">Switch Workspace</button>
+<button class="btn" id="logoutBtn">Demo Purge</button>
+</div>
+</div>
+</div>
+</aside>
+<main class="main">
+<header class="topbar">
+<div class="crumbs" id="crumbs">Home <span class="muted">›</span> <b>Analytics</b></div>
+<div class="actions">
+<span class="chip" id="netChip">LAN: ready</span>
+<button class="btn" id="quickExportBtn">Export</button>
+<button class="btn primary" id="inviteBtn">Invite</button>
+</div>
+</header>
+<section class="content" id="content">
+<!-- shell renders here -->
+</section>
+</main>
+</div>
+<script src="/ui/shell/shell.js" type="module"></script>
+</body>
+</html>
