@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tempus Victa // Cognitive OS
+
+**Operational Status: Phase 1.0 (Ready Room Protocol Active)**
+
+Tempus Victa is a **local-first cognitive operating system** that turns every input from your life—voice captures, texts, shared content, notifications, and manual entries—into structured, actionable intelligence through a centralized Doctrine engine.
+
+Built for the year 45,000,003 AD but functional today.
+
+## 🧬 Twin+ Doctrine (The Learning Substrate)
+
+Twin+ is not a feature; it is the app's continuous behavioral substrate. It is a local, inspectable, evolving model of the user that shapes every interaction from day one.
+
+- **Mirror**: Learns your language, cadence, tone, and decision patterns.
+- **Predict**: Forecasts next actions and potential derailments.
+- **Optimize**: Suggests reductions in cognitive load based on historical successes.
+- **Escalation Ladder**: Strictly follows **Local → Internet → Opt-in AI**.
+
+## 🛰 Core Modules (Windows into Twin+)
+
+- **The Bridge**: Your strategic cockpit. View cognitive load, time reclaimed, and the Twin+ Daily Brief.
+- **The Ready Room**: A self-aware deliberation chamber. Engage Twin+ for socratic debates, lexicon learning, and high-fidelity stress-testing.
+- **The Doctrine**: The immutable hierarchy of intelligence.
+- **Settings**: Control your neural link, provide API keys, and manage Azure/Entra identity.
+
+## 🛠 Tech Stack
+
+- **Framework**: [Next.js 15](https://nextjs.org) (App Router)
+- **Interface**: [Tailwind CSS 4](https://tailwindcss.com) with Custom HUD Cockpit styling.
+- **Intelligence**: Integrated OpenAI (GPT-4o) with intent-based escalation and live internet context.
+- **Identity**: Azure / Entra integration (In Progress).
+
+## 🚀 Ingestion & Routing
+
+1. **Observe**: Every interaction is an event logged to the Twin+ ledger.
+2. **Route**: Decisions are made based on time-sensitivity and verifiability needs (Local > Internet > AI).
+3. **Shape**: Outputs are modified by Twin+ to match your preferred tone, length, and "Results Mode" constraints.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000) to initialize The Bridge.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+*"I have a guy for that. Tempus Victa is my Twin+ assistant, and AI is its assistant."*
