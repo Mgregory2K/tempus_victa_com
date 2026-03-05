@@ -37,6 +37,7 @@ class TwinPlusKernel {
   public async init(): Promise<void> {
     if (this.isInitialized) return;
 
+    // Ordered instantiation to prevent race conditions
     this.ledger = await TwinEventLedger.open();
     this.prefs = await TwinPreferenceLedger.open();
     this.features = await TwinFeatureStore.open(this.prefs);
@@ -46,9 +47,8 @@ class TwinPlusKernel {
     this.isInitialized = true;
     console.log("Twin+ Kernel Initialized.");
 
-    // Drain any events that occurred during the init window
+    // Drain queued events into the ledger
     if (this.eventQueue.length > 0) {
-        console.log(`Draining ${this.eventQueue.length} queued events.`);
         this.eventQueue.forEach(e => this.observe(e));
         this.eventQueue = [];
     }
@@ -62,18 +62,13 @@ class TwinPlusKernel {
         return;
     }
 
+    // Single source of truth for persistence: The Ledger handles the save
     this.ledger.append(e);
     this.features.apply(e);
-
-    if (typeof window !== 'undefined') {
-        const history = JSON.parse(localStorage.getItem('tv_event_history') || '[]');
-        history.push(e);
-        localStorage.setItem('tv_event_history', JSON.stringify(history.slice(-1000)));
-    }
   }
 
   public route(intent: QueryIntent): RoutePlan {
-    if (!this.isInitialized) throw new Error("Kernel not ready for routing.");
+    if (!this.isInitialized) throw new Error("Kernel not ready.");
     const plan = this.router.route(intent);
     this.observe(createEvent('INTENT_ROUTED', { intent, plan }, intent.surface));
     return plan;
@@ -81,7 +76,7 @@ class TwinPlusKernel {
 
   public shape(intent: OutputIntent): ShapedOutput {
     if (!this.isInitialized) {
-        return { text: intent.draftText, shapingApplied: ['KERNEL_NOT_READY'] };
+        return { text: intent.draftText, shapingApplied: ['KERNEL_STANDBY'] };
     }
     return this.shaper.shape(intent);
   }
