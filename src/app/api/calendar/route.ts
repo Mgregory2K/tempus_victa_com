@@ -11,31 +11,40 @@ export async function GET(req: Request) {
   }
 
   try {
-    const auth = new google.auth.OAuth2();
-    auth.setCredentials({ access_token: token.accessToken });
+    const auth = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+    );
+
+    auth.setCredentials({
+        access_token: token.accessToken as string,
+        refresh_token: token.refreshToken as string
+    });
 
     const calendar = google.calendar({ version: 'v3', auth });
 
-    // --- FIX: Fetch events for the entire day ---
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1); // End of today
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const response = await calendar.events.list({
       calendarId: 'primary',
       timeMin: today.toISOString(),
-      timeMax: tomorrow.toISOString(), // Fetch until the end of the day
-      maxResults: 25, // Increased limit for a full day
+      timeMax: tomorrow.toISOString(),
+      maxResults: 25,
       singleEvents: true,
       orderBy: 'startTime',
     });
 
-    const events = response.data.items;
-    return NextResponse.json(events);
+    return NextResponse.json(response.data.items || []);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching calendar events:', error);
+    // If it's a 401, the token is definitely dead and needs re-auth
+    if (error.code === 401) {
+        return NextResponse.json({ error: 'Invalid Credentials' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Failed to fetch calendar events' }, { status: 500 });
   }
 }

@@ -10,6 +10,8 @@ const handler = NextAuth({
       authorization: {
         params: {
           scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+          access_type: "offline",
+          prompt: "consent",
         },
       },
     }),
@@ -19,12 +21,15 @@ const handler = NextAuth({
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;
+        token.refreshToken = account.refresh_token;
+        token.expiresAt = account.expires_at;
       }
       return token;
     },
     async session({ session, token }) {
-      // Add access token to session
+      // Add tokens to session for use in API routes
       session.accessToken = token.accessToken as string;
+      session.refreshToken = token.refreshToken as string;
       return session;
     },
   },
