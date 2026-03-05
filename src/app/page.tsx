@@ -8,11 +8,14 @@ import ReviewScreen from "@/components/ReviewScreen";
 import SignalBay from "@/components/SignalBay";
 import Corkboard from "@/components/Corkboard";
 import QuoteBoard from "@/components/QuoteBoard";
+import Winboard from "@/components/Winboard";
+import SovereignTodo from "@/components/SovereignTodo";
+import GroceryList from "@/components/GroceryList";
 import { useSession } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
-type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES";
+type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "LISTS" | "TODO";
 
 interface Message {
   role: string;
@@ -264,7 +267,7 @@ function AppShell() {
     }
 
     const savedModule = localStorage.getItem("tv_active_module");
-    if (savedModule && ["BRIDGE", "READY_ROOM", "MISSIONS", "DOCTRINE", "SETTINGS", "REVIEW", "SIGNALS", "CORKBOARD", "QUOTES"].includes(savedModule)) {
+    if (savedModule && ["BRIDGE", "READY_ROOM", "MISSIONS", "DOCTRINE", "SETTINGS", "REVIEW", "SIGNALS", "CORKBOARD", "QUOTES", "WINBOARD", "LISTS", "TODO"].includes(savedModule)) {
         setActiveModule(savedModule as Module);
     }
 
@@ -346,6 +349,26 @@ function AppShell() {
               {activeModule === "SIGNALS" && (
                 <div className="module-enter">
                   <SignalBay />
+                </div>
+              )}
+              {activeModule === "WINBOARD" && (
+                <div className="module-enter h-full">
+                  <Winboard />
+                </div>
+              )}
+              {activeModule === "MISSIONS" && (
+                <div className="module-enter">
+                  <WorkoutTracker />
+                </div>
+              )}
+              {activeModule === "TODO" && (
+                <div className="module-enter">
+                  <SovereignTodo />
+                </div>
+              )}
+              {activeModule === "LISTS" && (
+                <div className="module-enter">
+                  <GroceryList />
                 </div>
               )}
               {activeModule === "CORKBOARD" && (
@@ -561,10 +584,12 @@ function AppShell() {
               {[
                 { id: "BRIDGE", label: "TODAY" },
                 { id: "SIGNALS", label: "SIGNAL BAY" },
-                { id: "MISSIONS", label: "PROJECTS" },
+                { id: "WINBOARD", label: "WINBOARD" },
+                { id: "MISSIONS", label: "WORKOUT" },
+                { id: "TODO", label: "TO-DO" },
+                { id: "LISTS", label: "LISTS" },
                 { id: "CORKBOARD", label: "CORKBOARD" },
                 { id: "REVIEW", label: "REVIEW" },
-                { id: "QUOTES", label: "QUOTES" },
                 { id: "READY_ROOM", label: "READY ROOM" }
               ].map(item => (
                 <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`px-6 system-text text-[9px] font-black transition-all relative overflow-hidden group min-w-[100px] h-full ${activeModule === item.id ? 'text-white bg-accent/20' : 'text-white/20 hover:text-white/60 uppercase'}`}>
