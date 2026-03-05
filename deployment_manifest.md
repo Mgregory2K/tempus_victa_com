@@ -6,10 +6,11 @@
 
 ### Phase 1: Identity & Security
 
+- [ ] **FIREWALL**: In Azure Portal, ensure Inbound Port Rules for `80` (HTTP) and `443` (HTTPS) are **Allowed**. This is required for SSL certificate validation.
 - [x] **DNS**: Point `A` record for `tempusvicta.com` to `172.183.153.240`. (VERIFIED)
 - [ ] **GCP**: Add `https://tempusvicta.com` to Authorized JavaScript origins.
 - [ ] **GCP**: Add `https://tempusvicta.com/api/auth/callback/google` to Authorized redirect URIs.
-- [ ] **Firewall**: In Azure Portal, ensure Port `80` and `443` are open for HTTP/HTTPS.
+- [ ] **Service Conflict**: Ensure no other service (PRTG, IIS) is using Port 80/443.
 
 ---
 
@@ -25,12 +26,8 @@
 
 - [ ] **Clone**: Pull the code to `C:\Projects\tempus_victa`.
 - [ ] **Build**: Run `npm install` and `npm run build`.
-- [ ] **Create Service (NSSM)**: 
-    - Run `nssm install TempusVicta`.
-    - Path: `C:\Program Files\nodejs\node.exe`
-    - Startup directory: `C:\Projects\tempus_victa`
-    - Arguments: `node_modules\next\dist\bin\next start -p 3010`
-- [ ] **Caddy Start**: Run `caddy run --config Caddyfile` (or as a service).
+- [ ] **Create Service (NSSM)**: `nssm install TempusVicta`.
+- [ ] **Caddy Start**: `caddy run` (for testing) or `caddy start` (for background service).
 
 ---
 
