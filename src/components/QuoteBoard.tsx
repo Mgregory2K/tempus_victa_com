@@ -49,8 +49,10 @@ export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProp
         }
         setInput("");
 
-        twinPlusKernel.observe(createEvent('QUOTE_CRYSTALLIZED', { text: input }, 'QUOTES'));
+        // FIX: Corrected event type to 'QUOTE_CAPTURED'
+        twinPlusKernel.observe(createEvent('QUOTE_CAPTURED', { text: input }, 'QUOTES'));
 
+        // Push to Notion Bridge if key exists
         const notionKey = localStorage.getItem("tv_notion_key");
         if (notionKey) {
             setIsSyncing(true);
@@ -79,7 +81,6 @@ export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProp
     const handleDelete = (id: string) => {
         if (setQuotes) {
             setQuotes(prev => prev.filter(q => q.id !== id));
-            twinPlusKernel.observe(createEvent('QUOTE_DELETED', { id }, 'QUOTES'));
         }
     };
 
@@ -91,7 +92,6 @@ export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProp
     const saveEdit = () => {
         if (setQuotes && editingId) {
             setQuotes(prev => prev.map(q => q.id === editingId ? { ...q, text: editValue } : q));
-            twinPlusKernel.observe(createEvent('QUOTE_EDITED', { id: editingId, newText: editValue }, 'QUOTES'));
             setEditingId(null);
         }
     };

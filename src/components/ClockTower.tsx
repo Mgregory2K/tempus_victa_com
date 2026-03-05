@@ -5,7 +5,11 @@ import React, { useState, useEffect } from 'react';
 import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
 import { TwinEvent } from '@/core/twin_plus/twin_event';
 
-export default function ClockTower() {
+interface ClockTowerProps {
+    onNavigate?: (module: string) => void;
+}
+
+export default function ClockTower({ onNavigate }: ClockTowerProps) {
     const [events, setEvents] = useState<TwinEvent[]>([]);
     const [filter, setFilter] = useState<string>('ALL');
 
@@ -62,10 +66,10 @@ export default function ClockTower() {
                         <div key={idx} className="hud-panel p-3 bg-white/[0.02] border-white/5 flex items-start gap-4 group hover:border-white/20 transition-all">
                             <div className="flex flex-col items-center min-w-[80px] border-r border-white/5 pr-4">
                                 <span className="text-[9px] font-black text-white/20">
-                                    {new Date(event.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                    {new Date(event.ts).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                 </span>
                                 <span className="text-[7px] font-bold text-white/10 uppercase tracking-tighter">
-                                    {new Date(event.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                    {new Date(event.ts).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                                 </span>
                             </div>
 

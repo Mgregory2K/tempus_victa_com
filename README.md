@@ -1,6 +1,6 @@
 # Tempus Victa // Cognitive OS
 
-**Operational Status: Phase 1.0 (Ready Room Protocol Active)**
+**Operational Status: v2.6 (Sovereign LAN)**
 
 Tempus Victa is a **local-first cognitive operating system** that turns every input from your life—voice captures, texts, shared content, notifications, and manual entries—into structured, actionable intelligence through a centralized Doctrine engine.
 
@@ -27,22 +27,23 @@ Twin+ is not a feature; it is the app's continuous behavioral substrate. It is a
 - **Framework**: [Next.js 15](https://nextjs.org) (App Router)
 - **Interface**: [Tailwind CSS 4](https://tailwindcss.com) with Custom HUD Cockpit styling.
 - **Intelligence**: Integrated OpenAI (GPT-4o) with intent-based escalation and live internet context.
-- **Identity**: Azure / Entra integration (In Progress).
+- **Identity**: Google (Sovereign OAuth)
 
-## 🚀 Ingestion & Routing
+## 🚀 Production-First Workflow (Mobile Ready)
 
-1. **Observe**: Every interaction is an event logged to the Twin+ ledger.
-2. **Route**: Decisions are made based on time-sensitivity and verifiability needs (Local > Internet > AI).
-3. **Shape**: Outputs are modified by Twin+ to match your preferred tone, length, and "Results Mode" constraints.
+The `dev` server is not suitable for mobile or LAN testing due to aggressive caching. Use the following production workflow for a stable, mobile-first experience.
 
-## Getting Started
-
+**1. Build for Production:**
 ```bash
-npm install
-npm run dev
+npm run build
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to initialize The Bridge.
+**2. Start the Production Server:**
+```bash
+npm run start -- -H 0.0.0.0
+```
+
+Visit [http://localhost:3010](http://localhost:3010) on your desktop or your machine's IP (e.g., http://192.168.40.250:3010) on a mobile device.
 
 ---
 *"I have a guy for that. Tempus Victa is my Twin+ assistant, and AI is its assistant."*

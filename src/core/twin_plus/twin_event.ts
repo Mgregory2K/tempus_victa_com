@@ -9,7 +9,9 @@ export type TwinEventType =
   | 'PROTOCOL_INVOKED'
   | 'PROTOCOL_TERMINATED'
   | 'INTENT_ROUTED'
-  | 'ENTROPY_REDUCED';
+  | 'ENTROPY_REDUCED'
+  | 'SIGNAL_ROUTED'
+  | 'SIGNAL_DECAYED'; // Added to satisfy SignalBay
 
 /**
  * Defines the schema for a TwinEvent.

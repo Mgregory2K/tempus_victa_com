@@ -1,10 +1,7 @@
-"use client";
-
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { useEffect } from "react";
-import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
-import { SessionProvider } from "next-auth/react";
+import ClientShell from "./ClientShell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,22 +13,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const metadata: Metadata = {
+  title: "Tempus Victa // Cognitive OS",
+  description: "Sovereign Intelligence Layer",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#000000",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  useEffect(() => {
-    // This initializes the Twin+ kernel on the client-side when the app starts.
-    twinPlusKernel.init();
-  }, []);
-
   return (
     <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white selection:bg-indigo-500/30`}
-      >
-        <SessionProvider>{children}</SessionProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}>
+        <ClientShell>{children}</ClientShell>
       </body>
     </html>
   );
