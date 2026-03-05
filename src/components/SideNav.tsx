@@ -4,10 +4,10 @@
 import React from 'react';
 import { useSession, signIn } from "next-auth/react";
 
-const NavItem = ({ name, isLinked, onClick }: { name: string, isLinked?: boolean, onClick?: () => void }) => (
+const NavItem = ({ name, isLinked, isActive, onClick }: { name: string, isLinked?: boolean, isActive?: boolean, onClick?: () => void }) => (
     <div
         onClick={onClick}
-        className={`group relative flex items-center p-3 my-3 bg-white/[0.02] border border-white/5 hover:border-accent/40 transition-all cursor-pointer overflow-hidden`}
+        className={`group relative flex items-center p-3 my-3 bg-white/[0.02] border transition-all cursor-pointer overflow-hidden ${isActive ? 'border-accent/60 bg-accent/5' : 'border-white/5 hover:border-accent/40'}`}
     >
         <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all ${isLinked ? 'bg-neon-green shadow-[0_0_10px_#22c55e]' : 'bg-white/10 group-hover:bg-accent/40'}`} />
 
@@ -16,7 +16,7 @@ const NavItem = ({ name, isLinked, onClick }: { name: string, isLinked?: boolean
         </div>
 
         <div className="flex flex-col">
-            <span className={`system-text text-[10px] font-black tracking-widest ${isLinked ? 'text-white' : 'text-white/40'}`}>{name}</span>
+            <span className={`system-text text-[10px] font-black tracking-widest ${isActive ? 'text-accent' : isLinked ? 'text-white' : 'text-white/40'}`}>{name}</span>
             <span className="text-[7px] text-white/20 font-bold uppercase tracking-tighter">
                 {isLinked ? 'Link Stable' : 'Pending Auth'}
             </span>
@@ -27,11 +27,16 @@ const NavItem = ({ name, isLinked, onClick }: { name: string, isLinked?: boolean
     </div>
 );
 
-export default function SideNav() {
+interface SideNavProps {
+    activeModule?: string;
+    onModuleChange?: (module: any) => void;
+}
+
+export default function SideNav({ activeModule, onModuleChange }: SideNavProps) {
     const { data: session } = useSession();
 
     return (
-        <nav className="w-64 p-6 border-r border-white/10 bg-black/40 hidden lg:block relative">
+        <nav className="w-64 p-6 border-r border-white/10 bg-black/40 hidden lg:block relative shrink-0">
             <div className="mb-8">
                 <h2 className="system-text text-[10px] text-accent font-black tracking-[0.3em] mb-1">NEURAL NODES</h2>
                 <div className="h-px w-full bg-gradient-to-r from-accent/40 to-transparent" />
@@ -43,9 +48,26 @@ export default function SideNav() {
                     isLinked={!!session}
                     onClick={!session ? () => signIn('google') : undefined}
                 />
-                <NavItem name="Wrike P2" />
-                <NavItem name="Notion" />
-                <NavItem name="Neural Link" />
+                <NavItem
+                    name="Wrike P2"
+                    isActive={activeModule === 'MISSIONS'}
+                    onClick={() => onModuleChange?.('MISSIONS')}
+                />
+                <NavItem
+                    name="Signal Bay"
+                    isActive={activeModule === 'SIGNALS'}
+                    onClick={() => onModuleChange?.('SIGNALS')}
+                />
+                <NavItem
+                    name="Corkboard"
+                    isActive={activeModule === 'CORKBOARD'}
+                    onClick={() => onModuleChange?.('CORKBOARD')}
+                />
+                <NavItem
+                    name="Quotes"
+                    isActive={activeModule === 'QUOTES'}
+                    onClick={() => onModuleChange?.('QUOTES')}
+                />
             </div>
 
             {/* Bottom System Status Decor */}

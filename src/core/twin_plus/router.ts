@@ -3,50 +3,62 @@
 import { TwinFeatureStore } from './twin_feature_store';
 import { TwinPreferenceLedger } from './twin_preference_ledger';
 
-/**
- * Represents the intent of a user's query.
- */
+export type TaskType =
+  | 'LOCAL_KNOWLEDGE'
+  | 'ACTION_CMD'
+  | 'WEB_SEARCH'
+  | 'NEURAL_SYNTHESIS'
+  | 'PROTOCOL_SIM';
+
 export interface QueryIntent {
   surface: string;
   queryText: string;
-  taskType: 'personal_state' | 'app_howto' | 'local_search' | 'web_fact' | 'planning' | 'shopping' | 'travel' | 'events' | 'routing';
-  // ... other fields from the constitution
+  taskType: TaskType;
 }
 
-/**
- * The decision object that determines how to handle a query.
- */
 export interface RoutePlan {
   decisionId: string;
-  strategy: 'local_only' | 'local_then_web' | 'web_then_llm' | 'local_then_llm';
+  strategy: 'LOCAL' | 'INTERNET' | 'AI' | 'HYBRID';
   aiAllowed: boolean;
   reasonCodes: string[];
-  // ... other fields from the constitution
 }
 
-/**
- * The TwinRouter decides how to handle a query based on user preferences,
- * context, and learned triggers.
- */
 export class TwinRouter {
   constructor(private prefs: TwinPreferenceLedger, private features: TwinFeatureStore) {}
 
   public route(intent: QueryIntent): RoutePlan {
-    // This is the core routing logic based on the "Local -> Internet -> Opt-in AI" ladder.
-    // The actual implementation will be a complex function of the intent,
-    // user preferences (e.g., hates stale info), and feature store data.
+    const text = intent.queryText.toLowerCase();
+    const aiOptIn = typeof window !== 'undefined' ? localStorage.getItem('tv_api_key') : null;
 
-    // For now, a simple placeholder:
-    let strategy: RoutePlan['strategy'] = 'local_only';
-    if (intent.taskType === 'web_fact') {
-      strategy = 'local_then_web';
+    let strategy: RoutePlan['strategy'] = 'LOCAL';
+    const reasons: string[] = ['DOCTRINE_INITIAL_CHECK'];
+
+    // 1. Check for Local Action Commands
+    if (text.includes("remind") || text.includes("todo") || text.includes("grocery") || text.includes("buy")) {
+        strategy = 'LOCAL';
+        reasons.push('ACTION_COMMAND_DETECTED');
+    }
+    // 2. Check for App Help
+    else if (text.includes("how do i") || text.includes("what is")) {
+        strategy = 'LOCAL';
+        reasons.push('INTERNAL_DOC_QUERY');
+    }
+    // 3. Escalate to Internet for facts
+    else if (text.includes("who is") || text.includes("where is") || text.includes("current")) {
+        strategy = 'INTERNET';
+        reasons.push('EXTERNAL_FACT_REQ');
+    }
+    // 4. AI Synthesis if needed and opted-in
+    else if (aiOptIn) {
+        strategy = 'AI';
+        reasons.push('NEURAL_SYNTHESIS_OPT_IN');
     }
 
     return {
       decisionId: `route-${Date.now()}`,
-      strategy: strategy,
-      aiAllowed: this.prefs.getPreference('aiOptIn') === true,
-      reasonCodes: ['placeholder_logic'],
+      strategy,
+      aiAllowed: !!aiOptIn,
+      reasonCodes: reasons,
     };
   }
 }

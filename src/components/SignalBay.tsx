@@ -1,0 +1,103 @@
+// src/components/SignalBay.tsx
+"use client";
+
+import React, { useState, useEffect } from 'react';
+
+interface Signal {
+    id: string;
+    source: string;
+    content: string;
+    trustScore: number;
+    timestamp: string;
+    type: 'COMM' | 'SYSTEM' | 'INTEL' | 'ALERT';
+    actionTaken: boolean;
+}
+
+export default function SignalBay() {
+    const [signals, setSignals] = useState<Signal[]>([
+        { id: '1', source: 'Jen', content: 'Did you see the mail about the property tax?', trustScore: 0.98, timestamp: '10:45 AM', type: 'COMM', actionTaken: false },
+        { id: '2', source: 'System', content: 'Neural key rotation required in 48h.', trustScore: 1.0, timestamp: '09:30 AM', type: 'SYSTEM', actionTaken: false },
+        { id: '3', source: 'Wrike P2', content: 'New task: Ingest Volume IV specs.', trustScore: 0.85, timestamp: '08:15 AM', type: 'INTEL', actionTaken: true },
+        { id: '4', source: 'Unknown', content: 'Click here to claim your reward!', trustScore: 0.05, timestamp: '07:00 AM', type: 'ALERT', actionTaken: false },
+    ]);
+
+    const handleAction = (id: string) => {
+        setSignals(prev => prev.map(s => s.id === id ? { ...s, actionTaken: true } : s));
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-8 animate-slide-up">
+            <header className="flex justify-between items-end border-b border-white/10 pb-4">
+                <div>
+                    <h1 className="text-4xl font-black italic text-white uppercase tracking-tight">Signal Bay</h1>
+                    <p className="system-text text-[10px] text-accent font-black tracking-widest mt-1">Triage Engine // Active Filtering</p>
+                </div>
+                <div className="text-right">
+                    <span className="text-xs font-black text-white/40 uppercase">Noise Filtered: 84%</span>
+                </div>
+            </header>
+
+            <div className="grid grid-cols-1 gap-4">
+                {signals.map(signal => (
+                    <div key={signal.id}
+                         className={`hud-panel p-4 flex items-center justify-between group transition-all ${signal.trustScore < 0.2 ? 'opacity-30 grayscale' : ''} ${signal.actionTaken ? 'border-neon-green/30' : 'border-white/5'}`}>
+
+                        <div className="flex items-center gap-6">
+                            {/* Trust Indicator */}
+                            <div className="flex flex-col items-center gap-1 min-w-[60px]">
+                                <span className="text-[8px] font-black text-white/20 uppercase">Trust</span>
+                                <div className="h-12 w-1 bg-white/5 rounded-full overflow-hidden relative">
+                                    <div className={`absolute bottom-0 w-full transition-all duration-1000 ${signal.trustScore > 0.8 ? 'bg-neon-green' : signal.trustScore > 0.4 ? 'bg-accent' : 'bg-red-500'}`}
+                                         style={{ height: `${signal.trustScore * 100}%` }} />
+                                </div>
+                                <span className="text-[10px] font-black italic">{Math.round(signal.trustScore * 100)}%</span>
+                            </div>
+
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-sm ${signal.type === 'COMM' ? 'bg-blue-500/20 text-blue-400' : signal.type === 'SYSTEM' ? 'bg-purple-500/20 text-purple-400' : 'bg-white/10 text-white/40'}`}>
+                                        {signal.type}
+                                    </span>
+                                    <span className="system-text text-[10px] font-black text-white/60">{signal.source}</span>
+                                    <span className="text-[8px] text-white/20 font-medium">{signal.timestamp}</span>
+                                </div>
+                                <p className={`text-lg font-bold italic tracking-tight ${signal.actionTaken ? 'text-white/40' : 'text-white'}`}>
+                                    {signal.content}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            {!signal.actionTaken ? (
+                                <>
+                                    <button onClick={() => handleAction(signal.id)} className="px-4 py-2 border border-accent/30 text-accent system-text text-[9px] font-black hover:bg-accent hover:text-white transition-all">ROUTE</button>
+                                    <button className="px-4 py-2 border border-white/10 text-white/20 system-text text-[9px] font-black hover:text-white transition-all">DECAY</button>
+                                </>
+                            ) : (
+                                <span className="text-neon-green system-text text-[9px] font-black animate-pulse px-4 py-2">RESOLVED</span>
+                            )}
+                        </div>
+
+                        <div className="bracket-tl opacity-20" />
+                        <div className="bracket-br opacity-20" />
+                    </div>
+                ))}
+            </div>
+
+            {/* Bottom Intelligence Summary */}
+            <div className="hud-panel p-6 bg-accent/5 border-accent/20 relative">
+                <div className="flex justify-between items-center">
+                    <div className="space-y-1">
+                        <span className="system-text text-[9px] text-accent font-black tracking-widest">Cognitive Load Assessment</span>
+                        <p className="text-white/60 text-sm font-light italic">Signal density is low. Optimal execution environment maintained.</p>
+                    </div>
+                    <div className="flex gap-1 h-8 items-end">
+                        {[2,5,3,8,4,6,3,2].map((h, i) => (
+                            <div key={i} className="w-1 bg-accent/40 rounded-t-sm" style={{ height: `${h*10}%` }} />
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

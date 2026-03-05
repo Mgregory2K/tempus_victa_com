@@ -4,38 +4,70 @@ import { TwinEvent } from './twin_event';
 import { TwinPreferenceLedger } from './twin_preference_ledger';
 
 /**
- * The TwinFeatureStore holds derived, deterministic aggregates and models
- * that are rebuildable from the event ledger.
+ * The TwinFeatureStore maintains the high-level "features" or "models"
+ * of the user derived from the event ledger.
  */
 export class TwinFeatureStore {
-  /**
-   * @param prefs The preference ledger, which may influence feature calculations.
-   */
+  private features: Record<string, any> = {};
+
   constructor(private prefs: TwinPreferenceLedger) {}
 
   public static async open(prefs: TwinPreferenceLedger): Promise<TwinFeatureStore> {
     console.log("TwinFeatureStore opened.");
-    return new TwinFeatureStore(prefs);
+    const store = new TwinFeatureStore(prefs);
+    store.loadLocal();
+    return store;
   }
 
-  /**
-   * Applies an event to update the derived features.
-   * This is where deterministic learning happens.
-   * @param e The event to apply.
-   */
+  private loadLocal() {
+    if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('tv_feature_store');
+        if (saved) this.features = JSON.parse(saved);
+    }
+  }
+
   public apply(e: TwinEvent): void {
-    // In a real implementation, this would update lexicon stats,
-    // style signatures, friction models, etc., based on the event.
+    // 1. Update Lexicon frequency
+    if (e.type === 'SIGNAL_INPUT' && e.payload.text) {
+        const words = e.payload.text.toLowerCase().split(/\s+/);
+        this.updateLexicon(words);
+    }
+
+    // 2. Track Module Affinity
+    const surface = e.surface || 'SYSTEM';
+    this.features.affinity = this.features.affinity || {};
+    this.features.affinity[surface] = (this.features.affinity[surface] || 0) + 1;
+
+    // 3. Trust Reinforcement
+    if (e.type === 'ACTION_CREATED' && e.payload.source) {
+        this.updateTrust(e.payload.source, 0.05);
+    }
+
+    this.saveLocal();
   }
 
-  /**
-   * Returns a snapshot of the current features.
-   */
+  private updateLexicon(words: string[]) {
+    this.features.lexicon = this.features.lexicon || {};
+    words.forEach(word => {
+        if (word.length > 3) {
+            this.features.lexicon[word] = (this.features.lexicon[word] || 0) + 1;
+        }
+    });
+  }
+
+  private updateTrust(source: string, delta: number) {
+    this.features.trustScores = this.features.trustScores || {};
+    const current = this.features.trustScores[source] || 0.5;
+    this.features.trustScores[source] = Math.min(1.0, Math.max(0.0, current + delta));
+  }
+
+  private saveLocal() {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('tv_feature_store', JSON.stringify(this.features));
+    }
+  }
+
   public snapshot(): any {
-    return {
-      lexicon: {},
-      style: {},
-      friction: {},
-    };
+    return { ...this.features };
   }
 }

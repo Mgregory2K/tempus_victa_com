@@ -5,9 +5,14 @@ import Bridge from "@/components/bridge";
 import SideNav from "@/components/SideNav";
 import WorkoutTracker from "@/components/WorkoutTracker";
 import ReviewScreen from "@/components/ReviewScreen";
+import SignalBay from "@/components/SignalBay";
+import Corkboard from "@/components/Corkboard";
+import QuoteBoard from "@/components/QuoteBoard";
 import { useSession } from "next-auth/react";
+import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
+import { createEvent } from "@/core/twin_plus/twin_event";
 
-type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW";
+type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES";
 
 interface Message {
   role: string;
@@ -33,6 +38,10 @@ interface TRRPParams {
 export default function Home() {
   const { status } = useSession();
 
+  useEffect(() => {
+    twinPlusKernel.init();
+  }, []);
+
   if (status === "loading") {
     return (
       <div className="h-screen w-screen bg-black flex items-center justify-center">
@@ -55,8 +64,13 @@ function AppShell() {
   const [assistantName, setAssistantName] = useState("Twin+");
   const [isOnline, setIsOnline] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
+
   const [isMatrixActive, setIsMatrixActive] = useState(false);
+  const [isProtocolActive, setIsProtocolActive] = useState(false);
   const [showTrrpModal, setShowTrrpModal] = useState(false);
+  const [matrixPending, setMatrixPending] = useState(false);
+  const [matrixMessage, setMatrixMessage] = useState("INITIATING");
+
   const [currentTime, setCurrentTime] = useState<string>("");
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -64,7 +78,6 @@ function AppShell() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [aiEnhanced, setAiEnhanced] = useState(false);
-  const [matrixPending, setMatrixPending] = useState(false);
 
   const [trrpParams, setTrrpParams] = useState<TRRPParams>({
     moderator: "James Carvell",
@@ -81,36 +94,33 @@ function AppShell() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const logEvent = (type: string, payload: any) => {
-    if (typeof window !== "undefined") {
-      const ledger = JSON.parse(localStorage.getItem("tv_ledger") || "[]");
-      ledger.push({ timestamp: new Date().toISOString(), type, payload });
-      localStorage.setItem("tv_ledger", JSON.stringify(ledger.slice(-500)));
-    }
+  const logEvent = (type: any, payload: any) => {
+    twinPlusKernel.observe(createEvent(type, payload, activeModule));
   };
 
-  const handleFeedback = (messageId: string, type: string) => {
-    logEvent("FEEDBACK_RECEIVED", { messageId, type });
-    if (type !== 'up' && type !== 'down') {
-        handleSend(`[REINFORCEMENT] Feedback on signal ${messageId}: ${type}`);
-    }
+  const terminateProtocol = () => {
+    setMatrixMessage("TERMINATING");
+    setIsMatrixActive(true);
+    logEvent('PROTOCOL_TERMINATED', { topic: trrpParams.topic });
+    setTimeout(() => {
+      setIsMatrixActive(false);
+      setIsProtocolActive(false);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'system',
+        content: 'Ready Room Protocol Terminated. Virtual environment collapsed. Returning to Sovereign Control.',
+        timestamp: new Date().toISOString(),
+        layer: 'LOCAL'
+      }]);
+    }, 3000);
   };
 
   const handleSend = async (overrideInput?: string) => {
     const text = overrideInput || input.trim();
     if (!text || isTyping) return;
 
-    if (text.toLowerCase() === 'end protocol') {
-      setIsMatrixActive(true);
-      setTimeout(() => {
-        setIsMatrixActive(false);
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          role: 'system',
-          content: 'Ready Room Protocol Terminated. Virtual environment collapsed.',
-          timestamp: new Date().toISOString()
-        }]);
-      }, 3000);
+    if (text.toLowerCase() === 'end protocol' && isProtocolActive) {
+      terminateProtocol();
       setInput("");
       return;
     }
@@ -123,6 +133,8 @@ function AppShell() {
     };
 
     setMessages(prev => [...prev, userMsg]);
+    logEvent('SIGNAL_INPUT', { text });
+
     const currentHistory = [...messages, userMsg];
     if (!overrideInput) setInput("");
     setIsTyping(true);
@@ -135,13 +147,18 @@ function AppShell() {
           message: text,
           searchKey,
           apiKey,
-          enhance: aiEnhanced,
+          aiEnhanced: aiEnhanced,
           history: currentHistory.slice(-15),
           assistantName,
-          protocolParams: isMatrixActive ? trrpParams : null
+          protocolParams: isProtocolActive ? trrpParams : null
         }),
       });
       const data = await response.json();
+
+      if (data.intent) {
+          logEvent('INTENT_ROUTED', { intent: data.intent, layer: data.sourceLayer });
+      }
+
       setMessages(prev => [...prev, {
           id: Date.now().toString(),
           role: data.role,
@@ -165,23 +182,27 @@ function AppShell() {
     if (!trrpParams.members || !trrpParams.topic) return;
     setShowTrrpModal(false);
     setMessages(prev => [...prev,
-      { id: Date.now().toString(), role: "user", content: "Invoke Ready Room Protocol", timestamp: new Date().toISOString() },
-      { id: (Date.now()+1).toString(), role: "assistant", content: "Protocol parameters ingested. Neural mapping initiated. Are you ready?", timestamp: new Date().toISOString() }
+      { id: Date.now().toString(), role: "user", content: `Invoke Ready Room Protocol: ${trrpParams.topic}`, timestamp: new Date().toISOString() },
+      { id: (Date.now()+1).toString(), role: "assistant", content: "Protocol parameters ingested. Neural mapping initiated. Prepare for simulation entry.", timestamp: new Date().toISOString(), layer: "SYSTEM" }
     ]);
     setMatrixPending(true);
   };
 
   const confirmTRRP = () => {
     setMatrixPending(false);
+    setMatrixMessage("VIRTUALIZING");
     setIsMatrixActive(true);
+    logEvent('PROTOCOL_INVOKED', { params: trrpParams });
     setTimeout(() => {
       setIsMatrixActive(false);
+      setIsProtocolActive(true);
       const p = trrpParams;
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: "assistant",
-        content: `**PROTOCOL ACTIVE**\n\n**Topic:** ${p.topic}\n**Moderator:** ${p.moderator}\n**Members:** ${p.members}\n\nEnvironment stable. Begin deliberation. (Type "end protocol" to terminate session)`,
-        timestamp: new Date().toISOString()
+        content: `**PROTOCOL ACTIVE**\n\n**Topic:** ${p.topic}\n**Moderator:** ${p.moderator}\n**Members:** ${p.members}\n\nEnvironment stable. Anti-puppeteering locks engaged. Begin deliberation. (Type "end protocol" to collapse simulation)`,
+        timestamp: new Date().toISOString(),
+        layer: "NEURAL_PROTOCOL"
       }]);
     }, 4000);
   };
@@ -192,7 +213,8 @@ function AppShell() {
       id: Date.now().toString(),
       role: "system",
       content: "Protocol aborted. Neural link maintained.",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      layer: "LOCAL"
     }]);
   }
 
@@ -206,6 +228,7 @@ function AppShell() {
         timestamp: new Date().toISOString()
       }]);
       localStorage.removeItem("tv_chat_history");
+      logEvent('ENTROPY_REDUCED', { action: 'MASTER_RESET' });
     }
   };
 
@@ -241,7 +264,7 @@ function AppShell() {
     }
 
     const savedModule = localStorage.getItem("tv_active_module");
-    if (savedModule && ["BRIDGE", "READY_ROOM", "MISSIONS", "DOCTRINE", "SETTINGS", "REVIEW"].includes(savedModule)) {
+    if (savedModule && ["BRIDGE", "READY_ROOM", "MISSIONS", "DOCTRINE", "SETTINGS", "REVIEW", "SIGNALS", "CORKBOARD", "QUOTES"].includes(savedModule)) {
         setActiveModule(savedModule as Module);
     }
 
@@ -312,12 +335,27 @@ function AppShell() {
         </header>
 
         <div className="flex flex-grow overflow-hidden relative">
-          <SideNav />
+          <SideNav onModuleChange={setActiveModule} activeModule={activeModule} />
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-8 overflow-y-auto scrollbar-thin">
               {activeModule === "BRIDGE" && (
                 <div className="module-enter">
                   <Bridge />
+                </div>
+              )}
+              {activeModule === "SIGNALS" && (
+                <div className="module-enter">
+                  <SignalBay />
+                </div>
+              )}
+              {activeModule === "CORKBOARD" && (
+                <div className="module-enter h-full">
+                  <Corkboard />
+                </div>
+              )}
+              {activeModule === "QUOTES" && (
+                <div className="module-enter">
+                  <QuoteBoard />
                 </div>
               )}
               {activeModule === "READY_ROOM" && (
@@ -332,78 +370,89 @@ function AppShell() {
                         ))}
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center z-[2001] bg-black/40">
-                        <span className="system-text text-4xl font-black text-neon-green animate-pulse tracking-[1em]">INITIATING</span>
+                        <span className="system-text text-4xl font-black text-neon-green animate-pulse tracking-[1em]">{matrixMessage}</span>
                       </div>
                     </div>
                   )}
                   {showTrrpModal && (
                     <div className="fixed inset-0 z-[150] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
                       <div className="hud-panel max-w-3xl w-full p-8 border-accent/40 shadow-[0_0_100px_rgba(0,212,255,0.25)]">
-                        <h3 className="system-text text-xl font-black mb-8 border-b border-white/10 pb-4 text-accent text-left tracking-widest">Protocol_Matrix.v2</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left uppercase">
-                          <div className="space-y-4">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[8px] text-white/40 font-bold tracking-widest">Moderator</label>
-                              <input value={trrpParams.moderator} onChange={e => setTrrpParams({...trrpParams, moderator: e.target.value})} className="bg-white/5 border border-white/10 p-2 text-sm focus:border-accent outline-none font-mono text-white" />
+                        <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
+                            <h3 className="system-text text-xl font-black text-accent tracking-widest italic">Protocol_Matrix.v2</h3>
+                            <span className="text-[10px] text-white/20 font-black">HOLODECK CONFIG</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left uppercase">
+                          <div className="space-y-6">
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[8px] text-white/40 font-bold tracking-[0.2em]">Moderator</label>
+                              <input value={trrpParams.moderator} onChange={e => setTrrpParams({...trrpParams, moderator: e.target.value})} className="bg-white/5 border border-white/10 p-3 text-sm focus:border-accent outline-none font-mono text-white" />
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[8px] text-white/40 font-bold tracking-widest">Members</label>
-                              <input value={trrpParams.members} onChange={e => setTrrpParams({...trrpParams, members: e.target.value})} className="bg-white/5 border border-white/10 p-2 text-sm focus:border-accent outline-none font-mono text-white" />
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[8px] text-white/40 font-bold tracking-[0.2em]">Members (Simulated Profiles)</label>
+                              <input value={trrpParams.members} onChange={e => setTrrpParams({...trrpParams, members: e.target.value})} placeholder="e.g. Steve Jobs, Marcus Aurelius" className="bg-white/5 border border-white/10 p-3 text-sm focus:border-accent outline-none font-mono text-white placeholder:text-white/10" />
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[8px] text-white/40 font-bold tracking-widest">Topic</label>
-                              <textarea rows={3} value={trrpParams.topic} onChange={e => setTrrpParams({...trrpParams, topic: e.target.value})} className="bg-white/5 border border-white/10 p-2 text-sm focus:border-accent outline-none font-mono resize-none text-white" />
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[8px] text-white/40 font-bold tracking-[0.2em]">Topic / Problem Statement</label>
+                              <textarea rows={4} value={trrpParams.topic} onChange={e => setTrrpParams({...trrpParams, topic: e.target.value})} className="bg-white/5 border border-white/10 p-3 text-sm focus:border-accent outline-none font-mono resize-none text-white" />
                             </div>
                           </div>
-                          <div className="space-y-4">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[8px] text-white/40 font-bold tracking-widest">Format</label>
-                              <select value={trrpParams.format} onChange={e => setTrrpParams({...trrpParams, format: e.target.value})} className="bg-white/5 border border-white/10 p-2 text-sm text-white">
+                          <div className="space-y-6">
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[8px] text-white/40 font-bold tracking-[0.2em]">Deliberation Format</label>
+                              <select value={trrpParams.format} onChange={e => setTrrpParams({...trrpParams, format: e.target.value})} className="bg-white/5 border border-white/10 p-3 text-sm text-white">
                                 <option>Continuous Round Robin</option>
-                                <option>Single Pass</option>
+                                <option>Socratic Debate</option>
+                                <option>Direct Critique</option>
                               </select>
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[8px] text-white/40 font-bold tracking-widest">Tone</label>
-                              <input value={trrpParams.tone} onChange={e => setTrrpParams({...trrpParams, tone: e.target.value})} className="bg-white/5 border border-white/10 p-2 text-sm focus:border-accent outline-none font-mono text-white" />
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[8px] text-white/40 font-bold tracking-[0.2em]">Rules of Engagement</label>
+                              <input value={trrpParams.rules} onChange={e => setTrrpParams({...trrpParams, rules: e.target.value})} className="bg-white/5 border border-white/10 p-3 text-sm focus:border-accent outline-none font-mono text-white" />
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[8px] text-white/40 font-bold tracking-widest">Termination</label>
-                              <select value={trrpParams.termination} onChange={e => setTrrpParams({...trrpParams, termination: e.target.value})} className="bg-white/5 border border-white/10 p-2 text-sm text-white">
-                                <option>Manual</option>
-                                <option>Single Pass</option>
-                              </select>
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[8px] text-white/40 font-bold tracking-[0.2em]">Neural Tone</label>
+                              <input value={trrpParams.tone} onChange={e => setTrrpParams({...trrpParams, tone: e.target.value})} className="bg-white/5 border border-white/10 p-3 text-sm focus:border-accent outline-none font-mono text-white" />
                             </div>
                           </div>
                         </div>
-                        <div className="mt-10 flex gap-4">
-                          <button onClick={startTRRP} className="flex-grow bg-accent py-4 text-xs font-black text-white hover:bg-white hover:text-black uppercase">Generate</button>
-                          <button onClick={() => setShowTrrpModal(false)} className="px-8 border border-white/10 text-[9px] text-white/40 uppercase">Cancel</button>
+                        <div className="mt-12 flex gap-4">
+                          <button onClick={startTRRP} className="flex-grow bg-accent py-4 text-xs font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-[0.2em]">GENERATE SIMULATION</button>
+                          <button onClick={() => setShowTrrpModal(false)} className="px-10 border border-white/10 text-[9px] text-white/40 hover:text-white transition-all">CANCEL</button>
                         </div>
                       </div>
                     </div>
                   )}
                   <div className="flex items-center justify-between mb-4 px-2">
                      <div className="text-left text-nowrap flex items-center gap-4">
-                        <h2 className="text-3xl font-black italic">READY ROOM</h2>
-                        <div className="h-px w-8 bg-white/10" />
-                        <p className="system-text text-[8px] text-accent tracking-[0.2em] font-black uppercase">STATUS: {apiKey ? 'ONLINE' : 'LOCAL'}</p>
+                        <h2 className={`text-3xl font-black italic transition-colors ${isProtocolActive ? 'text-neon-green' : 'text-white'}`}>
+                            {isProtocolActive ? 'PROTOCOL_ACTIVE' : 'READY ROOM'}
+                        </h2>
+                        <div className={`h-px w-8 ${isProtocolActive ? 'bg-neon-green/40' : 'bg-white/10'}`} />
+                        <p className={`system-text text-[8px] tracking-[0.2em] font-black uppercase ${isProtocolActive ? 'text-neon-green animate-pulse' : 'text-accent'}`}>
+                            STATUS: {isProtocolActive ? 'SIMULATION_LAYER' : (apiKey ? 'ONLINE' : 'LOCAL')}
+                        </p>
                      </div>
                      <div className="flex gap-2">
-                        <button onClick={() => setIsMaximized(!isMaximized)} className="glass px-4 py-1.5 text-[9px] font-black text-accent uppercase">{isMaximized ? 'MINIMIZE' : 'MAXIMIZE'}</button>
-                        <button onClick={() => setShowTrrpModal(true)} className="glass px-4 py-1.5 text-[9px] font-black text-neon-green border-neon-green/30 uppercase">PROTOCOL</button>
+                        <button onClick={() => setIsMaximized(!isMaximized)} className="glass px-4 py-1.5 text-[9px] font-black text-accent uppercase tracking-widest">{isMaximized ? 'MINIMIZE' : 'MAXIMIZE'}</button>
+                        {!isProtocolActive && (
+                            <button onClick={() => setShowTrrpModal(true)} className="glass px-4 py-1.5 text-[9px] font-black text-neon-green border-neon-green/30 uppercase tracking-widest">PROTOCOL</button>
+                        )}
+                        {isProtocolActive && (
+                            <button onClick={terminateProtocol} className="glass px-4 py-1.5 text-[9px] font-black text-red-500 border-red-500/30 uppercase tracking-widest">END SIM</button>
+                        )}
                      </div>
                   </div>
-                  <div className="flex-grow hud-panel flex flex-col overflow-hidden relative shadow-2xl bg-black/60 border-white/10">
+                  <div className={`flex-grow hud-panel flex flex-col overflow-hidden relative shadow-2xl transition-colors duration-1000 ${isProtocolActive ? 'bg-black/80 border-neon-green/20' : 'bg-black/60 border-white/10'}`}>
                      <div ref={scrollRef} className="flex-grow p-6 overflow-y-auto font-sans text-sm space-y-8 scrollbar-thin bg-black/20">
                         {messages.map((m) => (
                           <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} max-w-full animate-slide-up`}>
                             <div className="flex items-center gap-2 mb-2 uppercase">
-                              <span className={`system-text text-[8px] tracking-[0.1em] font-black ${m.role === 'user' ? 'text-white/20' : 'text-accent'}`}>{m.role === 'user' ? (session?.user?.name?.split(' ')[0] || 'MICHAEL') : assistantName.toUpperCase()}</span>
+                               {m.layer && <span className={`text-[7px] font-black border px-1.5 py-0.5 rounded-sm ${m.layer === 'LOCAL' ? 'border-white/20 text-white/40' : m.layer.includes('PROTOCOL') ? 'border-neon-green/40 text-neon-green/60' : 'border-accent/40 text-accent/60'}`}>{m.layer}</span>}
+                               <span className={`system-text text-[8px] tracking-[0.1em] font-black ${m.role === 'user' ? 'text-white/20' : 'text-accent'}`}>{m.role === 'user' ? (session?.user?.name?.split(' ')[0] || 'MICHAEL') : assistantName.toUpperCase()}</span>
                             </div>
-                            <div className={`max-w-[95%] p-4 border shadow-xl relative group ${m.role === 'user' ? 'glass-accent border-accent/20 rounded-2xl rounded-tr-sm text-right' : 'glass border-white/10 rounded-2xl rounded-tl-sm text-left bg-white/[0.01]'}`}>
+                            <div className={`max-w-[95%] p-4 border shadow-xl relative group ${m.role === 'user' ? 'glass-accent border-accent/20 rounded-2xl rounded-tr-sm text-right' : 'glass border-white/10 rounded-2xl rounded-tl-sm text-left bg-white/[0.01]'} ${isProtocolActive && m.role !== 'user' ? 'border-neon-green/10' : ''}`}>
                                 <p className="text-white/90 leading-relaxed whitespace-pre-wrap text-[14px] font-light">{m.content}</p>
-                                {m.role === 'assistant' && (
+                                {m.role === 'assistant' && !isProtocolActive && (
                                     <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
                                         <div className="flex gap-4">
                                             <button onClick={() => handleFeedback(m.id, 'up')} className="text-white/20 hover:text-neon-green transition-colors">
@@ -415,7 +464,7 @@ function AppShell() {
                                         </div>
                                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                                             {["Too verbose", "Wrong source", "Not my voice"].map(chip => (
-                                              <button key={chip} onClick={() => handleFeedback(m.id, chip)} className="text-[7px] border border-white/10 px-2 py-0.5 rounded-full text-white/40 hover:border-accent hover:text-white uppercase">{chip}</button>
+                                              <button key={chip} onClick={() => handleFeedback(m.id, chip)} className="text-[7px] border border-white/10 px-2 py-0.5 rounded-full text-white/40 hover:border-accent hover:text-white uppercase tracking-widest">{chip}</button>
                                             ))}
                                         </div>
                                     </div>
@@ -424,27 +473,30 @@ function AppShell() {
                           </div>
                         ))}
                         {matrixPending && (
-                          <div className="flex flex-col items-center justify-center p-8 border border-neon-green/30 bg-neon-green/5 mx-auto max-w-xl animate-pulse">
-                             <span className="system-text text-[10px] mb-6 text-neon-green font-black tracking-widest uppercase">PROTOCOL_LOADED</span>
+                          <div className="flex flex-col items-center justify-center p-12 border border-neon-green/30 bg-neon-green/5 mx-auto max-w-xl animate-pulse shadow-[0_0_50px_rgba(34,197,94,0.1)]">
+                             <div className="h-10 w-10 border-2 border-neon-green flex items-center justify-center mb-6">
+                                <span className="text-neon-green font-black">!</span>
+                             </div>
+                             <span className="system-text text-[12px] mb-8 text-neon-green font-black tracking-[0.4em] text-center">NEURAL PROFILE MAPPING COMPLETE</span>
                              <div className="flex gap-4 w-full">
-                                <button onClick={confirmTRRP} className="flex-grow bg-neon-green/20 border border-neon-green/50 py-3 text-neon-green font-black text-[10px] hover:bg-neon-green hover:text-black uppercase">CONFIRM</button>
-                                <button onClick={abortTRRP} className="px-6 py-3 border border-white/10 text-white/40 text-[9px] hover:text-red-500 uppercase">ABORT</button>
+                                <button onClick={confirmTRRP} className="flex-grow bg-neon-green/20 border border-neon-green/50 py-4 text-neon-green font-black text-[11px] hover:bg-neon-green hover:text-black transition-all uppercase tracking-[0.2em]">PROCEED TO SIMULATION</button>
+                                <button onClick={abortTRRP} className="px-10 py-4 border border-white/10 text-white/40 text-[9px] hover:text-red-500 transition-all uppercase">ABORT</button>
                              </div>
                           </div>
                         )}
-                        {isTyping && <div className="flex flex-col items-start animate-pulse"><div className="p-4 glass border-white/10 h-10 w-24 flex items-center gap-2 rounded-2xl rounded-tl-sm"><div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce" /><div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.2s]" /><div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.4s] shadow-[0_0_10px_rgba(0,212,255,1)]" /></div></div>}
+                        {isTyping && <div className="flex flex-col items-start animate-pulse"><div className="p-4 glass border-white/10 h-10 w-24 flex items-center gap-2 rounded-2xl rounded-tl-sm"><div className={`h-1.5 w-1.5 rounded-full animate-bounce ${isProtocolActive ? 'bg-neon-green' : 'bg-accent'}`} /><div className={`h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0.2s] ${isProtocolActive ? 'bg-neon-green' : 'bg-accent'}`} /><div className={`h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0.4s] ${isProtocolActive ? 'bg-neon-green' : 'bg-accent'} shadow-[0_0_10px_rgba(0,212,255,1)]`} /></div></div>}
                      </div>
                      <div className="p-4 bg-black/80 border-t border-white/10 flex flex-col gap-2 shrink-0 uppercase">
                         <div className="flex gap-4">
-                          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={`Signal ${assistantName}...`} className="flex-grow bg-transparent border-b border-white/10 px-4 py-3 text-[18px] focus:outline-none focus:border-accent/50 transition-colors placeholder:text-white/10 font-mono text-white" />
-                          <button onClick={() => handleSend()} disabled={isTyping} className="bg-accent px-10 py-3 system-text text-[11px] font-black text-white hover:bg-white hover:text-black disabled:opacity-50 tracking-widest uppercase">Engage</button>
+                          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={isProtocolActive ? "Deliberate..." : `Signal ${assistantName}...`} className="flex-grow bg-transparent border-b border-white/10 px-4 py-3 text-[18px] focus:outline-none focus:border-accent/50 transition-colors placeholder:text-white/10 font-mono text-white" />
+                          <button onClick={() => handleSend()} disabled={isTyping} className={`${isProtocolActive ? 'bg-neon-green/80' : 'bg-accent'} px-10 py-3 system-text text-[11px] font-black text-white hover:bg-white hover:text-black disabled:opacity-50 tracking-widest transition-colors uppercase`}>Engage</button>
                         </div>
                         <div className="flex items-center justify-between px-1 tracking-widest">
-                          <button onClick={() => apiKey && setAiEnhanced(!aiEnhanced)} className={`flex items-center gap-3 text-[9px] font-black tracking-widest ${aiEnhanced ? 'text-accent' : 'text-white/20'}`}>
-                            <div className={`h-2.5 w-2.5 rounded-full ${aiEnhanced ? 'bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]' : 'bg-white/10'}`} />
-                            NEURAL ENHANCE
+                          <button onClick={() => apiKey && setAiEnhanced(!aiEnhanced)} className={`flex items-center gap-3 text-[9px] font-black tracking-widest transition-all ${aiEnhanced ? 'text-accent' : 'text-white/20'}`}>
+                            <div className={`h-2.5 w-2.5 rounded-full transition-all ${aiEnhanced ? 'bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]' : 'bg-white/10'}`} />
+                            NEURAL ENHANCE {aiEnhanced ? 'ACTIVE' : 'OFF'}
                           </button>
-                          <span className="text-[8px] text-white/10 font-black italic">magic first, mathematics second</span>
+                          <span className="text-[8px] text-white/10 font-black italic">learning through observation</span>
                         </div>
                      </div>
                   </div>
@@ -455,7 +507,7 @@ function AppShell() {
                   <div className="flex flex-col items-center text-center p-12 max-w-7xl mx-auto uppercase">
                      <h2 className="text-5xl font-black italic tracking-tighter mb-8 text-white">THE DOCTRINE</h2>
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left">
-                        {[{ t: "LOCAL", d: "Sovereign knowledge. Persistent, private, deterministic.", s: "ACTIVE" }, { t: "INTERNET", d: "Live factual validation via WiFi/Cellular escalation.", s: isOnline ? "STABLE" : "OFFLINE" }, { t: "AI", d: "Opt-in neural modeling.", s: apiKey ? "ACTIVE" : "STANDBY" }].map(d => (
+                        {[{ t: "LOCAL", d: "Sovereign knowledge. Persistent, private, deterministic. The foundation of the system.", s: "ACTIVE" }, { t: "INTERNET", d: "Live factual validation via WiFi/Cellular escalation. Trusted sources cache.", s: isOnline ? "STABLE" : "OFFLINE" }, { t: "AI", d: "Opt-in neural modeling. Learning substrate (Twin+). Synthesis layer.", s: apiKey ? "ACTIVE" : "STANDBY" }].map(d => (
                           <div key={d.t} className="hud-panel p-8 flex flex-col gap-4 group hover:border-accent/50 transition-all bg-black/60 shadow-2xl relative">
                             <span className="system-text text-xl font-black italic text-white group-hover:text-accent tracking-tighter">{d.t}</span>
                             <p className="text-[13px] text-white/50 font-light leading-relaxed">{d.d}</p>
@@ -472,14 +524,14 @@ function AppShell() {
                      <h2 className="text-4xl font-black italic tracking-tighter mb-10 text-white">CONFIG</h2>
                      <div className="space-y-12 uppercase">
                         <div className="flex flex-col gap-4">
-                          <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Neural Key (OpenAI)</label>
+                          <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Neural Key (OpenAI) - OPT-IN AI</label>
                           <div className="flex gap-4">
                             <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className="flex-grow hud-panel bg-black/60 border-white/10 px-4 py-3 text-sm focus:border-accent/50 font-mono text-white shadow-inner uppercase" />
                             <button onClick={() => { localStorage.setItem("tv_api_key", apiKey); alert("Stored"); } } className="bg-accent px-10 py-2 system-text text-[10px] font-black text-white hover:bg-white hover:text-black uppercase">Store</button>
                           </div>
                         </div>
                         <div className="flex flex-col gap-4">
-                          <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Search Key (Tavily)</label>
+                          <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Search Key (Tavily) - INTERNET SEARCH</label>
                           <div className="flex gap-4">
                             <input type="password" value={searchKey} onChange={(e) => setSearchKey(e.target.value)} placeholder="API Key..." className="flex-grow hud-panel bg-black/60 border-white/10 px-4 py-3 text-sm focus:border-accent/50 font-mono text-white shadow-inner uppercase" />
                             <button onClick={() => { localStorage.setItem("tv_search_key", searchKey); alert("Stored"); } } className="bg-accent px-10 py-2 system-text text-[10px] font-black text-white hover:bg-white hover:text-black uppercase">Store</button>
@@ -506,12 +558,18 @@ function AppShell() {
 
         <footer className="h-10 border-t border-white/10 bg-black/95 flex items-center justify-center gap-6 px-10 shrink-0 z-50 uppercase shadow-[0_-10px_30px_rgba(0,0,0,0.8)]">
            <div className="flex items-center gap-1 bg-white/[0.01] border border-white/10 p-1 h-7 uppercase">
-              {["BRIDGE", "MISSIONS", "REVIEW", "READY_ROOM", "DOCTRINE", "SETTINGS"].map(id => (
-                <button key={id} onClick={() => setActiveModule(id as Module)} className={`px-8 system-text text-[9px] font-black transition-all relative overflow-hidden group min-w-[120px] h-full ${activeModule === id ? 'text-white bg-accent/20' : 'text-white/20 hover:text-white/60 uppercase'}`}>
-                  <span className="relative z-10 italic uppercase">
-                    {id === "BRIDGE" ? "TODAY" : id === "MISSIONS" ? "PROJECTS" : id.replace("_", " ")}
-                  </span>
-                  {activeModule === id && <div className="absolute bottom-0 left-0 h-0.5 w-full bg-accent shadow-[0_-5px_40px_rgba(0,212,255,1)] uppercase" />}
+              {[
+                { id: "BRIDGE", label: "TODAY" },
+                { id: "SIGNALS", label: "SIGNAL BAY" },
+                { id: "MISSIONS", label: "PROJECTS" },
+                { id: "CORKBOARD", label: "CORKBOARD" },
+                { id: "REVIEW", label: "REVIEW" },
+                { id: "QUOTES", label: "QUOTES" },
+                { id: "READY_ROOM", label: "READY ROOM" }
+              ].map(item => (
+                <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`px-6 system-text text-[9px] font-black transition-all relative overflow-hidden group min-w-[100px] h-full ${activeModule === item.id ? 'text-white bg-accent/20' : 'text-white/20 hover:text-white/60 uppercase'}`}>
+                  <span className="relative z-10 italic uppercase">{item.label}</span>
+                  {activeModule === item.id && <div className="absolute bottom-0 left-0 h-0.5 w-full bg-accent shadow-[0_-5px_40px_rgba(0,212,255,1)] uppercase" />}
                 </button>
               ))}
            </div>

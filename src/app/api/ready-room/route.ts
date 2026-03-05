@@ -2,20 +2,23 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const appKnowledge: Record<string, string> = {
-    "ready room": "The Ready Room is your tactical command chamber. It operates the intelligence router (Local > Internet > AI) and hosts the Ready Room Protocol simulations.",
-    "ready room protocol": "A specialized simulation mode for high-fidelity perspective stress-testing. It builds profiles from searchable bodies of work to ensure authentic, non-puppeteered simulations.",
-    "twin+": "The behavioral substrate of Tempus Victa. It continuously mirrors, predicts, and optimizes based on your interactions.",
-    "doctrine": "The immutable hierarchy of intelligence: 1. Local Sovereignty, 2. Trusted Sources, 3. Web Research, 4. AI Augmentation.",
-};
+/**
+ * TEMPUS VICTA - INTELLIGENCE DOCTRINE
+ * Hierarchy: LOCAL > INTERNET > OPT-IN AI
+ *
+ * Escalation Policy: If a lower layer is insufficient, escalate to the next
+ * available layer to return the best possible data.
+ */
 
-async function getLocalAnswer(query: string): Promise<string | null> {
-    const q = query.toLowerCase();
-    for (const key in appKnowledge) {
-        if (q.includes(key)) return appKnowledge[key];
-    }
-    return null;
-}
+const appKnowledge: Record<string, string> = {
+    "philosophy": "Tempus Victa is a local-first cognitive OS designed to reduce friction between intention and execution by turning life's inputs into structured intelligence.",
+    "doctrine": "The Intelligence Ladder: 1. Local Sovereignty (App/User Data), 2. Trusted Sources (WiFi/Cellular), 3. AI Augmentation (Opt-in Learning & Synthesis).",
+    "twin+": "The behavioral substrate of Tempus Victa. It is a learning model that observes routing decisions and behavioral patterns to refine future recommendations. It is the model, not the product.",
+    "ready room": "The central command module for intelligence routing and system interaction. It hosts the Ready Room Protocol.",
+    "ready room protocol": "A high-fidelity simulation mode (Holodeck) invoked within the Ready Room for stress-testing perspectives. It builds profiles from searchable bodies of work to ensure authentic, non-puppeteered dialogue.",
+    "local-first": "Sovereignty is leverage. Tempus Victa prioritizes local data to ensure privacy, survivability, and user-controlled learning.",
+    "mission": "An Assistant that Optimizes Life Through Automation. Not just answering questions, but reducing entropy and increasing execution."
+};
 
 async function getInternetData(query: string, apiKey: string) {
     try {
@@ -25,88 +28,120 @@ async function getInternetData(query: string, apiKey: string) {
             body: JSON.stringify({ api_key: apiKey, query, search_depth: "advanced", max_results: 5 }),
         });
         const data = await response.json();
-        return data.results ? data.results.map((r: any) => r.content).join('\n\n') : null;
+        return data.results ? data.results.map((r: any) => `[Source: ${r.url}]\n${r.content}`).join('\n\n') : null;
     } catch (e) {
-        console.error("Tavily Error:", e);
         return null;
     }
 }
 
 export async function POST(req: Request) {
     const body = await req.json();
-    const { message, searchKey, apiKey, history, protocolParams } = body;
+    const { message, searchKey, apiKey, history, protocolParams, aiEnhanced } = body;
 
-    if (!message) return NextResponse.json({ role: 'assistant', content: 'SIGNAL_EMPTY' }, { status: 400 });
+    if (!message) return NextResponse.json({ role: 'assistant', content: 'SIGNAL_NULL' }, { status: 400 });
 
-    // 1. LOCAL RESOLUTION
-    const local = await getLocalAnswer(message);
-    if (local && !protocolParams) {
-        return NextResponse.json({ role: 'assistant', content: local, sourceLayer: 'LOCAL' });
+    // --- LAYER 1: LOCAL RESOLUTION ---
+    const lowerMsg = message.toLowerCase();
+    let localResult = null;
+    for (const key in appKnowledge) {
+        if (lowerMsg.includes(key)) {
+            localResult = appKnowledge[key];
+            break;
+        }
     }
 
-    // 2. PROTOCOL ENGINE (STRICT PROFILE BUILD)
+    // --- LAYER 2: READY ROOM PROTOCOL (HOLODECK) ---
     if (protocolParams) {
         if (!apiKey) return NextResponse.json({ role: 'assistant', content: "Neural Key (OpenAI) required for Protocol simulations.", sourceLayer: 'SYSTEM' });
 
         const openai = new OpenAI({ apiKey });
-        const internetContext = searchKey ? await getInternetData(`Body of work, worldview, and rhetorical style of: ${protocolParams.members}`, searchKey) : "";
+
+        // Protocol MUST build profiles from searchable work
+        let researchContext = "";
+        if (searchKey) {
+            researchContext = await getInternetData(`In-depth analysis of rhetorical style, worldview, and searchable body of work for: ${protocolParams.members}`, searchKey) || "";
+        }
 
         const systemPrompt = `
-            # READY ROOM PROTOCOL ACTIVE
+            # READY ROOM PROTOCOL ACTIVE (THE HOLODECK)
 
-            ## CONSTRAINTS:
-            - ANTI-PUPPETEERING: Do not think first and then speak. Reasoning must originate from the figure's knowable reality.
-            - DISTINCT VOICES: Each member must have a unique worldview.
-            - SOURCE MATERIAL: Use this context to build profiles: ${internetContext}
+            ## MANDATE:
+            - ANTI-PUPPETEERING: Do not "act" or "summarize". Reasoning must originate from the figure's established body of work.
+            - SOURCE MATERIAL: Use this context to build a consistent profile: ${researchContext}
+            - PERSISTENCE: Maintain the simulation's integrity. No AI assistant interjections.
 
-            ## CURRENT SESSION:
+            ## PARAMETERS:
             - Moderator: ${protocolParams.moderator}
+            - Members: ${protocolParams.members}
             - Topic: ${protocolParams.topic}
+            - Rules: ${protocolParams.rules}
             - Tone: ${protocolParams.tone}
-            - Format: ${protocolParams.format}
 
-            You are simulating the deliberative chamber. Respond as the moderator or the next speaker in the sequence.
-            Keep formatting clean (Bold names, no markdown symbols like "Speaker:").
+            Deliberate as the figures or the moderator.
         `;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [{ role: "system", content: systemPrompt }, ...history.map((h: any) => ({ role: h.role, content: h.content })), { role: "user", content: message }],
-            temperature: 0.7,
+            temperature: 0.85,
         });
 
         return NextResponse.json({
             role: 'assistant',
             content: response.choices[0].message.content,
-            sourceLayer: 'NEURAL_SIM'
+            sourceLayer: 'PROTOCOL_SIM'
         });
     }
 
-    // 3. INTERNET + AI ESCALATION (ASSISTANT'S ASSISTANT)
-    if (apiKey && searchKey) {
-        const webContext = await getInternetData(message, searchKey);
+    // --- LAYER 3: INTERNET & OPT-IN AI ESCALATION ---
+    let webData = null;
+    if (searchKey) {
+        webData = await getInternetData(message, searchKey);
+    }
+
+    // DOCTRINE: Escalate to AI if Local+Internet is insufficient OR if explicitly enhanced (Opt-in)
+    const internetInsufficient = searchKey && !webData;
+    const shouldEscalateToAI = apiKey && (aiEnhanced || internetInsufficient);
+
+    if (shouldEscalateToAI) {
         const openai = new OpenAI({ apiKey });
+        const prompt = `Assistant to Twin+ OS. Use the available context to resolve Michael's signal.
+        Doctrine: Local > Internet > AI.
+        Note: If local data exists, synthesize it with the new findings.
 
-        const prompt = `You are the AI assistant to Twin+, Michael's executive OS.
-        Twin+ has routed this query to you because local data was insufficient.
-        Michael prefers "Just the Facts" mode unless synthesis is requested.
-
-        WEB_CONTEXT: ${webContext || "No factual data found."}
-        QUERY: ${message}`;
+        LOCAL_DATA: ${localResult || "None"}
+        INTERNET_DATA: ${webData || "No external data found."}
+        SIGNAL: ${message}`;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [...history.slice(-5).map((h: any) => ({ role: h.role, content: h.content })), { role: "user", content: prompt }],
-            max_tokens: 500
+            max_tokens: 800
         });
 
-        return NextResponse.json({ role: 'assistant', content: response.choices[0].message.content, sourceLayer: 'HYBRID' });
+        return NextResponse.json({
+            role: 'assistant',
+            content: response.choices[0].message.content,
+            sourceLayer: 'NEURAL_SYNTHESIS'
+        });
     }
 
-    if (searchKey) {
-        const data = await getInternetData(message, searchKey);
-        return NextResponse.json({ role: 'assistant', content: data || "FACTUAL_NULL", sourceLayer: 'INTERNET' });
+    // Return the best available lower-layer data if AI wasn't used/available
+    if (webData) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: localResult ? `${localResult}\n\n[SUPPLEMENTAL RESEARCH]:\n${webData}` : webData,
+            sourceLayer: 'INTERNET_RESOLVED'
+        });
     }
 
-    return NextResponse.json({ role: 'assistant', content: "Insufficient intelligence layer available. Configure keys.", sourceLayer: 'SYSTEM' });
+    if (localResult) {
+        return NextResponse.json({ role: 'assistant', content: localResult, sourceLayer: 'LOCAL_SOVEREIGN' });
+    }
+
+    return NextResponse.json({
+        role: 'assistant',
+        content: "Insufficient data at all Doctrine levels. Configure keys or refine signal.",
+        sourceLayer: 'SYSTEM'
+    });
 }
