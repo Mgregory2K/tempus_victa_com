@@ -1,7 +1,9 @@
 // src/components/SignalBay.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
+import { createEvent } from '@/core/twin_plus/twin_event';
 
 interface Signal {
     id: string;
@@ -11,9 +13,15 @@ interface Signal {
     timestamp: string;
     type: 'COMM' | 'SYSTEM' | 'INTEL' | 'ALERT';
     actionTaken: boolean;
+    isSnoozed?: boolean;
 }
 
-export default function SignalBay() {
+interface SignalBayProps {
+    onRouteToCorkboard?: (signal: Signal) => void;
+    onRouteToTask?: (signal: Signal) => void;
+}
+
+export default function SignalBay({ onRouteToCorkboard, onRouteToTask }: SignalBayProps) {
     const [signals, setSignals] = useState<Signal[]>([
         { id: '1', source: 'Jen', content: 'Did you see the mail about the property tax?', trustScore: 0.98, timestamp: '10:45 AM', type: 'COMM', actionTaken: false },
         { id: '2', source: 'System', content: 'Neural key rotation required in 48h.', trustScore: 1.0, timestamp: '09:30 AM', type: 'SYSTEM', actionTaken: false },
@@ -21,12 +29,27 @@ export default function SignalBay() {
         { id: '4', source: 'Unknown', content: 'Click here to claim your reward!', trustScore: 0.05, timestamp: '07:00 AM', type: 'ALERT', actionTaken: false },
     ]);
 
-    const handleAction = (id: string) => {
-        setSignals(prev => prev.map(s => s.id === id ? { ...s, actionTaken: true } : s));
+    const handleRoute = (signal: Signal, destination: 'CORKBOARD' | 'TASK') => {
+        setSignals(prev => prev.map(s => s.id === signal.id ? { ...s, actionTaken: true } : s));
+
+        if (destination === 'CORKBOARD') {
+            onRouteToCorkboard?.(signal);
+            twinPlusKernel.observe(createEvent('SIGNAL_ROUTED', { signalId: signal.id, to: 'CORKBOARD' }, 'SIGNAL_BAY'));
+        } else {
+            onRouteToTask?.(signal);
+            twinPlusKernel.observe(createEvent('SIGNAL_ROUTED', { signalId: signal.id, to: 'WINBOARD' }, 'SIGNAL_BAY'));
+        }
     };
 
+    const handleDecay = (id: string) => {
+        setSignals(prev => prev.filter(s => s.id !== id));
+        twinPlusKernel.observe(createEvent('SIGNAL_DECAYED', { signalId: id }, 'SIGNAL_BAY'));
+    };
+
+    const activeSignals = signals.filter(s => !s.isSnoozed);
+
     return (
-        <div className="max-w-4xl mx-auto space-y-8 animate-slide-up">
+        <div className="max-w-4xl mx-auto space-y-8 animate-slide-up pb-24">
             <header className="flex justify-between items-end border-b border-white/10 pb-4">
                 <div>
                     <h1 className="text-4xl font-black italic text-white uppercase tracking-tight">Signal Bay</h1>
@@ -38,7 +61,7 @@ export default function SignalBay() {
             </header>
 
             <div className="grid grid-cols-1 gap-4">
-                {signals.map(signal => (
+                {activeSignals.map(signal => (
                     <div key={signal.id}
                          className={`hud-panel p-4 flex items-center justify-between group transition-all ${signal.trustScore < 0.2 ? 'opacity-30 grayscale' : ''} ${signal.actionTaken ? 'border-neon-green/30' : 'border-white/5'}`}>
 
@@ -70,11 +93,12 @@ export default function SignalBay() {
                         <div className="flex gap-2">
                             {!signal.actionTaken ? (
                                 <>
-                                    <button onClick={() => handleAction(signal.id)} className="px-4 py-2 border border-accent/30 text-accent system-text text-[9px] font-black hover:bg-accent hover:text-white transition-all">ROUTE</button>
-                                    <button className="px-4 py-2 border border-white/10 text-white/20 system-text text-[9px] font-black hover:text-white transition-all">DECAY</button>
+                                    <button onClick={() => handleRoute(signal, 'CORKBOARD')} className="px-4 py-2 border border-accent/30 text-accent system-text text-[9px] font-black hover:bg-accent hover:text-white transition-all uppercase">Pin</button>
+                                    <button onClick={() => handleRoute(signal, 'TASK')} className="px-4 py-2 border border-neon-green/30 text-neon-green system-text text-[9px] font-black hover:bg-neon-green hover:text-white transition-all uppercase">Task</button>
+                                    <button onClick={() => handleDecay(signal.id)} className="px-4 py-2 border border-white/10 text-white/20 system-text text-[9px] font-black hover:text-white transition-all uppercase">Decay</button>
                                 </>
                             ) : (
-                                <span className="text-neon-green system-text text-[9px] font-black animate-pulse px-4 py-2">RESOLVED</span>
+                                <span className="text-neon-green system-text text-[9px] font-black animate-pulse px-4 py-2 uppercase">Routed_Resolved</span>
                             )}
                         </div>
 
@@ -82,6 +106,11 @@ export default function SignalBay() {
                         <div className="bracket-br opacity-20" />
                     </div>
                 ))}
+                {activeSignals.length === 0 && (
+                    <div className="py-24 text-center border-2 border-dashed border-white/5 rounded-xl bg-white/[0.01]">
+                        <p className="system-text text-[12px] text-white/20 font-black tracking-[0.4em]">ALL_SIGNALS_PROCESSED</p>
+                    </div>
+                )}
             </div>
 
             {/* Bottom Intelligence Summary */}
@@ -89,7 +118,7 @@ export default function SignalBay() {
                 <div className="flex justify-between items-center">
                     <div className="space-y-1">
                         <span className="system-text text-[9px] text-accent font-black tracking-widest">Cognitive Load Assessment</span>
-                        <p className="text-white/60 text-sm font-light italic">Signal density is low. Optimal execution environment maintained.</p>
+                        <p className="text-white/60 text-sm font-light italic uppercase">Signal density is low. Optimal execution environment maintained.</p>
                     </div>
                     <div className="flex gap-1 h-8 items-end">
                         {[2,5,3,8,4,6,3,2].map((h, i) => (

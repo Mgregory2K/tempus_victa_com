@@ -1,7 +1,7 @@
 // src/components/QuoteBoard.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
 import { createEvent } from '@/core/twin_plus/twin_event';
 
@@ -14,14 +14,24 @@ interface Quote {
     isSynced?: boolean;
 }
 
-export default function QuoteBoard() {
+interface QuoteBoardProps {
+    externalQuotes?: Quote[];
+    setQuotes?: React.Dispatch<React.SetStateAction<Quote[]>>;
+}
+
+export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProps) {
     const [input, setInput] = useState("");
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editValue, setEditValue] = useState("");
     const [isSyncing, setIsSyncing] = useState(false);
-    const [quotes, setQuotes] = useState<Quote[]>([
+
+    const defaultQuotes: Quote[] = [
         { id: '1', text: "The modern human does not suffer from a lack of tools. The modern human suffers from fragmentation.", author: "Tempus Victa Doctrine", timestamp: "Oct 24, 2024", isSynced: true },
         { id: '2', text: "Sovereignty is leverage.", author: "Michael", timestamp: "Oct 23, 2024", context: "Ready Room Protocol Discussion", isSynced: true },
         { id: '3', text: "Magic first, mathematics second.", author: "Twin+", timestamp: "Oct 22, 2024", isSynced: false },
-    ]);
+    ];
+
+    const quotes = externalQuotes || defaultQuotes;
 
     const handleSave = async () => {
         if (!input.trim()) return;
@@ -34,13 +44,13 @@ export default function QuoteBoard() {
             isSynced: false
         };
 
-        setQuotes(prev => [newQuote, ...prev]);
+        if (setQuotes) {
+            setQuotes(prev => [newQuote, ...prev]);
+        }
         setInput("");
 
-        // Log to Twin+ Ledger
         twinPlusKernel.observe(createEvent('QUOTE_CRYSTALLIZED', { text: input }, 'QUOTES'));
 
-        // Push to Notion Bridge if key exists
         const notionKey = localStorage.getItem("tv_notion_key");
         if (notionKey) {
             setIsSyncing(true);
@@ -55,7 +65,7 @@ export default function QuoteBoard() {
                         notionKey
                     })
                 });
-                if (res.ok) {
+                if (res.ok && setQuotes) {
                     setQuotes(prev => prev.map(q => q.id === newQuote.id ? { ...q, isSynced: true } : q));
                 }
             } catch (e) {
@@ -63,6 +73,26 @@ export default function QuoteBoard() {
             } finally {
                 setIsSyncing(false);
             }
+        }
+    };
+
+    const handleDelete = (id: string) => {
+        if (setQuotes) {
+            setQuotes(prev => prev.filter(q => q.id !== id));
+            twinPlusKernel.observe(createEvent('QUOTE_DELETED', { id }, 'QUOTES'));
+        }
+    };
+
+    const startEdit = (quote: Quote) => {
+        setEditingId(quote.id);
+        setEditValue(quote.text);
+    };
+
+    const saveEdit = () => {
+        if (setQuotes && editingId) {
+            setQuotes(prev => prev.map(q => q.id === editingId ? { ...q, text: editValue } : q));
+            twinPlusKernel.observe(createEvent('QUOTE_EDITED', { id: editingId, newText: editValue }, 'QUOTES'));
+            setEditingId(null);
         }
     };
 
@@ -83,9 +113,18 @@ export default function QuoteBoard() {
                     <div key={quote.id} className="hud-panel p-6 bg-black/40 border-white/5 relative group hover:border-accent/30 transition-all">
                         <div className="mb-4">
                             <span className="text-2xl text-accent/40 font-serif absolute -top-2 -left-1">"</span>
-                            <p className="text-lg font-bold italic tracking-tight text-white/90 leading-snug">
-                                {quote.text}
-                            </p>
+                            {editingId === quote.id ? (
+                                <textarea
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    className="w-full bg-white/5 border border-accent/40 p-2 text-white font-bold italic text-lg outline-none"
+                                    autoFocus
+                                />
+                            ) : (
+                                <p className="text-lg font-bold italic tracking-tight text-white/90 leading-snug">
+                                    {quote.text}
+                                </p>
+                            )}
                             <span className="text-2xl text-accent/40 font-serif absolute -bottom-6 right-4 rotate-180">"</span>
                         </div>
 
@@ -99,10 +138,20 @@ export default function QuoteBoard() {
                                 {quote.isSynced && (
                                     <div className="flex items-center gap-1">
                                         <div className="h-1 w-1 rounded-full bg-neon-green shadow-[0_0_5px_#22c55e]" />
-                                        <span className="text-[6px] text-neon-green font-black tracking-widest uppercase">Synced to Notion</span>
+                                        <span className="text-[6px] text-neon-green font-black tracking-widest uppercase">Synced</span>
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {editingId === quote.id ? (
+                                <button onClick={saveEdit} className="text-[8px] font-black text-neon-green bg-neon-green/10 border border-neon-green/40 px-2 py-1 uppercase">Save</button>
+                            ) : (
+                                <button onClick={() => startEdit(quote)} className="text-[8px] font-black text-white/40 hover:text-white uppercase">Edit</button>
+                            )}
+                            <button onClick={() => handleDelete(quote.id)} className="text-[8px] font-black text-red-500/50 hover:text-red-500 uppercase">Delete</button>
                         </div>
 
                         <div className="bracket-tl opacity-20" />
