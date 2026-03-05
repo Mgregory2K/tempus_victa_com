@@ -9,16 +9,35 @@ import { TwinEvent } from './twin_event';
 export class TwinEventLedger {
   private events: TwinEvent[] = [];
 
-  /**
-   * In a real web implementation, this would connect to IndexedDB or local storage.
-   */
   public static async open(): Promise<TwinEventLedger> {
-    console.log("TwinEventLedger opened.");
-    return new TwinEventLedger();
+    const ledger = new TwinEventLedger();
+    ledger.loadLocal();
+    return ledger;
+  }
+
+  private loadLocal() {
+    if (typeof window !== 'undefined') {
+        try {
+            const saved = localStorage.getItem('tv_event_history');
+            if (saved) {
+                this.events = JSON.parse(saved);
+                console.log(`TwinEventLedger: Loaded ${this.events.length} events from local storage.`);
+            }
+        } catch (e) {
+            console.error("Failed to load event ledger", e);
+        }
+    }
   }
 
   public append(e: TwinEvent): void {
     this.events.push(e);
+    this.saveLocal();
+  }
+
+  private saveLocal() {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('tv_event_history', JSON.stringify(this.events.slice(-1000)));
+    }
   }
 
   public query(filters: { limit?: number }): TwinEvent[] {

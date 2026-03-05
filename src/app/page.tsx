@@ -11,11 +11,12 @@ import QuoteBoard from "@/components/QuoteBoard";
 import Winboard from "@/components/Winboard";
 import SovereignTodo from "@/components/SovereignTodo";
 import GroceryList from "@/components/GroceryList";
-import { useSession } from "next-auth/react";
+import ClockTower from "@/components/ClockTower";
+import { useSession, signIn } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
-type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "LISTS" | "TODO";
+type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "LISTS" | "TODO" | "CLOCK_TOWER";
 
 interface SuggestedAction {
   type: string;
@@ -46,6 +47,43 @@ interface TRRPParams {
   topic: string;
 }
 
+const VoiceButton = ({ onTranscript, isTyping }: { onTranscript: (text: string) => void, isTyping: boolean }) => {
+    const [isListening, setIsListening] = useState(false);
+
+    const startListening = () => {
+        if (!('webkitSpeechRecognition' in window) && !('speechRecognition' in window)) {
+            alert("Speech recognition not supported in this browser.");
+            return;
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+
+        recognition.onstart = () => setIsListening(true);
+        recognition.onend = () => setIsListening(false);
+        recognition.onresult = (event: any) => {
+            const text = event.results[0][0].transcript;
+            onTranscript(text);
+        };
+        recognition.start();
+    };
+
+    return (
+        <button
+            onClick={startListening}
+            disabled={isTyping}
+            className={`p-2 rounded-full transition-all ${isListening ? 'bg-red-500 animate-pulse' : 'text-white/20 hover:text-accent'}`}
+            title="Captis Voice Input"
+        >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+        </button>
+    );
+};
+
 export default function Home() {
   const { status } = useSession();
   const [isKernelReady, setIsKernelReady] = useState(false);
@@ -62,7 +100,6 @@ export default function Home() {
     start();
   }, []);
 
-  // SOVEREIGN GATE: Prevent any interaction until neural link is stable
   if (status === "loading" || !isKernelReady) {
     return (
       <div className="h-screen w-screen bg-black flex items-center justify-center">
@@ -81,10 +118,11 @@ export default function Home() {
 }
 
 function AppShell() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [activeModule, setActiveModule] = useState<Module>("BRIDGE");
   const [apiKey, setApiKey] = useState("");
   const [searchKey, setSearchKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
   const [notionKey, setNotionKey] = useState("");
   const [assistantName, setAssistantName] = useState("Twin+");
   const [isOnline, setIsOnline] = useState(true);
@@ -127,7 +165,7 @@ function AppShell() {
     if (action.type === 'MANIFEST_TASK') {
         logEvent('ACTION_CREATED', { ...action.payload, source: 'READY_ROOM' });
     } else if (action.type === 'CRYSTALLIZE_QUOTE') {
-        logEvent('QUOTE_CRYSTALLIZED', action.payload);
+        logEvent('QUOTE_CAPTURED', action.payload, 'QUOTES');
     }
 
     setMessages(prev => prev.map(m => m.id === messageId ? { ...m, isManifested: true } : m));
@@ -188,6 +226,7 @@ function AppShell() {
           message: text,
           searchKey,
           apiKey,
+          geminiKey,
           aiEnhanced: aiEnhanced,
           history: currentHistory.slice(-15),
           assistantName,
@@ -290,6 +329,8 @@ function AppShell() {
     if (savedKey) setApiKey(savedKey);
     const savedSearch = localStorage.getItem("tv_search_key");
     if (savedSearch) setSearchKey(savedSearch);
+    const savedGemini = localStorage.getItem("tv_gemini_key");
+    if (savedGemini) setGeminiKey(savedGemini);
     const savedNotion = localStorage.getItem("tv_notion_key");
     if (savedNotion) setNotionKey(savedNotion);
     const savedName = localStorage.getItem("tv_assistant_name");
@@ -308,7 +349,7 @@ function AppShell() {
     }
 
     const savedModule = localStorage.getItem("tv_active_module");
-    if (savedModule && ["BRIDGE", "READY_ROOM", "MISSIONS", "DOCTRINE", "SETTINGS", "REVIEW", "SIGNALS", "CORKBOARD", "QUOTES", "WINBOARD", "LISTS", "TODO"].includes(savedModule)) {
+    if (savedModule && ["BRIDGE", "READY_ROOM", "MISSIONS", "DOCTRINE", "SETTINGS", "REVIEW", "SIGNALS", "CORKBOARD", "QUOTES", "WINBOARD", "LISTS", "TODO", "CLOCK_TOWER"].includes(savedModule)) {
         setActiveModule(savedModule as Module);
     }
 
@@ -323,6 +364,7 @@ function AppShell() {
     if (!hasMounted) return;
     localStorage.setItem("tv_api_key", apiKey);
     localStorage.setItem("tv_search_key", searchKey);
+    localStorage.setItem("tv_gemini_key", geminiKey);
     localStorage.setItem("tv_notion_key", notionKey);
     localStorage.setItem("tv_assistant_name", assistantName);
     localStorage.setItem("tv_chat_history", JSON.stringify(messages));
@@ -330,7 +372,7 @@ function AppShell() {
     if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [apiKey, searchKey, notionKey, assistantName, messages, activeModule, hasMounted]);
+  }, [apiKey, searchKey, geminiKey, notionKey, assistantName, messages, activeModule, hasMounted]);
 
   if (!hasMounted) return null;
 
@@ -373,14 +415,20 @@ function AppShell() {
              </div>
           </div>
 
-          <div className={`flex items-center gap-6 px-8 py-2 border-2 ${isSystemLinked ? 'border-neon-green/40 bg-neon-green/5' : 'border-red-500/40 bg-red-500/5'} transition-all`}>
+          <div
+            onClick={() => !session ? signIn('google') : null}
+            className={`flex items-center gap-6 px-8 py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-neon-green/40 bg-neon-green/5' : 'border-red-500/40 bg-red-500/5'}`}
+          >
              <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-neon-green shadow-[0_0_15px_#22c55e]' : 'bg-red-500'} ${isOnline && !session ? '' : 'animate-pulse'}`} />
-             <span className="system-text text-[10px] text-white font-black italic tracking-widest">{isSystemLinked ? 'Linked' : (isOnline ? 'UNAUTHENTICATED' : 'Offline')}</span>
+             <div className="flex flex-col">
+                <span className="system-text text-[10px] text-white font-black italic tracking-widest">{isSystemLinked ? 'LINKED' : (isOnline ? 'UNAUTHENTICATED' : 'OFFLINE')}</span>
+                <span className="text-[6px] text-white/20 font-bold opacity-0 group-hover:opacity-100 transition-opacity uppercase">{session ? `ID: ${session.user?.email}` : 'CLICK_TO_OAUTH'}</span>
+             </div>
           </div>
         </header>
 
         <div className="flex flex-grow overflow-hidden relative">
-          <SideNav onModuleChange={setActiveModule} activeModule={activeModule} />
+          <SideNav onModuleChange={setActiveModule} activeModule={activeModule} notionLinked={!!notionKey} />
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-8 overflow-y-auto scrollbar-thin">
               {activeModule === "BRIDGE" && (
@@ -421,6 +469,11 @@ function AppShell() {
               {activeModule === "QUOTES" && (
                 <div className="module-enter">
                   <QuoteBoard />
+                </div>
+              )}
+              {activeModule === "CLOCK_TOWER" && (
+                <div className="module-enter h-full">
+                  <ClockTower />
                 </div>
               )}
               {activeModule === "READY_ROOM" && (
@@ -574,7 +627,8 @@ function AppShell() {
                         {isTyping && <div className="flex flex-col items-start animate-pulse"><div className="p-4 glass border-white/10 h-10 w-24 flex items-center gap-2 rounded-2xl rounded-tl-sm"><div className={`h-1.5 w-1.5 rounded-full animate-bounce ${isProtocolActive ? 'bg-neon-green' : 'bg-accent'}`} /><div className={`h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0.2s] ${isProtocolActive ? 'bg-neon-green' : 'bg-accent'}`} /><div className={`h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0.4s] ${isProtocolActive ? 'bg-neon-green' : 'bg-accent'} shadow-[0_0_10px_rgba(0,212,255,1)]`} /></div></div>}
                      </div>
                      <div className="p-4 bg-black/80 border-t border-white/10 flex flex-col gap-2 shrink-0 uppercase">
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 items-center">
+                          <VoiceButton onTranscript={(text) => handleSend(text)} isTyping={isTyping} />
                           <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={isProtocolActive ? "Deliberate..." : `Signal ${assistantName}...`} className="flex-grow bg-transparent border-b border-white/10 px-4 py-3 text-[18px] focus:outline-none focus:border-accent/50 transition-colors placeholder:text-white/10 font-mono text-white" />
                           <button onClick={() => handleSend()} disabled={isTyping} className={`${isProtocolActive ? 'bg-neon-green/80' : 'bg-accent'} px-10 py-3 system-text text-[11px] font-black text-white hover:bg-white hover:text-black disabled:opacity-50 tracking-widest transition-colors uppercase`}>Engage</button>
                         </div>
@@ -625,6 +679,13 @@ function AppShell() {
                           </div>
                         </div>
                         <div className="flex flex-col gap-4">
+                          <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Gemini API Key</label>
+                          <div className="flex gap-4">
+                            <input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder="AIza..." className="flex-grow hud-panel bg-black/60 border-white/10 px-4 py-3 text-sm focus:border-accent/50 font-mono text-white shadow-inner uppercase" />
+                            <button onClick={() => { localStorage.setItem("tv_gemini_key", geminiKey); alert("Stored"); } } className="bg-accent px-10 py-2 system-text text-[10px] font-black text-white hover:bg-white hover:text-black uppercase">Store</button>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-4">
                           <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Notion API Key</label>
                           <div className="flex gap-4">
                             <input type="password" value={notionKey} onChange={(e) => setNotionKey(e.target.value)} placeholder="secret_..." className="flex-grow hud-panel bg-black/60 border-white/10 px-4 py-3 text-sm focus:border-accent/50 font-mono text-white shadow-inner uppercase" />
@@ -660,6 +721,7 @@ function AppShell() {
                 { id: "TODO", label: "TO-DO" },
                 { id: "LISTS", label: "LISTS" },
                 { id: "CORKBOARD", label: "CORKBOARD" },
+                { id: "CLOCK_TOWER", label: "CLOCK TOWER" },
                 { id: "REVIEW", label: "REVIEW" },
                 { id: "READY_ROOM", label: "READY ROOM" },
                 { id: "SETTINGS", label: "SETTINGS" }
