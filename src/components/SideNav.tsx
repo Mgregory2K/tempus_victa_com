@@ -18,7 +18,7 @@ const NavItem = ({ name, isLinked, isActive, onClick, subtext }: { name: string,
         <div className="flex flex-col">
             <span className={`system-text text-[10px] font-black tracking-widest ${isActive ? 'text-accent' : isLinked ? 'text-white' : 'text-white/40'}`}>{name}</span>
             <span className="text-[7px] text-white/20 font-bold uppercase tracking-tighter">
-                {subtext || (isLinked ? 'Link Stable' : 'Local Sovereignty')}
+                {isLinked ? 'Link Stable' : subtext || 'Local Sovereignty'}
             </span>
         </div>
 
@@ -29,9 +29,10 @@ const NavItem = ({ name, isLinked, isActive, onClick, subtext }: { name: string,
 interface SideNavProps {
     activeModule?: string;
     onModuleChange?: (module: any) => void;
+    notionLinked?: boolean;
 }
 
-export default function SideNav({ activeModule, onModuleChange }: SideNavProps) {
+export default function SideNav({ activeModule, onModuleChange, notionLinked }: SideNavProps) {
     const { data: session } = useSession();
 
     return (
@@ -86,7 +87,7 @@ export default function SideNav({ activeModule, onModuleChange }: SideNavProps) 
                     onClick={!session ? () => signIn('google') : undefined}
                 />
                 <NavItem name="Wrike P2" isLinked={false} subtext="Legacy dependency" />
-                <NavItem name="Notion" isLinked={false} />
+                <NavItem name="Notion" isLinked={notionLinked} subtext="Cloud Knowledge Base" />
             </div>
 
             <div className="absolute bottom-8 left-6 right-6 space-y-4 pt-12">

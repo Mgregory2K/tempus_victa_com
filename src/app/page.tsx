@@ -17,12 +17,20 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "LISTS" | "TODO";
 
+interface SuggestedAction {
+  type: string;
+  label: string;
+  payload: any;
+}
+
 interface Message {
   role: string;
   content: string;
   layer?: string;
   timestamp?: string;
   id: string;
+  suggestedActions?: SuggestedAction[];
+  isManifested?: boolean;
 }
 
 interface TRRPParams {
@@ -40,17 +48,30 @@ interface TRRPParams {
 
 export default function Home() {
   const { status } = useSession();
+  const [isKernelReady, setIsKernelReady] = useState(false);
 
   useEffect(() => {
-    twinPlusKernel.init();
+    async function start() {
+        try {
+            await twinPlusKernel.init();
+            setIsKernelReady(true);
+        } catch (e) {
+            console.error("Kernel Init Failed", e);
+        }
+    }
+    start();
   }, []);
 
-  if (status === "loading") {
+  // SOVEREIGN GATE: Prevent any interaction until neural link is stable
+  if (status === "loading" || !isKernelReady) {
     return (
       <div className="h-screen w-screen bg-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
             <div className="h-16 w-16 border-4 border-accent border-t-transparent rounded-full animate-spin shadow-[0_0_20px_var(--accent)]" />
             <p className="system-text text-accent animate-pulse tracking-[0.4em]">INITIALIZING NEURAL LINK...</p>
+            <span className="text-[8px] text-white/20 font-black uppercase tracking-widest">
+                {!isKernelReady ? 'Mounting_Twin+_Kernel...' : 'Verifying_Identity...'}
+            </span>
         </div>
       </div>
     );
@@ -60,10 +81,11 @@ export default function Home() {
 }
 
 function AppShell() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [activeModule, setActiveModule] = useState<Module>("BRIDGE");
   const [apiKey, setApiKey] = useState("");
   const [searchKey, setSearchKey] = useState("");
+  const [notionKey, setNotionKey] = useState("");
   const [assistantName, setAssistantName] = useState("Twin+");
   const [isOnline, setIsOnline] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -99,6 +121,22 @@ function AppShell() {
 
   const logEvent = (type: any, payload: any) => {
     twinPlusKernel.observe(createEvent(type, payload, activeModule));
+  };
+
+  const handleManifestAction = (messageId: string, action: SuggestedAction) => {
+    if (action.type === 'MANIFEST_TASK') {
+        logEvent('ACTION_CREATED', { ...action.payload, source: 'READY_ROOM' });
+    } else if (action.type === 'CRYSTALLIZE_QUOTE') {
+        logEvent('QUOTE_CRYSTALLIZED', action.payload);
+    }
+
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, isManifested: true } : m));
+
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-32 right-12 bg-neon-green text-black px-6 py-2 system-text text-[10px] font-black z-[3000] animate-bounce uppercase shadow-[0_0_20px_#22c55e]';
+    toast.innerText = `${action.label.toUpperCase()} SUCCESSFUL`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   };
 
   const terminateProtocol = () => {
@@ -158,16 +196,13 @@ function AppShell() {
       });
       const data = await response.json();
 
-      if (data.intent) {
-          logEvent('INTENT_ROUTED', { intent: data.intent, layer: data.sourceLayer });
-      }
-
       setMessages(prev => [...prev, {
           id: Date.now().toString(),
           role: data.role,
           content: data.content,
           layer: data.sourceLayer,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          suggestedActions: data.suggestedActions
       }]);
     } catch (error) {
       setMessages(prev => [...prev, {
@@ -235,6 +270,10 @@ function AppShell() {
     }
   };
 
+  const handleFeedback = (id: string, feedback: string) => {
+     logEvent('FEEDBACK_RECEIVED', { messageId: id, feedback });
+  };
+
   useEffect(() => {
     setHasMounted(true);
     const timer = setInterval(() => {
@@ -251,6 +290,8 @@ function AppShell() {
     if (savedKey) setApiKey(savedKey);
     const savedSearch = localStorage.getItem("tv_search_key");
     if (savedSearch) setSearchKey(savedSearch);
+    const savedNotion = localStorage.getItem("tv_notion_key");
+    if (savedNotion) setNotionKey(savedNotion);
     const savedName = localStorage.getItem("tv_assistant_name");
     if (savedName) setAssistantName(savedName);
 
@@ -282,13 +323,14 @@ function AppShell() {
     if (!hasMounted) return;
     localStorage.setItem("tv_api_key", apiKey);
     localStorage.setItem("tv_search_key", searchKey);
+    localStorage.setItem("tv_notion_key", notionKey);
     localStorage.setItem("tv_assistant_name", assistantName);
     localStorage.setItem("tv_chat_history", JSON.stringify(messages));
     localStorage.setItem("tv_active_module", activeModule);
     if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [apiKey, searchKey, assistantName, messages, activeModule, hasMounted]);
+  }, [apiKey, searchKey, notionKey, assistantName, messages, activeModule, hasMounted]);
 
   if (!hasMounted) return null;
 
@@ -475,7 +517,29 @@ function AppShell() {
                             </div>
                             <div className={`max-w-[95%] p-4 border shadow-xl relative group ${m.role === 'user' ? 'glass-accent border-accent/20 rounded-2xl rounded-tr-sm text-right' : 'glass border-white/10 rounded-2xl rounded-tl-sm text-left bg-white/[0.01]'} ${isProtocolActive && m.role !== 'user' ? 'border-neon-green/10' : ''}`}>
                                 <p className="text-white/90 leading-relaxed whitespace-pre-wrap text-[14px] font-light">{m.content}</p>
-                                {m.role === 'assistant' && !isProtocolActive && (
+
+                                {m.suggestedActions && !m.isManifested && (
+                                    <div className="mt-6 flex flex-wrap gap-3">
+                                        {m.suggestedActions.map((action, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleManifestAction(m.id, action)}
+                                                className="bg-neon-green/10 border border-neon-green/40 px-4 py-2 text-[9px] font-black text-neon-green hover:bg-neon-green hover:text-black transition-all uppercase tracking-widest"
+                                            >
+                                                MANIFEST {action.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {m.isManifested && (
+                                    <div className="mt-4 flex items-center gap-2">
+                                        <div className="h-1 w-1 bg-neon-green rounded-full shadow-[0_0_5px_#22c55e]" />
+                                        <span className="text-[8px] text-neon-green font-black uppercase tracking-tighter">Action Manifested to Sovereign Ledger</span>
+                                    </div>
+                                )}
+
+                                {m.role === 'assistant' && !isProtocolActive && !m.suggestedActions && (
                                     <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
                                         <div className="flex gap-4">
                                             <button onClick={() => handleFeedback(m.id, 'up')} className="text-white/20 hover:text-neon-green transition-colors">
@@ -544,7 +608,7 @@ function AppShell() {
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto pr-2 scrollbar-thin text-left uppercase">
                   <div className="flex flex-col max-w-3xl mx-auto py-12 w-full uppercase">
-                     <h2 className="text-4xl font-black italic tracking-tighter mb-10 text-white">CONFIG</h2>
+                     <h2 className="text-4xl font-black italic tracking-tighter mb-10 text-white uppercase italic">CONFIG</h2>
                      <div className="space-y-12 uppercase">
                         <div className="flex flex-col gap-4">
                           <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Neural Key (OpenAI) - OPT-IN AI</label>
@@ -558,6 +622,13 @@ function AppShell() {
                           <div className="flex gap-4">
                             <input type="password" value={searchKey} onChange={(e) => setSearchKey(e.target.value)} placeholder="API Key..." className="flex-grow hud-panel bg-black/60 border-white/10 px-4 py-3 text-sm focus:border-accent/50 font-mono text-white shadow-inner uppercase" />
                             <button onClick={() => { localStorage.setItem("tv_search_key", searchKey); alert("Stored"); } } className="bg-accent px-10 py-2 system-text text-[10px] font-black text-white hover:bg-white hover:text-black uppercase">Store</button>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-4">
+                          <label className="system-text text-[10px] text-white/50 font-black tracking-widest uppercase">Notion API Key</label>
+                          <div className="flex gap-4">
+                            <input type="password" value={notionKey} onChange={(e) => setNotionKey(e.target.value)} placeholder="secret_..." className="flex-grow hud-panel bg-black/60 border-white/10 px-4 py-3 text-sm focus:border-accent/50 font-mono text-white shadow-inner uppercase" />
+                            <button onClick={() => { localStorage.setItem("tv_notion_key", notionKey); alert("Stored"); } } className="bg-accent px-10 py-2 system-text text-[10px] font-black text-white hover:bg-white hover:text-black uppercase">Store</button>
                           </div>
                         </div>
                         <button onClick={clearHistory} className="w-full py-3 border border-red-500/30 text-red-500/50 system-text text-[9px] font-black hover:bg-red-500 hover:text-white transition-all uppercase">Master Reset</button>
@@ -590,7 +661,8 @@ function AppShell() {
                 { id: "LISTS", label: "LISTS" },
                 { id: "CORKBOARD", label: "CORKBOARD" },
                 { id: "REVIEW", label: "REVIEW" },
-                { id: "READY_ROOM", label: "READY ROOM" }
+                { id: "READY_ROOM", label: "READY ROOM" },
+                { id: "SETTINGS", label: "SETTINGS" }
               ].map(item => (
                 <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`px-6 system-text text-[9px] font-black transition-all relative overflow-hidden group min-w-[100px] h-full ${activeModule === item.id ? 'text-white bg-accent/20' : 'text-white/20 hover:text-white/60 uppercase'}`}>
                   <span className="relative z-10 italic uppercase">{item.label}</span>
