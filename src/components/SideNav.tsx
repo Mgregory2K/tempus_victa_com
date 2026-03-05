@@ -7,18 +7,23 @@ import { useSession, signIn } from "next-auth/react";
 const NavItem = ({ name, isLinked, onClick }: { name: string, isLinked?: boolean, onClick?: () => void }) => (
     <div
         onClick={onClick}
-        className={`flex items-center p-3 my-2 bg-gray-800/50 rounded-lg border-l-4 transition-all duration-300 ${
-            isLinked
-                ? 'border-accent text-white'
-                : onClick
-                ? 'cursor-pointer border-gray-700/50 text-gray-400 hover:border-accent hover:text-white'
-                : 'border-gray-700/50 text-gray-400 opacity-50'
-        }`}
+        className={`group relative flex items-center p-3 my-3 bg-white/[0.02] border border-white/5 hover:border-accent/40 transition-all cursor-pointer overflow-hidden`}
     >
-        <div className={`h-8 w-8 rounded-md mr-3 transition-colors flex items-center justify-center ${isLinked ? 'bg-gray-700' : 'bg-gray-700'}`}>
-             <div className={`h-2 w-2 rounded-full transition-colors ${isLinked ? 'bg-green-500' : 'bg-gray-500'}`} />
+        <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all ${isLinked ? 'bg-neon-green shadow-[0_0_10px_#22c55e]' : 'bg-white/10 group-hover:bg-accent/40'}`} />
+
+        <div className={`h-8 w-8 rounded-sm mr-3 flex items-center justify-center border ${isLinked ? 'border-neon-green/30 bg-neon-green/5' : 'border-white/10 bg-white/5'}`}>
+             <div className={`h-1.5 w-1.5 rounded-full ${isLinked ? 'bg-neon-green animate-pulse' : 'bg-white/20'}`} />
         </div>
-        <span className="text-sm font-semibold">{name}</span>
+
+        <div className="flex flex-col">
+            <span className={`system-text text-[10px] font-black tracking-widest ${isLinked ? 'text-white' : 'text-white/40'}`}>{name}</span>
+            <span className="text-[7px] text-white/20 font-bold uppercase tracking-tighter">
+                {isLinked ? 'Link Stable' : 'Pending Auth'}
+            </span>
+        </div>
+
+        {/* Decorative corner */}
+        <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-white/10 group-hover:border-accent/40" />
     </div>
 );
 
@@ -26,17 +31,38 @@ export default function SideNav() {
     const { data: session } = useSession();
 
     return (
-        <nav className="w-64 p-4 border-r border-white/10 bg-black/30 hidden lg:block">
-            <h2 className="text-lg font-semibold my-4">Linked Services</h2>
-            <div className="space-y-2">
+        <nav className="w-64 p-6 border-r border-white/10 bg-black/40 hidden lg:block relative">
+            <div className="mb-8">
+                <h2 className="system-text text-[10px] text-accent font-black tracking-[0.3em] mb-1">NEURAL NODES</h2>
+                <div className="h-px w-full bg-gradient-to-r from-accent/40 to-transparent" />
+            </div>
+
+            <div className="space-y-1">
                 <NavItem
-                    name="Google"
+                    name="Google Cloud"
                     isLinked={!!session}
                     onClick={!session ? () => signIn('google') : undefined}
                 />
-                <NavItem name="Wrike" />
+                <NavItem name="Wrike P2" />
                 <NavItem name="Notion" />
-                <NavItem name="ChatGPT" />
+                <NavItem name="Neural Link" />
+            </div>
+
+            {/* Bottom System Status Decor */}
+            <div className="absolute bottom-8 left-6 right-6 space-y-4">
+                <div className="h-px w-full bg-white/5" />
+                <div className="flex flex-col gap-1">
+                    <span className="system-text text-[7px] text-white/20 font-black">Memory Pressure</span>
+                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-accent w-[34%] opacity-60" />
+                    </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                    <span className="system-text text-[7px] text-white/20 font-black">Neural Temp</span>
+                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-500 w-[12%] opacity-60" />
+                    </div>
+                </div>
             </div>
         </nav>
     );
