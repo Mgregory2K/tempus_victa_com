@@ -1,49 +1,50 @@
 # Tempus Victa // Cognitive OS
 
-**Operational Status: v2.6 (Sovereign LAN)**
+**Operational Status: v2.9 (Windows Azure + Caddy)**
 
-Tempus Victa is a **local-first cognitive operating system** that turns every input from your life—voice captures, texts, shared content, notifications, and manual entries—into structured, actionable intelligence through a centralized Doctrine engine.
+Tempus Victa is a local-first cognitive operating system. This document outlines the deployment to a **Windows Server** environment using **Caddy** for automated SSL and reverse proxying.
 
-Built for the year 45,000,003 AD but functional today.
+## 🧬 Deployment Specs (Windows Azure VM)
 
-## 🧬 Twin+ Doctrine (The Learning Substrate)
+- **Domain**: [https://tempusvicta.com](https://tempusvicta.com) (Points to `172.183.153.240`)
+- **Environment**: Windows Server
+- **Reverse Proxy**: Caddy (Automated SSL + HTTP/3)
+- **Process Manager**: NSSM (Non-Sucking Service Manager)
 
-Twin+ is not a feature; it is the app's continuous behavioral substrate. It is a local, inspectable, evolving model of the user that shapes every interaction from day one.
+## 🚀 Windows Server Deployment Workflow
 
-- **Mirror**: Learns your language, cadence, tone, and decision patterns.
-- **Predict**: Forecasts next actions and potential derailments.
-- **Optimize**: Suggests reductions in cognitive load based on historical successes.
-- **Escalation Ladder**: Strictly follows **Local → Internet → Opt-in AI**.
+**1. Clone & Build:**
+- Clone the repository using Git for Windows.
+- Run `npm install` and `npm run build`.
 
-## 🛰 Core Modules (Windows into Twin+)
+**2. Configure Production Secrets (.env.local):**
+```env
+# This MUST be the public domain. localhost will not work for Google OAuth.
+NEXTAUTH_URL=https://tempusvicta.com
 
-- **The Bridge**: Your strategic cockpit. View cognitive load, time reclaimed, and the Twin+ Daily Brief.
-- **The Ready Room**: A self-aware deliberation chamber. Engage Twin+ for socratic debates, lexicon learning, and high-fidelity stress-testing.
-- **The Doctrine**: The immutable hierarchy of intelligence.
-- **Settings**: Control your neural link, provide API keys, and manage Azure/Entra identity.
+# Generate a new secret for production
+# `openssl rand -base64 32`
+NEXTAUTH_SECRET=[generate-new-secret]
 
-## 🛠 Tech Stack
-
-- **Framework**: [Next.js 15](https://nextjs.org) (App Router)
-- **Interface**: [Tailwind CSS 4](https://tailwindcss.com) with Custom HUD Cockpit styling.
-- **Intelligence**: Integrated OpenAI (GPT-4o) with intent-based escalation and live internet context.
-- **Identity**: Google (Sovereign OAuth)
-
-## 🚀 Production-First Workflow (Mobile Ready)
-
-The `dev` server is not suitable for mobile or LAN testing due to aggressive caching. Use the following production workflow for a stable, mobile-first experience.
-
-**1. Build for Production:**
-```bash
-npm run build
+# Google & AI Keys
+GOOGLE_CLIENT_ID=[your-id]
+GOOGLE_CLIENT_SECRET=[your-secret]
+OPENAI_API_KEY=[your-key]
 ```
 
-**2. Start the Production Server:**
-```bash
-npm run start -- -H 0.0.0.0
-```
+**3. Create a Windows Service (NSSM):**
+- Use NSSM to create a service that runs the `npm run start` command from the application directory. This ensures the app runs 24/7 in the background.
+- Command: `nssm install TempusVicta`
+- Arguments: `node_modules\next\dist\bin\next start -p 3010`
 
-Visit [http://localhost:3010](http://localhost:3010) on your desktop or your machine's IP (e.g., http://192.168.40.250:3010) on a mobile device.
+**4. Configure Caddy:**
+- Update your `Caddyfile`:
+```caddy
+https://tempusvicta.com {
+  reverse_proxy 127.0.0.1:3010
+}
+```
+- Caddy automatically handles SSL (Let's Encrypt) and redirects.
 
 ---
-*"I have a guy for that. Tempus Victa is my Twin+ assistant, and AI is its assistant."*
+*"Sovereignty is not a feature; it is the architecture."*
