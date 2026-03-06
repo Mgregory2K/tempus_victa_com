@@ -15,14 +15,13 @@ import GroceryList from "@/components/GroceryList";
 import ClockTower from "@/components/ClockTower";
 import IdentityMirror from "@/components/IdentityMirror";
 import DailyBrief from "@/components/DailyBrief";
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
 type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN";
 
 const VERSION = "3.0.3-RESTORED";
-const ADMIN_EMAILS = ["michaelagregory@gmail.com", "adam@example.com", "aschneider.dev@gmail.com", "jenmariehines@gmail.com"];
 
 interface SuggestedAction {
   type: string;
@@ -69,7 +68,8 @@ export const VoiceButton = ({ onTranscript, isTyping, size = "md" }: { onTranscr
             const source = audioContextRef.current.createMediaStreamSource(stream);
             source.connect(analyzerRef.current);
             analyzerRef.current.fftSize = 64;
-            const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
+            const bufferLength = analyzerRef.current.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
             const updateFrequency = () => {
                 if (analyzerRef.current) {
                     analyzerRef.current.getByteFrequencyData(dataArray);
@@ -129,6 +129,7 @@ function AppShell() {
   const [isProtocolActive, setIsProtocolActive] = useState(false);
   const [showTrrpModal, setShowTrrpModal] = useState(false);
   const [showDailyBrief, setShowDailyBrief] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [matrixPending, setMatrixPending] = useState(false);
   const [matrixMessage, setMatrixMessage] = useState("INITIATING");
 
@@ -176,7 +177,7 @@ function AppShell() {
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
 
-  // CLOUD SYNC
+  // CLOUD SYNC ENGINE
   const handleCloudSync = async (direction: 'PUSH' | 'PULL') => {
     if (!session) return alert("Link Google Identity first.");
     setIsSyncing(true);
@@ -219,6 +220,10 @@ function AppShell() {
         const cleaned = text.replace(/task/i, "").replace(/reminder/i, "").trim();
         setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'VOICE' }, ...prev]);
         routedTo = "PROJECTS";
+    } else if (lowText.includes("i wish")) {
+        const cleaned = text.replace(/i wish/i, "").replace(/the app would/i, "").trim();
+        submitWish(cleaned);
+        routedTo = "ADMIN (WISH)";
     } else {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: `[INGEST]: ${text}`, timestamp: new Date().toISOString() }]);
         routedTo = "SIGNALS";
@@ -261,9 +266,24 @@ function AppShell() {
       {/* 🌤 MORNING GLORY POPUP MODAL (Over Bridge) */}
       {showDailyBrief && (
         <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-3xl p-4 md:p-12 overflow-y-auto animate-slide-up">
-            <div className="max-w-4xl mx-auto relative text-left">
+            <div className="max-w-4xl mx-auto relative text-left text-white">
                 <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase">✕ Dismiss_Brief</button>
                 <DailyBrief />
+            </div>
+        </div>
+      )}
+
+      {/* 🔐 LOGOUT CONFIRMATION MODAL */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
+            <div className="hud-panel max-w-sm w-full p-8 border-red-500/40 text-center relative animate-slide-up">
+                <h3 className="system-text text-xl font-black text-red-500 mb-4 italic uppercase">Terminate_Session?</h3>
+                <p className="text-white/60 text-xs mb-8 normal-case leading-relaxed">This will sever the connection to the Mothership and clear your current identity token. Local data remains on device.</p>
+                <div className="flex gap-4">
+                    <button onClick={() => signOut()} className="flex-grow bg-red-500 py-3 text-[10px] font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest">Logout</button>
+                    <button onClick={() => setShowLogoutConfirm(false)} className="flex-grow border border-white/10 py-3 text-[10px] font-black text-white/40 hover:text-white transition-all uppercase tracking-widest">Cancel</button>
+                </div>
+                <div className="bracket-tl" /><div className="bracket-br" />
             </div>
         </div>
       )}
@@ -279,22 +299,18 @@ function AppShell() {
         <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 flex items-center justify-between px-4 md:px-10 shrink-0 relative">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
              <div className="h-10 w-10 md:h-12 border-2 border-accent/40 bg-black flex items-center justify-center relative shadow-[0_0_15px_rgba(0,212,255,0.2)]"><span className="system-text text-xl font-black text-accent">T</span><div className="bracket-tl" /><div className="bracket-br" /></div>
-             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION} // {activeModule}</span></div>
+             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none text-white">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION} // {activeModule}</span></div>
           </div>
 
           <div className="flex gap-2 items-center">
-            <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all">🌤 DAILY_BRIEF</button>
+            <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase text-white font-bold">🌤 DAILY_BRIEF</button>
 
-            {isSystemLinked && (
-                <div className="flex gap-1 border border-white/10 p-1 rounded bg-black/40">
-                    <button onClick={() => handleCloudSync('PUSH')} title="Upload current memory to Mothership" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-accent hover:bg-accent/10 transition-all border border-accent/20 uppercase">{isSyncing ? '...' : 'Push'}</button>
-                    <button onClick={() => handleCloudSync('PULL')} title="Download latest memory from Mothership" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-neon-green hover:bg-neon-green/10 transition-all border border-neon-green/20 uppercase">{isSyncing ? '...' : 'Pull'}</button>
-                </div>
-            )}
-
-            <div onClick={() => !session ? signIn('google') : null} className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse'}`}>
+            <div
+                onClick={() => isSystemLinked ? setShowLogoutConfirm(true) : signIn('google')}
+                className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse'}`}
+            >
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
-                <div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span><span className="text-[6px] text-white/20 font-bold mt-0.5 tracking-tighter leading-tight uppercase">{isSystemLinked ? 'Sync_Active' : 'Handshake_Req'}</span></div>
+                <div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[8px] tracking-widest leading-none leading-tight">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span><span className="text-[6px] text-white/20 font-bold mt-0.5 tracking-tighter leading-tight uppercase">{isSystemLinked ? 'Sync_Active' : 'Handshake_Req'}</span></div>
             </div>
           </div>
         </header>
@@ -316,24 +332,24 @@ function AppShell() {
                       <div className="flex justify-between items-end mb-8 border-b border-white/10 pb-4 uppercase text-white">
                           <div>
                               <h2 className="text-3xl font-black text-accent italic uppercase">Tester_Wish_Ledger</h2>
-                              <p className="system-text text-[10px] text-white/20 font-black tracking-widest mt-1 uppercase">Sovereign Scaling & Intelligence</p>
+                              <p className="system-text text-[10px] text-white/20 font-black tracking-widest mt-1 uppercase text-white">Sovereign Scaling & Intelligence</p>
                           </div>
                           <div className="text-right">
                               <span className="text-4xl font-black text-accent">{new Set(wishes.map(w => w.user)).size || 1}</span>
                               <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">Unique_Test_Users</p>
                           </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-4 text-white">
+                      <div className="grid grid-cols-1 gap-4 text-white text-white">
                           {wishes.map(wish => (
                               <div key={wish.id} className="hud-panel p-6 bg-black/40 border-white/10 relative group text-white">
                                   <div className="flex justify-between items-start mb-4 text-white">
-                                      <span className="text-accent font-black text-[10px] tracking-widest uppercase">{wish.user} // SIGNAL</span>
-                                      <span className="text-[8px] text-white/20 uppercase">{new Date(wish.timestamp).toLocaleString()}</span>
+                                      <span className="text-accent font-black text-[10px] tracking-widest uppercase text-white">{wish.user} // SIGNAL</span>
+                                      <span className="text-[8px] text-white/20 uppercase text-white">{new Date(wish.timestamp).toLocaleString()}</span>
                                   </div>
                                   <p className="text-lg font-bold italic text-white/90 text-white uppercase text-left">"I wish this app would {wish.text}"</p>
-                                  <div className="mt-6 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity uppercase text-white font-bold">
-                                      <button onClick={() => { setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'MED', source: wish.user}, ...prev]); setWishes(prev => prev.filter(w => w.id !== wish.id)); }} className="bg-neon-green/10 border border-neon-green/40 px-4 py-2 text-[8px] font-black text-neon-green uppercase">PROMOTE_TO_TASK</button>
-                                      <button onClick={() => setWishes(prev => prev.filter(w => w.id !== wish.id))} className="text-red-500/40 text-[8px] font-black uppercase">Archive</button>
+                                  <div className="mt-6 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity uppercase text-white font-bold text-white">
+                                      <button onClick={() => { setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'MED', source: wish.user}, ...prev]); setWishes(prev => prev.filter(w => w.id !== wish.id)); }} className="bg-neon-green/10 border border-neon-green/40 px-4 py-2 text-[8px] font-black text-neon-green uppercase text-white">PROMOTE_TO_TASK</button>
+                                      <button onClick={() => setWishes(prev => prev.filter(w => w.id !== wish.id))} className="text-red-500/40 text-[8px] font-black uppercase text-white">Archive</button>
                                   </div>
                                   <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
                               </div>
@@ -344,30 +360,30 @@ function AppShell() {
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
-                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase text-white font-black tracking-widest leading-none uppercase">Cognitive_Config</h2>
+                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase text-white font-black tracking-widest leading-none uppercase text-white">Cognitive_Config</h2>
                     {/* WISH INPUT */}
-                    <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded">
-                        <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em]">Manifest a wish for the system development</label>
-                        <div className="flex gap-4">
+                    <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded text-white">
+                        <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em] text-white font-bold">Manifest a wish for the system development</label>
+                        <div className="flex gap-4 text-white">
                             <span className="text-sm font-bold text-white/40 italic flex items-center">I wish this app would...</span>
-                            <input id="wishInput" className="flex-grow bg-transparent border-b border-white/20 focus:border-accent outline-none text-white italic uppercase" placeholder="be even faster." onKeyDown={(e) => { if(e.key === 'Enter') { submitWish((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} />
+                            <input id="wishInput" className="flex-grow bg-transparent border-b border-white/20 focus:border-accent outline-none text-white italic uppercase text-white" placeholder="be even faster." onKeyDown={(e) => { if(e.key === 'Enter') { submitWish((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} />
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-white">
+                        <div className="space-y-6 text-white">
                             <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase text-white">Neural Substrate</h3>
                             {[{ l: "OpenAI Key", v: apiKey, sv: setApiKey, k: "tv_api_key", d: "Synthesis" }, { l: "Gemini Key", v: geminiKey, sv: setGeminiKey, k: "tv_gemini_key", d: "Grounding" }].map(field => (
                                 <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors text-white">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase text-white">SET</button></div></div>
                             ))}
                         </div>
-                        <div className="space-y-6">
-                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase text-white text-white">External Nodes</h3>
+                        <div className="space-y-6 text-white">
+                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase uppercase text-white text-white">External Nodes</h3>
                             {[{ l: "Tavily Key", v: searchKey, sv: setSearchKey, k: "tv_search_key", d: "Triage" }, { l: "Notion Token", v: notionKey, sv: setNotionKey, k: "tv_notion_key", d: "Knowledge" }].map(field => (
-                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors text-white">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase text-white text-white">SET</button></div></div>
+                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors text-white uppercase">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase text-white text-white">SET</button></div></div>
                             ))}
                         </div>
                     </div>
-                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 text-left uppercase text-white"><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 border border-red-500/20 text-red-500/40 text-[9px] font-black hover:bg-red-500 hover:text-white transition-all tracking-[0.3em] uppercase">MASTER_OS_RESET</button></div>
+                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 text-left uppercase text-white"><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 border border-red-500/20 text-red-500/40 text-[9px] font-black hover:bg-red-500 hover:text-white transition-all tracking-[0.3em] uppercase text-white">MASTER_OS_RESET</button></div>
                     <div className="bracket-tl" /><div className="bracket-br" />
                   </div>
                 </div>
@@ -376,17 +392,17 @@ function AppShell() {
           </main>
         </div>
 
-        <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-1 md:gap-2 shrink-0 z-50 text-white">
+        <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-1 md:gap-2 shrink-0 z-50 text-white font-bold">
               {[
-                { id: "BRIDGE", label: "BRIDGE" }, { id: "SIGNALS", label: "SIGNALS" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
+                { id: "BRIDGE", label: "BRIDGE" }, { id: "SIGNALS", label: "SIGNALS" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "CLOCK TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
                 ...(isAdmin ? [{ id: "ADMIN", label: "WISHES" }] : [])
               ].map(item => (
                 <div key={item.id} className="relative group text-white">
                     <button
                         onClick={() => setActiveModule(item.id as Module)}
-                        className={`nav-parallelogram px-6 py-1.5 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
+                        className={`nav-parallelogram px-6 py-1.5 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
                     >
-                        <span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white">{item.label}</span>
+                        <span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span>
                     </button>
                 </div>
               ))}
