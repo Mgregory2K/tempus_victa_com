@@ -21,16 +21,22 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
     const recentWin = todayWins.length > 0 ? todayWins[todayWins.length - 1] : null;
 
     useEffect(() => {
+        let isMounted = true;
         const fetchCal = async () => {
+            if (!session) return;
             setLoading(true);
             try {
                 const res = await fetch('/api/calendar');
-                if (res.ok) setTodaysEvents(await res.json());
+                if (res.ok && isMounted) {
+                    const data = await res.json();
+                    setTodaysEvents(data);
+                }
             } catch (e) { console.error(e); }
-            finally { setLoading(false); }
+            finally { if (isMounted) setLoading(false); }
         };
-        if(session) fetchCal();
-    }, [session]);
+        fetchCal();
+        return () => { isMounted = false; };
+    }, [session]); // session is stable, so array size won't change
 
     const MetricCard = ({ title, value, unit, trend, glowColor, targetModule }: { title: string, value: string | number, unit?: string, trend?: string, glowColor: string, targetModule?: string }) => (
         <div
@@ -56,29 +62,29 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 <MetricCard title="Audit Log" value="85H" trend="12%+" glowColor="accent" targetModule="CLOCK_TOWER" />
                 <MetricCard title="Affinity" value="94" unit="%" trend="PEAK" glowColor="neon-green" targetModule="MIRROR" />
                 <MetricCard title="Objectives" value={activeProjectsCount} trend="ACTIVE" glowColor="purple-500" targetModule="PROJECTS" />
-                <MetricCard title="Signals" value="12" trend="PENDING" glowColor="orange-500" targetModule="SIGNALS" />
+                <MetricCard title="Triage" value="12" trend="SIGNALS" glowColor="orange-500" targetModule="SIGNALS" />
             </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* 📅 Actionable Calendar Feed */}
-                <div className="lg:col-span-2 hud-panel p-6 bg-black/60 border-white/10 relative">
+                <div className="lg:col-span-2 hud-panel p-6 bg-black/60 border-white/10 relative text-white">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="system-text text-[10px] text-white/60 font-black tracking-widest uppercase">Temporal Timeline</h3>
-                        <span className="text-[8px] text-accent font-black tracking-widest">LIVE_FEED</span>
+                        <span className="text-[8px] text-accent font-black tracking-widest uppercase italic">Live Feed</span>
                     </div>
                     <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin pr-2 text-left uppercase">
                         {loadingCalendar ? (
-                            <div className="py-10 text-center opacity-20 animate-pulse text-[10px]">SYNCING_CHRONOS...</div>
+                            <div className="py-10 text-center opacity-20 animate-pulse text-[10px] text-white">SYNCING_CHRONOS...</div>
                         ) : todaysEvents.length === 0 ? (
                             <div className="py-10 text-center border border-dashed border-white/5 text-[9px] text-white/20 uppercase italic">NO_SCHEDULED_EVENTS_DETECTED</div>
                         ) : (
                             todaysEvents.map((e: any) => (
-                                <div key={e.id} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded hover:border-accent/30 transition-all group">
+                                <div key={e.id} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/10 rounded hover:border-accent/30 transition-all group">
                                     <div className="flex items-center gap-4 min-w-0">
                                         <span className="text-[10px] font-black text-accent min-w-[60px]">{new Date(e.start.dateTime || e.start.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</span>
-                                        <p className="text-xs font-bold italic text-white/80 truncate uppercase">{e.summary}</p>
+                                        <p className="text-xs font-bold italic text-white/90 truncate uppercase">{e.summary}</p>
                                     </div>
-                                    <a href={e.htmlLink} target="_blank" className="text-[8px] font-black text-white/20 group-hover:text-accent transition-colors uppercase whitespace-nowrap ml-4">View_Event 🔗</a>
+                                    <a href={e.htmlLink} target="_blank" className="text-[8px] font-black text-white/40 group-hover:text-accent transition-colors uppercase whitespace-nowrap ml-4">View_Event 🔗</a>
                                 </div>
                             ))
                         )}
@@ -89,7 +95,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 {/* 🏆 Persistence-Driven Latest Win */}
                 <div
                     onClick={() => onNavigate?.('WINBOARD')}
-                    className="hud-panel p-6 bg-neon-green/5 border-neon-green/20 relative cursor-pointer group hover:bg-neon-green/10 transition-all"
+                    className="hud-panel p-6 bg-neon-green/5 border-neon-green/20 relative cursor-pointer group hover:bg-neon-green/10 transition-all text-white"
                 >
                     <h3 className="system-text text-[10px] text-neon-green font-black tracking-widest uppercase mb-6">Current Momentum</h3>
                     {recentWin ? (
@@ -109,16 +115,16 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
 
             {/* 📬 COMMUNICATIONS & INTELLIGENCE */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="hud-panel p-6 border-white/5 bg-black/40 relative">
-                    <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                <div className="hud-panel p-6 border-white/10 bg-black/40 relative text-white">
+                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
                         <span className="system-text text-[9px] text-white/40 font-black uppercase tracking-widest">Signals Summary</span>
                         <span className="text-[8px] text-orange-500 font-black uppercase tracking-widest">SYSTEM_URGENT</span>
                     </div>
                     <div className="space-y-2 text-left">
-                        <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/5 cursor-pointer hover:border-orange-500/40 transition-all" onClick={() => onNavigate?.('SIGNALS')}>
+                        <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-orange-500/40 transition-all" onClick={() => onNavigate?.('SIGNALS')}>
                             <span className="font-bold text-white/60 uppercase">Encrypted Texts</span><span className="text-accent font-black">8 NEW</span>
                         </div>
-                        <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/5 cursor-pointer hover:border-orange-500/40 transition-all" onClick={() => onNavigate?.('SIGNALS')}>
+                        <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-orange-500/40 transition-all" onClick={() => onNavigate?.('SIGNALS')}>
                             <span className="font-bold text-white/60 uppercase">Strategic Emails</span><span className="text-accent font-black">14 ACTION_REQ</span>
                         </div>
                     </div>
@@ -126,7 +132,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 </div>
 
                 {/* Σ TWIN+ DIRECTIVE */}
-                <div className="hud-panel p-6 bg-accent/5 border-dashed border-accent/20 relative group hover:bg-accent/10 transition-all cursor-pointer" onClick={() => onNavigate?.('READY_ROOM')}>
+                <div className="hud-panel p-6 bg-accent/5 border-dashed border-accent/20 relative group hover:bg-accent/10 transition-all cursor-pointer text-white" onClick={() => onNavigate?.('READY_ROOM')}>
                     <span className="system-text text-[10px] text-accent font-black tracking-[0.3em] block mb-4 uppercase">Twin+ Executive Summary</span>
                     <p className="text-white/70 text-md font-light leading-relaxed italic uppercase tracking-wide text-left">
                         Michael, system synchronization is stable. Your career transition signals are peaking—recommend allocating the next 90 minutes to strategic networking. Engage the Ready Room for deeper synthesis.
