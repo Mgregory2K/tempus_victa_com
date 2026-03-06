@@ -14,13 +14,14 @@ import SovereignTodo from "@/components/SovereignTodo";
 import GroceryList from "@/components/GroceryList";
 import ClockTower from "@/components/ClockTower";
 import IdentityMirror from "@/components/IdentityMirror";
+import DailyBrief from "@/components/DailyBrief";
 import { useSession, signIn } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
 type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR";
 
-const VERSION = "2.9.6-MAGIC";
+const VERSION = "2.9.9-COMMAND";
 
 interface SuggestedAction {
   type: string;
@@ -127,6 +128,7 @@ function AppShell() {
   const [isMatrixActive, setIsMatrixActive] = useState(false);
   const [isProtocolActive, setIsProtocolActive] = useState(false);
   const [showTrrpModal, setShowTrrpModal] = useState(false);
+  const [showDailyBrief, setShowDailyBrief] = useState(false);
   const [matrixPending, setMatrixPending] = useState(false);
   const [matrixMessage, setMatrixMessage] = useState("INITIATING");
 
@@ -153,6 +155,16 @@ function AppShell() {
         setNotes(JSON.parse(localStorage.getItem("tv_notes") || "[]"));
         setMessages(JSON.parse(localStorage.getItem("tv_chat_history") || "[]"));
     } catch (e) {}
+
+    // AUTOMATION: Check for 6 AM Brief
+    const now = new Date();
+    const lastBriefSeen = localStorage.getItem("tv_last_brief_seen");
+    const todayStr = now.toLocaleDateString();
+
+    if (now.getHours() >= 6 && lastBriefSeen !== todayStr) {
+        setShowDailyBrief(true);
+        localStorage.setItem("tv_last_brief_seen", todayStr);
+    }
   }, []);
 
   // AUTO-SAVE TO LOCAL
@@ -188,6 +200,35 @@ function AppShell() {
     finally { setIsSyncing(false); }
   };
 
+  // UNIVERSAL INGESTION ENGINE
+  const handleUniversalIngest = (text: string) => {
+    const timestamp = new Date().toISOString();
+    const lowText = text.toLowerCase();
+
+    let routedTo = "";
+
+    if (lowText.includes("cork it") || lowText.includes("corkboard")) {
+        const cleaned = text.replace(/cork it/i, "").replace(/corkboard/i, "").trim();
+        setNotes(prev => [...prev, { id: Date.now().toString(), text: cleaned || text, x: Math.random()*400, y: Math.random()*400, rotation: 0, color: 'bg-yellow-200/80' }]);
+        routedTo = "CORKBOARD";
+    } else if (lowText.includes("task") || lowText.includes("reminder")) {
+        const cleaned = text.replace(/task/i, "").replace(/reminder/i, "").trim();
+        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'VOICE' }, ...prev]);
+        routedTo = "PROJECTS";
+    } else {
+        // Default to Signal Bay
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: `[UNIVERSAL_INGEST]: ${text}`, timestamp }]);
+        routedTo = "SIGNALS";
+    }
+
+    // Feedback Toast
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 bg-accent text-black px-6 py-2 system-text text-[10px] font-black z-[3000] animate-bounce uppercase shadow-[0_0_20px_var(--accent)] border-2 border-black';
+    toast.innerText = `ROUTED TO ${routedTo} // ${text.substring(0, 20)}...`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  };
+
   const handleSend = async (overrideInput?: string) => {
     const text = overrideInput || input.trim();
     if (!text || isTyping) return;
@@ -219,10 +260,28 @@ function AppShell() {
   const isSystemLinked = isOnline && status === 'authenticated';
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase">
+    <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.1),transparent_70%)] opacity-60" />
         <div className="scanline" />
+      </div>
+
+      {/* 🌤 MORNING GLORY DROPDOWN BRIEF */}
+      {showDailyBrief && (
+        <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl p-4 md:p-12 overflow-y-auto animate-slide-up">
+            <div className="max-w-4xl mx-auto relative">
+                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all">✕ DISMISS_BRIEF</button>
+                <DailyBrief />
+            </div>
+        </div>
+      )}
+
+      {/* 🎙 UNIVERSAL RECORD BUTTON (Floating) */}
+      <div className="fixed bottom-24 right-8 z-[2000] flex flex-col items-center gap-2">
+          <span className="text-[7px] font-black text-white/20 bg-black/40 px-2 py-1 rounded border border-white/5 backdrop-blur-sm tracking-[0.2em]">RECORD_INTENT</span>
+          <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group">
+              <VoiceButton onTranscript={handleUniversalIngest} size="md" />
+          </div>
       </div>
 
       <div className="relative z-10 h-full w-full flex flex-col hud-panel border-white/10 overflow-hidden shadow-2xl bg-black/40 backdrop-blur-md rounded-none md:rounded-lg">
@@ -233,26 +292,32 @@ function AppShell() {
                 <div className="bracket-tl" /><div className="bracket-br" />
              </div>
              <div className="flex flex-col text-left">
-                <span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90">Tempus Victa</span>
-                <span className="system-text text-[6px] text-accent/60 font-black italic">{VERSION} // {activeModule}</span>
+                <span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase">The Bridge</span>
+                <span className="system-text text-[6px] text-accent/60 font-black italic">v{VERSION} // {activeModule}</span>
              </div>
           </div>
 
           <div className="flex gap-2">
+            <button
+                onClick={() => setShowDailyBrief(true)}
+                className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all"
+            >
+                🌤 DAILY_BRIEF
+            </button>
             {isSystemLinked && (
                 <div className="flex gap-1 border border-white/10 p-1 rounded bg-black/40">
-                    <button onClick={() => handleCloudSync('PUSH')} title="Upload current memory to Mothership" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-accent hover:bg-accent/10 transition-all border border-accent/20 uppercase">{isSyncing ? '...' : 'Push'}</button>
-                    <button onClick={() => handleCloudSync('PULL')} title="Download latest memory from Mothership" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-neon-green hover:bg-neon-green/10 transition-all border border-neon-green/20 uppercase">{isSyncing ? '...' : 'Pull'}</button>
+                    <button onClick={() => handleCloudSync('PUSH')} title="Upload memory to Mothership" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-accent hover:bg-accent/10 transition-all border border-accent/20 uppercase">{isSyncing ? '...' : 'Push'}</button>
+                    <button onClick={() => handleCloudSync('PULL')} title="Download latest memory" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-neon-green hover:bg-neon-green/10 transition-all border border-neon-green/20 uppercase">{isSyncing ? '...' : 'Pull'}</button>
                 </div>
             )}
             <div
                 onClick={() => !session ? signIn('google') : null}
-                className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.2)]'}`}
+                className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse'}`}
             >
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
-                <div className="flex flex-col">
+                <div className="flex flex-col text-left">
                     <span className="system-text text-[8px] text-white font-black italic tracking-widest leading-none">{isSystemLinked ? 'MOTHERSHIP_STABLE' : 'IDENTITY_UNLINKED'}</span>
-                    <span className="text-[6px] text-white/20 font-bold uppercase mt-0.5">{isSystemLinked ? 'SYNC_ACTIVE' : 'SIGN_IN_REQUIRED'}</span>
+                    <span className="text-[6px] text-white/20 font-bold uppercase mt-0.5 tracking-tighter">{isSystemLinked ? 'SYNC_ACTIVE' : 'SIGN_IN_REQUIRED'}</span>
                 </div>
             </div>
           </div>
@@ -262,7 +327,7 @@ function AppShell() {
           <SideNav onModuleChange={setActiveModule} activeModule={activeModule} />
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
-              {activeModule === "BRIDGE" && <div className="module-enter"><Bridge /></div>}
+              {activeModule === "BRIDGE" && <div className="module-enter h-full"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as Module)} /></div>}
               {activeModule === "SIGNALS" && <div className="module-enter"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} /></div>}
@@ -271,7 +336,7 @@ function AppShell() {
               {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as Module)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}
               {activeModule === "READY_ROOM" && (
-                <div className="module-enter flex flex-col h-full w-full">
+                <div className="module-enter flex flex-col h-full w-full uppercase">
                   <div className={`flex-grow hud-panel flex flex-col overflow-hidden relative shadow-2xl transition-colors duration-1000 ${isProtocolActive ? 'bg-black/80 border-neon-green/20' : 'bg-black/60 border-white/10'}`}>
                      <div ref={scrollRef} className="flex-grow p-4 md:p-6 overflow-y-auto font-sans text-sm space-y-6 scrollbar-thin bg-black/20">
                         {messages.map((m) => (
@@ -288,9 +353,9 @@ function AppShell() {
                      <div className="p-3 bg-black/80 border-t border-white/10 flex flex-col gap-2 uppercase">
                         <div className="flex gap-2 items-center">
                           <VoiceButton onTranscript={(text) => handleSend(text)} isTyping={isTyping} />
-                          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="SIGNAL..." className="flex-grow bg-transparent border-b border-white/10 px-2 py-2 text-md focus:outline-none font-mono text-white" />
+                          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="SIGNAL..." className="flex-grow bg-transparent border-b border-white/10 px-2 py-2 text-md focus:outline-none font-mono text-white uppercase" />
                           <button onClick={() => setAiEnhanced(!aiEnhanced)} className={`px-4 py-2 border transition-all system-text text-[9px] font-black ${aiEnhanced ? 'bg-accent/20 border-accent text-accent shadow-[0_0_10px_var(--accent)]' : 'border-white/10 text-white/20'}`}>AI_{aiEnhanced ? 'ACTIVE' : 'STANDBY'}</button>
-                          <button onClick={() => handleSend()} className="bg-accent px-4 py-2 system-text text-[9px] font-black tracking-widest">ENGAGE</button>
+                          <button onClick={() => handleSend()} className="bg-accent px-4 py-2 system-text text-[9px] font-black tracking-widest uppercase">ENGAGE</button>
                         </div>
                      </div>
                   </div>
@@ -299,47 +364,30 @@ function AppShell() {
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative">
-                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter">COGNITIVE_CONFIG</h2>
-
+                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase">COGNITIVE_CONFIG</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-6">
                             <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest">Neural Substrate</h3>
-                            {[
-                                { l: "OpenAI Key", v: apiKey, sv: setApiKey, k: "tv_api_key", d: "Neural Synthesis" },
-                                { l: "Gemini Key", v: geminiKey, sv: setGeminiKey, k: "tv_gemini_key", d: "Sovereign Search" }
-                            ].map(field => (
+                            {[{ l: "OpenAI Key", v: apiKey, sv: setApiKey, k: "tv_api_key", d: "Synthesis" }, { l: "Gemini Key", v: geminiKey, sv: setGeminiKey, k: "tv_gemini_key", d: "Grounding" }].map(field => (
                                 <div key={field.l} className="flex flex-col gap-2 group">
                                     <label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors">{field.l} // {field.d}</label>
-                                    <div className="flex gap-2">
-                                        <input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono" />
-                                        <button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all">SET</button>
-                                    </div>
+                                    <div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all">SET</button></div>
                                 </div>
                             ))}
                         </div>
-
                         <div className="space-y-6">
-                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest">External Nodes</h3>
-                            {[
-                                { l: "Tavily Key", v: searchKey, sv: setSearchKey, k: "tv_search_key", d: "Internet Triage" },
-                                { l: "Notion Token", v: notionKey, sv: setNotionKey, k: "tv_notion_key", d: "Knowledge Base" }
-                            ].map(field => (
+                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase">External Nodes</h3>
+                            {[{ l: "Tavily Key", v: searchKey, sv: setSearchKey, k: "tv_search_key", d: "Triage" }, { l: "Notion Token", v: notionKey, sv: setNotionKey, k: "tv_notion_key", d: "Knowledge" }].map(field => (
                                 <div key={field.l} className="flex flex-col gap-2 group">
-                                    <label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors">{field.l} // {field.d}</label>
-                                    <div className="flex gap-2">
-                                        <input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono" />
-                                        <button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all">SET</button>
-                                    </div>
+                                    <label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors uppercase">{field.l} // {field.d}</label>
+                                    <div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all">SET</button></div>
                                 </div>
                             ))}
                         </div>
                     </div>
-
-                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4">
+                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 text-left">
                         <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 border border-red-500/20 text-red-500/40 text-[9px] font-black hover:bg-red-500 hover:text-white transition-all tracking-[0.3em]">MASTER_OS_RESET</button>
-                        <p className="text-[7px] text-white/10 text-center uppercase font-bold italic tracking-widest">Warning: Reset will purge all local memory and encryption keys.</p>
                     </div>
-
                     <div className="bracket-tl" /><div className="bracket-br" />
                   </div>
                 </div>
@@ -350,9 +398,9 @@ function AppShell() {
 
         <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-2 shrink-0 z-50">
               {[
-                { id: "BRIDGE", label: "TODAY" }, { id: "SIGNALS", label: "SIGN" }, { id: "PROJECTS", label: "PROJ" }, { id: "WINBOARD", label: "WINS" }, { id: "CORKBOARD", label: "CORK" }, { id: "QUOTES", label: "QTES" }, { id: "READY_ROOM", label: "RDY" }, { id: "CLOCK_TOWER", label: "LOG" }, { id: "SETTINGS", label: "CFG" }
+                { id: "BRIDGE", label: "BRIDGE" }, { id: "SIGNALS", label: "SIGNALS" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" }
               ].map(item => (
-                <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`px-4 py-1 system-text text-[8px] font-black transition-all border whitespace-nowrap ${activeModule === item.id ? 'text-white bg-accent/20 border-accent' : 'text-white/20 border-transparent'}`}>
+                <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`px-4 py-1 system-text text-[8px] font-black transition-all border whitespace-nowrap uppercase ${activeModule === item.id ? 'text-white bg-accent/20 border-accent' : 'text-white/20 border-transparent hover:text-white/40'}`}>
                   {item.label}
                 </button>
               ))}
