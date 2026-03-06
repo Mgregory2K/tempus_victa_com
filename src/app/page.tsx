@@ -15,13 +15,15 @@ import GroceryList from "@/components/GroceryList";
 import ClockTower from "@/components/ClockTower";
 import IdentityMirror from "@/components/IdentityMirror";
 import DailyBrief from "@/components/DailyBrief";
+import ReadyRoom from "@/components/ReadyRoom";
+import AdminBoard from "@/components/AdminBoard";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
-type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN";
+export type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN";
 
-const VERSION = "3.0.3-RESTORED";
+const VERSION = "3.1.5-GENESIS";
 
 interface SuggestedAction {
   type: string;
@@ -29,11 +31,11 @@ interface SuggestedAction {
   payload: any;
 }
 
-interface Message {
-  role: string;
+export interface Message {
+  role: 'user' | 'assistant' | 'system';
   content: string;
-  layer?: string;
-  timestamp?: string;
+  sourceLayer?: string;
+  timestamp: string;
   id: string;
   suggestedActions?: SuggestedAction[];
   isManifested?: boolean;
@@ -121,25 +123,14 @@ function AppShell() {
   // PERSISTENT STATE
   const [tasks, setTasks] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
 
-  const [isMatrixActive, setIsMatrixActive] = useState(false);
-  const [isProtocolActive, setIsProtocolActive] = useState(false);
-  const [showTrrpModal, setShowTrrpModal] = useState(false);
   const [showDailyBrief, setShowDailyBrief] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [matrixPending, setMatrixPending] = useState(false);
-  const [matrixMessage, setMatrixMessage] = useState("INITIATING");
 
   const [hasMounted, setHasMounted] = useState(false);
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [aiEnhanced, setAiEnhanced] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   // HYDRATION
   useEffect(() => {
@@ -177,32 +168,6 @@ function AppShell() {
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
 
-  // CLOUD SYNC ENGINE
-  const handleCloudSync = async (direction: 'PUSH' | 'PULL') => {
-    if (!session) return alert("Link Google Identity first.");
-    setIsSyncing(true);
-    try {
-        if (direction === 'PUSH') {
-            const ledger = { tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName }, lastSync: new Date().toISOString() };
-            const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify(ledger) });
-            if (res.ok) alert("Sovereign Ledger Pushed to Cloud.");
-        } else {
-            const res = await fetch('/api/sync');
-            if (res.ok) {
-                const data = await res.json();
-                setTasks(data.tasks || []); setQuotes(data.quotes || []); setNotes(data.notes || []); setMessages(data.messages || []); setWishes(data.wishes || []);
-                if (data.config) {
-                    setApiKey(data.config.apiKey || ""); setSearchKey(data.config.searchKey || "");
-                    setGeminiKey(data.config.geminiKey || ""); setNotionKey(data.config.notionKey || "");
-                    localStorage.setItem("tv_api_key", data.config.apiKey || "");
-                }
-                alert("Sovereign Ledger Hydrated.");
-            }
-        }
-    } catch (e) { alert("Sync Failure."); }
-    finally { setIsSyncing(false); }
-  };
-
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
       setWishes(prev => [newWish, ...prev]);
@@ -226,7 +191,7 @@ function AppShell() {
         routedTo = "ADMIN (WISH)";
     } else {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: `[INGEST]: ${text}`, timestamp: new Date().toISOString() }]);
-        routedTo = "SIGNALS";
+        routedTo = "READY ROOM";
     }
     const toast = document.createElement('div');
     toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 bg-accent text-black px-6 py-2 system-text text-[10px] font-black z-[3000] animate-bounce uppercase shadow-[0_0_20px_#00d4ff] border-2 border-black';
@@ -235,29 +200,15 @@ function AppShell() {
     setTimeout(() => toast.remove(), 3000);
   };
 
-  const handleSend = async (overrideInput?: string) => {
-    const text = overrideInput || input.trim();
-    if (!text || isTyping) return;
-    const userMsg = { id: Date.now().toString(), role: "user", content: text, timestamp: new Date().toISOString() };
-    setMessages(prev => [...prev, userMsg]);
-    if (!overrideInput) setInput("");
-    setIsTyping(true);
-    try {
-      const response = await fetch('/api/ready-room', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: messages.slice(-10), assistantName, aiEnhanced: aiEnhanced || isProtocolActive, apiKey, searchKey, geminiKey }),
-      });
-      const data = await response.json();
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: data.role, content: data.content, layer: data.sourceLayer, timestamp: new Date().toISOString(), suggestedActions: data.suggestedActions }]);
-    } catch (error) { setMessages(prev => [...prev, { id: Date.now().toString(), role: "assistant", content: "Neural failure.", timestamp: new Date().toISOString() }]); }
-    finally { setIsTyping(false); }
-  };
-
   if (!hasMounted) return null;
   const isSystemLinked = status === 'authenticated';
-  // TRUE SOVEREIGN ADMIN CHECK (FROM SESSION TOKEN)
-  const isAdmin = !!(session as any)?.isAdmin;
+
+  // RESILIENT ADMIN CHECK (SESSION + LOCALHOST + AUTHORIZED LIST)
+  const authorizedAdmins = JSON.parse(localStorage.getItem("tv_authorized_admins") || "[]");
+  const userEmail = session?.user?.email?.toLowerCase() || "";
+  const isAdmin = !!(session as any)?.isAdmin ||
+                  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ||
+                  authorizedAdmins.includes(userEmail);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
@@ -276,7 +227,7 @@ function AppShell() {
       {/* 🔐 LOGOUT CONFIRMATION MODAL */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
-            <div className="hud-panel max-w-sm w-full p-8 border-red-500/40 text-center relative animate-slide-up">
+            <div className="hud-panel max-sm w-full p-8 border-red-500/40 text-center relative animate-slide-up">
                 <h3 className="system-text text-xl font-black text-red-500 mb-4 italic uppercase">Terminate_Session?</h3>
                 <p className="text-white/60 text-xs mb-8 normal-case leading-relaxed">This will sever the connection to the Mothership and clear your current identity token. Local data remains on device.</p>
                 <div className="flex gap-4">
@@ -320,6 +271,7 @@ function AppShell() {
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
               {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} /></div>}
+              {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} /></div>}
               {activeModule === "SIGNALS" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} /></div>}
@@ -327,36 +279,7 @@ function AppShell() {
               {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} /></div>}
               {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}
-              {activeModule === "ADMIN" && isAdmin && (
-                  <div className="module-enter h-full text-white text-left">
-                      <div className="flex justify-between items-end mb-8 border-b border-white/10 pb-4 uppercase text-white">
-                          <div>
-                              <h2 className="text-3xl font-black text-accent italic uppercase">Tester_Wish_Ledger</h2>
-                              <p className="system-text text-[10px] text-white/20 font-black tracking-widest mt-1 uppercase text-white">Sovereign Scaling & Intelligence</p>
-                          </div>
-                          <div className="text-right">
-                              <span className="text-4xl font-black text-accent">{new Set(wishes.map(w => w.user)).size || 1}</span>
-                              <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">Unique_Test_Users</p>
-                          </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 text-white text-white">
-                          {wishes.map(wish => (
-                              <div key={wish.id} className="hud-panel p-6 bg-black/40 border-white/10 relative group text-white">
-                                  <div className="flex justify-between items-start mb-4 text-white">
-                                      <span className="text-accent font-black text-[10px] tracking-widest uppercase text-white">{wish.user} // SIGNAL</span>
-                                      <span className="text-[8px] text-white/20 uppercase text-white">{new Date(wish.timestamp).toLocaleString()}</span>
-                                  </div>
-                                  <p className="text-lg font-bold italic text-white/90 text-white uppercase text-left">"I wish this app would {wish.text}"</p>
-                                  <div className="mt-6 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity uppercase text-white font-bold text-white">
-                                      <button onClick={() => { setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'MED', source: wish.user}, ...prev]); setWishes(prev => prev.filter(w => w.id !== wish.id)); }} className="bg-neon-green/10 border border-neon-green/40 px-4 py-2 text-[8px] font-black text-neon-green uppercase text-white">PROMOTE_TO_TASK</button>
-                                      <button onClick={() => setWishes(prev => prev.filter(w => w.id !== wish.id))} className="text-red-500/40 text-[8px] font-black uppercase text-white">Archive</button>
-                                  </div>
-                                  <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              )}
+              {activeModule === "ADMIN" && isAdmin && <div className="module-enter h-full"><AdminBoard wishes={wishes} setWishes={setWishes} setTasks={setTasks} /></div>}
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
@@ -395,7 +318,7 @@ function AppShell() {
         <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-1 md:gap-2 shrink-0 z-50 text-white font-bold">
               {[
                 { id: "BRIDGE", label: "BRIDGE" }, { id: "SIGNALS", label: "SIGNALS" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "CLOCK TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
-                ...(isAdmin ? [{ id: "ADMIN", label: "WISHES" }] : [])
+                ...(isAdmin ? [{ id: "ADMIN", label: "COMMAND" }] : [])
               ].map(item => (
                 <div key={item.id} className="relative group text-white">
                     <button

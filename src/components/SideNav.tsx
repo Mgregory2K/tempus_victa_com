@@ -54,9 +54,10 @@ const NavItem = ({ name, isLinked, isActive, onClick, subtext, description }: { 
 interface SideNavProps {
     activeModule?: string;
     onModuleChange?: (module: any) => void;
+    isAdmin?: boolean;
 }
 
-export default function SideNav({ activeModule, onModuleChange }: SideNavProps) {
+export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideNavProps) {
     const { data: session } = useSession();
     const [status, setStatus] = useState({ notion: false, gemini: false, openai: false, tavily: false });
 
@@ -77,51 +78,49 @@ export default function SideNav({ activeModule, onModuleChange }: SideNavProps) 
     return (
         <nav className="w-64 p-6 border-r border-white/10 bg-black/60 hidden lg:flex flex-col relative shrink-0 h-full overflow-hidden">
             <div className="mb-6">
-                <h2 className="system-text text-[10px] text-accent font-black tracking-[0.3em] mb-1">COGNITIVE SURFACES</h2>
+                <h2 className="system-text text-[10px] text-accent font-black tracking-[0.3em] mb-1 uppercase">Cognitive Surfaces</h2>
                 <div className="h-px w-full bg-gradient-to-r from-accent to-transparent" />
             </div>
 
             <div className="flex-grow space-y-1 overflow-y-auto scrollbar-none pr-1">
-                <NavItem name="Signal Bay" isActive={activeModule === 'SIGNALS'} onClick={() => onModuleChange?.('SIGNALS')} subtext="Triage Engine" description="Filter and route all incoming life signals—emails, notifications, and thoughts into your cognitive field." />
-                <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Objectives" description="Manage multi-stage strategic objectives. Turn large goals into executable tactical tasks." />
-                <NavItem name="Win Board" isActive={activeModule === 'WINBOARD'} onClick={() => onModuleChange?.('WINBOARD')} subtext="Daily Triumphs" description="A visual ledger of every completed action today. Identity reinforcement through proof of execution." />
-                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns. Visualize the Twin+ model of your focus and affinity." />
-                <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Immutable Ledger" description="The raw heartbeat of the system. Audit every event, signal, and neural decision in real-time." />
-                <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="A freeform spatial canvas for messy thoughts, unstructured intel, and evolving ideas." />
-                <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Store and review high-fidelity linguistic patterns. Language shapes the way you think and execute." />
+                <NavItem name="The Bridge" isActive={activeModule === 'BRIDGE'} onClick={() => onModuleChange?.('BRIDGE')} subtext="Strategic Cockpit" description="The expression layer of your Twin+. High-level synthesis of all cognitive data." />
+                <NavItem name="Signal Bay" isActive={activeModule === 'SIGNALS'} onClick={() => onModuleChange?.('SIGNALS')} subtext="Triage Engine" description="Filter and route all incoming life signals—emails, notifications, and thoughts." />
+                <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Objectives" description="Manage multi-stage strategic objectives and tactical tasks." />
+                <NavItem name="Win Board" isActive={activeModule === 'WINBOARD'} onClick={() => onModuleChange?.('WINBOARD')} subtext="Daily Triumphs" description="A visual ledger of every completed action today." />
+                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns and Twin+ focus model." />
+                <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Immutable Ledger" description="Audit every signal and neural decision in real-time." />
+                <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured intel." />
+                <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Review high-fidelity linguistic patterns." />
             </div>
+
+            {isAdmin && (
+                <div className="shrink-0 mt-4 border-t border-accent/20 pt-4 animate-pulse">
+                    <NavItem name="Admin Board" isActive={activeModule === 'ADMIN'} onClick={() => onModuleChange?.('ADMIN')} subtext="System Control" description="Restricted module for scaling telemetry and user wish review." />
+                </div>
+            )}
 
             <div className="shrink-0 mt-4 border-t border-white/5 pt-4">
                 <div className="mb-2">
-                    <h2 className="system-text text-[10px] text-white/30 font-black tracking-[0.3em] mb-1">EXTERNAL NODES</h2>
+                    <h2 className="system-text text-[10px] text-white/30 font-black tracking-[0.3em] mb-1 uppercase text-white">External Nodes</h2>
                     <div className="h-px w-full bg-gradient-to-r from-white/20 to-transparent" />
                 </div>
 
                 <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-none">
-                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : undefined} subtext={session ? "Identity Stable" : "Auth Required"} description={session ? `Neural link established with ${session.user?.name?.split(' ')[0]}. Cross-device sync enabled.` : "Connect your Google ID to bridge the Mothership and unify your memory."} />
-                    <NavItem name="Gemini" isLinked={status.gemini} subtext="Sovereign Search" description={status.gemini ? "Google Search grounding pipeline is active and verified." : "Requires Gemini API Key. Enables real-time internet validation for neural outputs."} />
-                    <NavItem name="OpenAI" isLinked={status.openai} subtext="Neural Synthesis" description={status.openai ? "GPT-4o Reasoning Engine is stable and ready for command." : "Requires OpenAI Neural Key. Enables deep synthesis, planning, and Socrates mode."} />
-                    <NavItem name="Notion" isLinked={status.notion} subtext="Knowledge Base" description={status.notion ? "Persistent memory bridge to Notion workspace is synced." : "Requires Notion Token. Sync your crystallized intel to an external knowledge graph."} />
-                    <NavItem name="Internet" isLinked={status.tavily} subtext="Tavily Triage" description={status.tavily ? "Internet triage engine is filtering live data signals." : "Requires Tavily Key. Optimized for high-speed news, traffic, and finance ingestion."} />
+                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : undefined} subtext={session ? "Identity Stable" : "Auth Required"} description="Identity confirmed. Cross-device sync active via Google Drive vault." />
+                    <NavItem name="Gemini" isLinked={status.gemini} subtext="Sovereign Search" description="Google Search grounding pipeline is active." />
+                    <NavItem name="OpenAI" isLinked={status.openai} subtext="Neural Synthesis" description="GPT-4o Reasoning Engine is stable." />
+                    <NavItem name="Notion" isLinked={status.notion} subtext="Knowledge Base" description="Persistent bridge to Notion workspace is active." />
+                    <NavItem name="Internet" isLinked={status.tavily} subtext="Tavily Triage" description="High-speed internet signal filtering is active." />
                 </div>
 
                 <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
-                    <div className="flex flex-col gap-1">
-                        <div className="flex justify-between items-center">
-                            <span className="system-text text-[7px] text-white/20 font-black uppercase tracking-widest">Twin+ Confidence</span>
-                            <span className="text-[7px] text-accent font-black">82%</span>
+                    <div className="flex flex-col gap-1 text-white">
+                        <div className="flex justify-between items-center text-white">
+                            <span className="system-text text-[7px] text-white/20 font-black uppercase tracking-widest text-white">Twin+ Confidence</span>
+                            <span className="text-[7px] text-accent font-black text-white">82%</span>
                         </div>
                         <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                             <div className="h-full bg-accent w-[82%] opacity-80 shadow-[0_0_10px_var(--accent)]" />
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <div className="flex justify-between items-center">
-                            <span className="system-text text-[7px] text-white/20 font-black uppercase tracking-widest">Entropy Level</span>
-                            <span className="text-[7px] text-orange-500 font-black">14%</span>
-                        </div>
-                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden relative">
-                            <div className="h-full bg-orange-500 w-[14%] opacity-80 shadow-[0_0_10px_#f97316]" />
                         </div>
                     </div>
                 </div>
