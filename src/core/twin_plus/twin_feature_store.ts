@@ -1,88 +1,92 @@
 // src/core/twin_plus/twin_feature_store.ts
-
 import { TwinEvent } from './twin_event';
 import { TwinPreferenceLedger } from './twin_preference_ledger';
+import { TwinIdentity, INITIAL_IDENTITY } from './identity_model';
 
 /**
- * The TwinFeatureStore maintains derived user features.
+ * TWIN+ FEATURE STORE v2.0
+ * The processing organ of the OS. Ingests events to refine the User Identity Graph.
  */
-export class TwinFeatureStore {
-  private features: Record<string, any> = {};
 
-  constructor(private prefs: TwinPreferenceLedger) {}
+export class TwinFeatureStore {
+  private prefs: TwinPreferenceLedger;
+
+  // The Identity Graph (The Mind)
+  public identity: TwinIdentity = INITIAL_IDENTITY;
+
+  // Memory Layers
+  public episodicMemory: any[] = []; // Event-based memories
+  public semanticMemory: Record<string, any> = {}; // Stable facts
+  public activityRhythm: number[] = new Array(24).fill(0);
+  public trustScores: Record<string, number> = {};
+
+  private constructor(prefs: TwinPreferenceLedger) {
+    this.prefs = prefs;
+  }
 
   public static async open(prefs: TwinPreferenceLedger): Promise<TwinFeatureStore> {
     const store = new TwinFeatureStore(prefs);
-    store.loadLocal();
+    await store.loadSovereignLedger();
+    await store.loadSeedData();
     return store;
   }
 
-  private loadLocal() {
-    if (typeof window !== 'undefined') {
+  private async loadSeedData() {
+    this.trustScores = {
+        "congress.gov": 0.95,
+        "govinfo.gov": 0.95,
+        "supremecourt.gov": 0.95,
+        "sec.gov": 0.96,
+        "cdc.gov": 0.97,
+        "nist.gov": 0.98,
+        "openai.com": 0.88,
+        "stackoverflow.com": 0.45
+    };
+  }
+
+  private async loadSovereignLedger() {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem("tv_identity_graph");
+    if (saved) {
         try {
-            const saved = localStorage.getItem('tv_feature_store');
-            if (saved) this.features = JSON.parse(saved);
+            this.identity = JSON.parse(saved);
         } catch (e) {
-            console.error("Failed to load feature store", e);
+            console.error("Identity corrupted. Reverting to Baseline.");
         }
     }
   }
 
   public apply(e: TwinEvent): void {
-    // 1. Lexicon & Intent Bias
-    if (e.type === 'SIGNAL_INPUT' && e.payload.text) {
-        this.updateLexicon(e.payload.text);
+    // 1. Log to Episodic Memory
+    this.episodicMemory.push({ ts: e.ts, type: e.type, surface: e.surface });
+    if (this.episodicMemory.length > 100) this.episodicMemory.shift();
+
+    // 2. Behavioral Learning (Rhythm)
+    const hour = new Date(e.ts).getHours();
+    this.activityRhythm[hour]++;
+
+    // 3. Lexicon Extraction (Learning Michael's Language)
+    if (e.payload?.text) {
+        const words = e.payload.text.toLowerCase().split(/\s+/);
+        words.forEach((w: string) => {
+            if (w.length > 3) {
+                this.identity.lexicon[w] = (this.identity.lexicon[w] || 0) + 1;
+            }
+        });
     }
 
-    // 2. Track Module Affinity
-    const surface = e.surface || 'SYSTEM';
-    this.features.affinity = this.features.affinity || {};
-    this.features.affinity[surface] = (this.features.affinity[surface] || 0) + 1;
-
-    // 3. Trust Reinforcement (Volume IV)
-    if (e.type === 'ACTION_CREATED') {
-        this.updateTrust(e.payload.source || 'SYSTEM', 0.05);
-    }
-
-    // 4. Bullshit Avoided (Volume I, Ch 6)
-    if (e.type === 'SIGNAL_DECAYED' || (e.type === 'SIGNAL_INPUT' && e.payload.trustScore < 0.2)) {
-        this.features.bullshit_avoided = (this.features.bullshit_avoided || 0) + 1;
-    }
-
-    this.saveLocal();
-  }
-
-  private updateLexicon(text: string) {
-    this.features.lexicon = this.features.lexicon || {};
-    this.features.intentBias = this.features.intentBias || { action: 0, info: 0, quote: 0 };
-
-    const words = text.toLowerCase().split(/\s+/);
-
-    // Intent Bias Detection
-    if (text.toLowerCase().includes('task:') || text.toLowerCase().includes('todo')) this.features.intentBias.action++;
-    if (text.toLowerCase().includes('crystallize:') || text.toLowerCase().includes('quote')) this.features.intentBias.quote++;
-    if (text.toLowerCase().includes('who') || text.toLowerCase().includes('what')) this.features.intentBias.info++;
-
-    words.forEach(word => {
-        if (word.length > 3) {
-            this.features.lexicon[word] = (this.features.lexicon[word] || 0) + 1;
-        }
-    });
-  }
-
-  private updateTrust(source: string, delta: number) {
-    this.features.trustScores = this.features.trustScores || {};
-    const current = this.features.trustScores[source] || 0.5;
-    this.features.trustScores[source] = Math.min(1.0, Math.max(0.0, current + delta));
-  }
-
-  private saveLocal() {
+    // 4. Persistence
     if (typeof window !== 'undefined') {
-        localStorage.setItem('tv_feature_store', JSON.stringify(this.features));
+        localStorage.setItem("tv_identity_graph", JSON.stringify(this.identity));
     }
   }
 
-  public snapshot(): any {
-    return { ...this.features };
+  public snapshot() {
+    return {
+      identity: this.identity,
+      rhythm: this.activityRhythm,
+      memoryDepth: this.episodicMemory.length,
+      trust: this.trustScores
+    };
   }
 }

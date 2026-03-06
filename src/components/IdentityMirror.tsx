@@ -5,113 +5,105 @@ import React, { useState, useEffect } from 'react';
 import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
 
 export default function IdentityMirror() {
-    const [stats, setSnapshot] = useState<any>(null);
+    const [identity, setIdentity] = useState<any>(null);
+    const [eventsCount, setEventsCount] = useState(0);
 
     useEffect(() => {
         const update = () => {
-            setSnapshot(twinPlusKernel.snapshot());
+            const snapshot = twinPlusKernel.snapshot();
+            setIdentity(snapshot.features?.identity);
+            setEventsCount(snapshot.recentEvents?.length || 0);
         };
         update();
-        const interval = setInterval(update, 3000);
+        const interval = setInterval(update, 2000);
         return () => clearInterval(interval);
     }, []);
 
-    if (!stats) return null;
+    if (!identity) return (
+        <div className="h-full flex items-center justify-center italic text-white/20 system-text text-xs tracking-widest animate-pulse">
+            CALIBRATING_NEURAL_MIRROR...
+        </div>
+    );
 
-    const features = stats.features || {};
-    const lexicon = features.lexicon || {};
-    const intentBias = features.intentBias || { action: 0, info: 0, quote: 0 };
-    const affinity = features.affinity || {};
-
-    const topWords = Object.entries(lexicon)
-        .sort(([, a]: any, [, b]: any) => b - a)
-        .slice(0, 10);
+    const ProfileSlider = ({ label, value }: { label: string, value: number }) => (
+        <div className="space-y-2">
+            <div className="flex justify-between items-end">
+                <span className="system-text text-[8px] text-white/40 font-black tracking-widest uppercase">{label}</span>
+                <span className="text-[10px] font-black text-accent italic">{Math.round(value * 100)}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 relative">
+                <div
+                    className="h-full bg-accent shadow-[0_0_15px_var(--accent)] transition-all duration-1000 ease-out"
+                    style={{ width: `${value * 100}%` }}
+                />
+            </div>
+        </div>
+    );
 
     return (
-        <div className="max-w-5xl mx-auto space-y-8 animate-slide-up pb-20">
+        <div className="max-w-5xl mx-auto space-y-10 animate-slide-up pb-20">
             <header className="flex justify-between items-end border-b border-white/10 pb-4">
                 <div>
                     <h1 className="text-4xl font-black italic text-white uppercase tracking-tight">The Mirror</h1>
-                    <p className="system-text text-[10px] text-accent font-black tracking-widest mt-1">Identity Graph // Neural Affinity v1.0</p>
+                    <p className="system-text text-[10px] text-accent font-black tracking-widest mt-1 uppercase">Identity Graph // Neural Affinity v2.0</p>
                 </div>
                 <div className="text-right">
                     <span className="text-[10px] text-white/20 font-black uppercase italic">Michael-as-System</span>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Intent Bias Chart */}
-                <div className="hud-panel p-6 bg-black/40 border-white/5 relative flex flex-col gap-6">
-                    <span className="system-text text-[8px] text-accent font-black tracking-widest uppercase">Intent Bias</span>
-                    <div className="flex flex-col gap-4">
-                        {Object.entries(intentBias).map(([k, v]: [string, any]) => (
-                            <div key={k} className="space-y-1">
-                                <div className="flex justify-between text-[10px] font-black uppercase italic">
-                                    <span>{k}</span>
-                                    <span>{v}</span>
-                                </div>
-                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div className="h-full bg-accent transition-all duration-1000" style={{ width: `${Math.min(100, (v / (stats.recentEvents?.length || 1)) * 100)}%` }} />
-                                </div>
-                            </div>
-                        ))}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                {/* 🧬 COGNITIVE DNA SLIDERS */}
+                <div className="hud-panel p-8 bg-black/40 border-white/5 relative">
+                    <h3 className="system-text text-xs font-black text-white/60 mb-8 tracking-widest uppercase">Cognitive DNA</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                        <ProfileSlider label="Directness" value={identity.userProfile.directness} />
+                        <ProfileSlider label="Efficiency Bias" value={identity.userProfile.efficiencyBias} />
+                        <ProfileSlider label="Sarcasm Tol." value={identity.userProfile.sarcasmTolerance} />
+                        <ProfileSlider label="Challenge Lvl" value={identity.userProfile.challengeLevel} />
+                        <ProfileSlider label="Verbosity" value={identity.userProfile.verbosity} />
+                        <ProfileSlider label="Risk Tolerance" value={identity.userProfile.riskTolerance} />
                     </div>
-                    <div className="bracket-tl opacity-20" />
+                    <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
                 </div>
 
-                {/* Lexicon Model */}
-                <div className="hud-panel p-6 bg-black/40 border-white/5 relative flex flex-col gap-4">
-                    <span className="system-text text-[8px] text-accent font-black tracking-widest uppercase">Learned Lexicon</span>
-                    <div className="flex flex-wrap gap-2">
-                        {topWords.length === 0 ? (
-                            <span className="text-[10px] text-white/20 italic">Awaiting language ingestion...</span>
-                        ) : (
-                            topWords.map(([word, count]: [string, any]) => (
-                                <span key={word} className="px-2 py-1 bg-accent/10 border border-accent/20 text-[10px] font-bold text-accent rounded-sm lowercase italic">
-                                    {word} <span className="opacity-40 ml-1 font-mono">{count}</span>
-                                </span>
-                            ))
-                        )}
-                    </div>
-                    <div className="bracket-tl opacity-20" />
-                </div>
-
-                {/* Module Affinity */}
-                <div className="hud-panel p-6 bg-black/40 border-white/5 relative flex flex-col gap-4">
-                    <span className="system-text text-[8px] text-accent font-black tracking-widest uppercase">Module Affinity</span>
-                    <div className="space-y-3">
-                        {Object.entries(affinity).map(([mod, count]: [string, any]) => (
-                            <div key={mod} className="flex items-center justify-between group cursor-help">
-                                <span className="text-[10px] font-black text-white/60 group-hover:text-white transition-colors">{mod}</span>
-                                <div className="flex gap-0.5">
-                                    {Array.from({ length: Math.min(10, count) }).map((_, i) => (
-                                        <div key={i} className="h-3 w-1 bg-neon-green/40 shadow-[0_0_5px_#22c55e]" />
-                                    ))}
+                {/* 🧠 REASONING PATTERNS */}
+                <div className="space-y-6">
+                    <div className="hud-panel p-6 bg-accent/5 border-dashed border-accent/20 relative">
+                        <h3 className="system-text text-[9px] text-accent font-black tracking-widest uppercase mb-4">Learned Doctrines</h3>
+                        <div className="space-y-3">
+                            {identity.doctrines.map((d: string, i: number) => (
+                                <div key={i} className="flex items-center gap-3">
+                                    <div className="h-1 w-1 bg-accent rounded-full animate-pulse" />
+                                    <span className="text-sm font-bold italic text-white/80 uppercase tracking-tight">{d}</span>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                    <div className="bracket-tl opacity-20" />
+
+                    <div className="hud-panel p-6 bg-black/60 border-white/5 relative overflow-hidden">
+                        <div className="flex justify-between items-center relative z-10">
+                            <div>
+                                <span className="system-text text-[9px] text-white/40 font-black uppercase tracking-widest block mb-1">Observation Depth</span>
+                                <p className="text-2xl font-black text-white italic">{eventsCount}</p>
+                                <p className="text-[8px] text-white/20 font-bold uppercase mt-1">Strategic Events Logged</p>
+                            </div>
+                            <div className="h-16 w-16 border-2 border-accent/20 rounded-full flex items-center justify-center">
+                                <span className="text-xl font-black italic text-accent">82%</span>
+                            </div>
+                        </div>
+                        {/* Background Pulse */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.05),transparent_70%)] animate-pulse" />
+                    </div>
                 </div>
             </div>
 
-            {/* Neural Load Visualization */}
-            <div className="hud-panel p-8 bg-black/60 border-accent/20 relative overflow-hidden">
-                <div className="flex justify-between items-center relative z-10">
-                    <div className="space-y-1">
-                        <span className="system-text text-[9px] text-accent font-black tracking-widest">Cognitive Blueprint Analysis</span>
-                        <p className="text-white/60 text-lg font-light italic leading-tight max-w-2xl">
-                            The system has observed <span className="text-white font-bold">{stats.recentEvents?.length || 0}</span> strategic events.
-                            Pattern stability is high. Identity drift is within nominal parameters (±2.4%).
-                        </p>
-                    </div>
-                    <div className="h-24 w-24 border-2 border-accent/20 rounded-full flex items-center justify-center relative">
-                        <div className="absolute inset-0 border-2 border-accent animate-ping rounded-full opacity-20" />
-                        <span className="text-2xl font-black italic text-accent">82%</span>
-                    </div>
-                </div>
-                {/* Background Grid */}
-                <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+            {/* 🧾 ANALYSIS FOOTER */}
+            <div className="hud-panel p-8 border-accent/20 bg-white/[0.01] text-center">
+                <p className="system-text text-[10px] text-white/40 font-black tracking-[0.4em] mb-4 uppercase">Identity Stability Assessment</p>
+                <p className="text-white/60 text-lg font-light italic leading-relaxed uppercase tracking-wide">
+                    Pattern stability is nominal. Twin+ has observed consistent preference for efficiency over accuracy. Lexicon mirroring is currently at 94% alignment.
+                </p>
             </div>
         </div>
     );

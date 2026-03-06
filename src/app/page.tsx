@@ -21,8 +21,8 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN";
 
-const VERSION = "3.0.2-MAGICIAN";
-const ADMIN_EMAILS = ["michaelagregory@gmail.com", "adam@example.com"];
+const VERSION = "3.0.3-RESTORED";
+const ADMIN_EMAILS = ["michaelagregory@gmail.com", "adam@example.com", "aschneider.dev@gmail.com", "jenmariehines@gmail.com"];
 
 interface SuggestedAction {
   type: string;
@@ -69,8 +69,7 @@ export const VoiceButton = ({ onTranscript, isTyping, size = "md" }: { onTranscr
             const source = audioContextRef.current.createMediaStreamSource(stream);
             source.connect(analyzerRef.current);
             analyzerRef.current.fftSize = 64;
-            const bufferLength = analyzerRef.current.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+            const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
             const updateFrequency = () => {
                 if (analyzerRef.current) {
                     analyzerRef.current.getByteFrequencyData(dataArray);
@@ -122,7 +121,7 @@ function AppShell() {
   // PERSISTENT STATE
   const [tasks, setTasks] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
 
@@ -158,7 +157,6 @@ function AppShell() {
         setWishes(JSON.parse(localStorage.getItem("tv_wishes") || "[]"));
     } catch (e) {}
 
-    // AUTOMATION: Check for 6 AM Brief
     const now = new Date();
     const lastBriefSeen = localStorage.getItem("tv_last_brief_seen");
     const todayStr = now.toLocaleDateString();
@@ -168,7 +166,7 @@ function AppShell() {
     }
   }, []);
 
-  // AUTO-SAVE TO LOCAL
+  // AUTO-SAVE
   useEffect(() => {
     if (!hasMounted) return;
     localStorage.setItem("tv_tasks", JSON.stringify(tasks));
@@ -178,7 +176,7 @@ function AppShell() {
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
 
-  // CLOUD SYNC ENGINE
+  // CLOUD SYNC
   const handleCloudSync = async (direction: 'PUSH' | 'PULL') => {
     if (!session) return alert("Link Google Identity first.");
     setIsSyncing(true);
@@ -204,14 +202,12 @@ function AppShell() {
     finally { setIsSyncing(false); }
   };
 
-  // TESTER WISH ENGINE
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
       setWishes(prev => [newWish, ...prev]);
-      alert("Wish Manifested. The System will Review.");
+      alert("Wish Manifested.");
   };
 
-  // UNIVERSAL INGESTION
   const handleUniversalIngest = (text: string) => {
     const lowText = text.toLowerCase();
     let routedTo = "";
@@ -223,10 +219,6 @@ function AppShell() {
         const cleaned = text.replace(/task/i, "").replace(/reminder/i, "").trim();
         setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'VOICE' }, ...prev]);
         routedTo = "PROJECTS";
-    } else if (lowText.includes("i wish")) {
-        const cleaned = text.replace(/i wish/i, "").replace(/the app would/i, "").trim();
-        submitWish(cleaned);
-        routedTo = "ADMIN (WISH)";
     } else {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: `[INGEST]: ${text}`, timestamp: new Date().toISOString() }]);
         routedTo = "SIGNALS";
@@ -241,7 +233,7 @@ function AppShell() {
   const handleSend = async (overrideInput?: string) => {
     const text = overrideInput || input.trim();
     if (!text || isTyping) return;
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content: text, timestamp: new Date().toISOString() };
+    const userMsg = { id: Date.now().toString(), role: "user", content: text, timestamp: new Date().toISOString() };
     setMessages(prev => [...prev, userMsg]);
     if (!overrideInput) setInput("");
     setIsTyping(true);
@@ -249,15 +241,7 @@ function AppShell() {
       const response = await fetch('/api/ready-room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            message: text,
-            history: messages.slice(-10),
-            assistantName,
-            aiEnhanced: aiEnhanced || isProtocolActive,
-            apiKey,
-            searchKey,
-            geminiKey
-        }),
+        body: JSON.stringify({ message: text, history: messages.slice(-10), assistantName, aiEnhanced: aiEnhanced || isProtocolActive, apiKey, searchKey, geminiKey }),
       });
       const data = await response.json();
       setMessages(prev => [...prev, { id: Date.now().toString(), role: data.role, content: data.content, layer: data.sourceLayer, timestamp: new Date().toISOString(), suggestedActions: data.suggestedActions }]);
@@ -266,8 +250,9 @@ function AppShell() {
   };
 
   if (!hasMounted) return null;
-  const isSystemLinked = isOnline && status === 'authenticated';
-  const isAdmin = session?.user?.email && ADMIN_EMAILS.includes(session.user.email);
+  const isSystemLinked = status === 'authenticated';
+  // TRUE SOVEREIGN ADMIN CHECK (FROM SESSION TOKEN)
+  const isAdmin = !!(session as any)?.isAdmin;
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
@@ -276,16 +261,15 @@ function AppShell() {
       {/* 🌤 MORNING GLORY POPUP MODAL (Over Bridge) */}
       {showDailyBrief && (
         <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-3xl p-4 md:p-12 overflow-y-auto animate-slide-up">
-            <div className="max-w-4xl mx-auto relative">
-                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all">✕ DISMISS_BRIEF</button>
+            <div className="max-w-4xl mx-auto relative text-left">
+                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase">✕ Dismiss_Brief</button>
                 <DailyBrief />
             </div>
         </div>
       )}
 
-      {/* 🎙 UNIVERSAL RECORD BUTTON (Bottom Right) */}
+      {/* 🎙 UNIVERSAL RECORD BUTTON */}
       <div className="fixed bottom-24 right-8 z-[2000] flex flex-col items-center gap-2">
-          <span className="text-[7px] font-black text-accent bg-black/60 px-2 py-1 rounded border border-accent/20 backdrop-blur-sm tracking-[0.2em]">RECORD_INTENT</span>
           <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group">
               <VoiceButton onTranscript={handleUniversalIngest} size="md" />
           </div>
@@ -295,14 +279,22 @@ function AppShell() {
         <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 flex items-center justify-between px-4 md:px-10 shrink-0 relative">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
              <div className="h-10 w-10 md:h-12 border-2 border-accent/40 bg-black flex items-center justify-center relative shadow-[0_0_15px_rgba(0,212,255,0.2)]"><span className="system-text text-xl font-black text-accent">T</span><div className="bracket-tl" /><div className="bracket-br" /></div>
-             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none">v{VERSION} // {activeModule}</span></div>
+             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION} // {activeModule}</span></div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all">🌤 DAILY_BRIEF</button>
+
+            {isSystemLinked && (
+                <div className="flex gap-1 border border-white/10 p-1 rounded bg-black/40">
+                    <button onClick={() => handleCloudSync('PUSH')} title="Upload current memory to Mothership" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-accent hover:bg-accent/10 transition-all border border-accent/20 uppercase">{isSyncing ? '...' : 'Push'}</button>
+                    <button onClick={() => handleCloudSync('PULL')} title="Download latest memory from Mothership" disabled={isSyncing} className="px-3 py-1 text-[7px] font-black text-neon-green hover:bg-neon-green/10 transition-all border border-neon-green/20 uppercase">{isSyncing ? '...' : 'Pull'}</button>
+                </div>
+            )}
+
             <div onClick={() => !session ? signIn('google') : null} className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse'}`}>
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
-                <div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span><span className="text-[6px] text-white/20 font-bold mt-0.5 tracking-tighter">{isSystemLinked ? 'SYNC_ACTIVE' : 'SIGN_IN_REQUIRED'}</span></div>
+                <div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span><span className="text-[6px] text-white/20 font-bold mt-0.5 tracking-tighter leading-tight uppercase">{isSystemLinked ? 'Sync_Active' : 'Handshake_Req'}</span></div>
             </div>
           </div>
         </header>
@@ -311,23 +303,23 @@ function AppShell() {
           <SideNav onModuleChange={setActiveModule} activeModule={activeModule} isAdmin={isAdmin} />
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
-              {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as Module)} /></div>}
-              {activeModule === "SIGNALS" && <div className="module-enter"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
+              {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} /></div>}
+              {activeModule === "SIGNALS" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} /></div>}
               {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => setNotes(prev => prev.filter(x => x.id !== id))} /></div>}
-              {activeModule === "QUOTES" && <div className="module-enter"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} /></div>}
-              {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as Module)} /></div>}
+              {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} /></div>}
+              {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}
               {activeModule === "ADMIN" && isAdmin && (
                   <div className="module-enter h-full text-white text-left">
-                      <div className="flex justify-between items-end mb-8 border-b border-white/10 pb-4 uppercase">
+                      <div className="flex justify-between items-end mb-8 border-b border-white/10 pb-4 uppercase text-white">
                           <div>
-                              <h2 className="text-3xl font-black text-accent italic">Tester_Wish_Ledger</h2>
+                              <h2 className="text-3xl font-black text-accent italic uppercase">Tester_Wish_Ledger</h2>
                               <p className="system-text text-[10px] text-white/20 font-black tracking-widest mt-1 uppercase">Sovereign Scaling & Intelligence</p>
                           </div>
                           <div className="text-right">
-                              <span className="text-4xl font-black text-accent">1</span>
+                              <span className="text-4xl font-black text-accent">{new Set(wishes.map(w => w.user)).size || 1}</span>
                               <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">Unique_Test_Users</p>
                           </div>
                       </div>
@@ -338,8 +330,8 @@ function AppShell() {
                                       <span className="text-accent font-black text-[10px] tracking-widest uppercase">{wish.user} // SIGNAL</span>
                                       <span className="text-[8px] text-white/20 uppercase">{new Date(wish.timestamp).toLocaleString()}</span>
                                   </div>
-                                  <p className="text-lg font-bold italic text-white/90 text-white uppercase">"I wish this app would {wish.text}"</p>
-                                  <div className="mt-6 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity uppercase">
+                                  <p className="text-lg font-bold italic text-white/90 text-white uppercase text-left">"I wish this app would {wish.text}"</p>
+                                  <div className="mt-6 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity uppercase text-white font-bold">
                                       <button onClick={() => { setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'MED', source: wish.user}, ...prev]); setWishes(prev => prev.filter(w => w.id !== wish.id)); }} className="bg-neon-green/10 border border-neon-green/40 px-4 py-2 text-[8px] font-black text-neon-green uppercase">PROMOTE_TO_TASK</button>
                                       <button onClick={() => setWishes(prev => prev.filter(w => w.id !== wish.id))} className="text-red-500/40 text-[8px] font-black uppercase">Archive</button>
                                   </div>
@@ -352,9 +344,9 @@ function AppShell() {
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
-                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase text-white font-black tracking-widest leading-none">Cognitive_Config</h2>
+                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase text-white font-black tracking-widest leading-none uppercase">Cognitive_Config</h2>
                     {/* WISH INPUT */}
-                    <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded text-white">
+                    <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded">
                         <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em]">Manifest a wish for the system development</label>
                         <div className="flex gap-4">
                             <span className="text-sm font-bold text-white/40 italic flex items-center">I wish this app would...</span>
@@ -363,15 +355,15 @@ function AppShell() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-6">
-                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase">Neural Substrate</h3>
+                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase text-white">Neural Substrate</h3>
                             {[{ l: "OpenAI Key", v: apiKey, sv: setApiKey, k: "tv_api_key", d: "Synthesis" }, { l: "Gemini Key", v: geminiKey, sv: setGeminiKey, k: "tv_gemini_key", d: "Grounding" }].map(field => (
-                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors uppercase">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase">SET</button></div></div>
+                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors text-white">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase text-white">SET</button></div></div>
                             ))}
                         </div>
                         <div className="space-y-6">
-                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase uppercase text-white text-white">External Nodes</h3>
+                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase text-white text-white">External Nodes</h3>
                             {[{ l: "Tavily Key", v: searchKey, sv: setSearchKey, k: "tv_search_key", d: "Triage" }, { l: "Notion Token", v: notionKey, sv: setNotionKey, k: "tv_notion_key", d: "Knowledge" }].map(field => (
-                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors uppercase">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase">SET</button></div></div>
+                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors text-white">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase text-white text-white">SET</button></div></div>
                             ))}
                         </div>
                     </div>
