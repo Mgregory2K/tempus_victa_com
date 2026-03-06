@@ -8,7 +8,7 @@ interface BridgeProps {
     tasks?: any[];
     notes?: any[];
     messages?: any[];
-    onNavigate?: (module: string) => void;
+    onNavigate?: (module: any) => void;
 }
 
 export default function Bridge({ tasks = [], notes = [], messages = [], onNavigate }: BridgeProps) {
@@ -29,8 +29,8 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
             } catch (e) { console.error(e); }
             finally { setLoading(false); }
         };
-        fetchCal();
-    }, []);
+        if(session) fetchCal();
+    }, [session]);
 
     const MetricCard = ({ title, value, unit, trend, glowColor, targetModule }: { title: string, value: string | number, unit?: string, trend?: string, glowColor: string, targetModule?: string }) => (
         <div
@@ -53,10 +53,10 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
         <div className="space-y-6 animate-slide-up pb-20">
             {/* Interactive Metrics Row */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard title="Audit_Log" value="85H" trend="12%+" glowColor="accent" targetModule="CLOCK_TOWER" />
+                <MetricCard title="Audit Log" value="85H" trend="12%+" glowColor="accent" targetModule="CLOCK_TOWER" />
                 <MetricCard title="Affinity" value="94" unit="%" trend="PEAK" glowColor="neon-green" targetModule="MIRROR" />
                 <MetricCard title="Objectives" value={activeProjectsCount} trend="ACTIVE" glowColor="purple-500" targetModule="PROJECTS" />
-                <MetricCard title="Triage" value="12" trend="SIGNALS" glowColor="orange-500" targetModule="SIGNALS" />
+                <MetricCard title="Signals" value="12" trend="PENDING" glowColor="orange-500" targetModule="SIGNALS" />
             </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -64,7 +64,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 <div className="lg:col-span-2 hud-panel p-6 bg-black/60 border-white/10 relative">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="system-text text-[10px] text-white/60 font-black tracking-widest uppercase">Temporal Timeline</h3>
-                        <button onClick={() => onNavigate?.('BRIDGE')} className="text-[8px] text-accent font-black tracking-widest hover:underline uppercase italic">View_Full_Schedule</button>
+                        <span className="text-[8px] text-accent font-black tracking-widest">LIVE_FEED</span>
                     </div>
                     <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin pr-2 text-left uppercase">
                         {loadingCalendar ? (
