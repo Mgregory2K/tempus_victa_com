@@ -4,32 +4,52 @@
 import React, { useState, useEffect } from 'react';
 import { useSession, signIn } from "next-auth/react";
 
-const NavItem = ({ name, isLinked, isActive, onClick, subtext, description }: { name: string, isLinked?: boolean, isActive?: boolean, onClick?: () => void, subtext?: string, description?: string }) => (
-    <div
-        onClick={onClick}
-        className={`group relative flex items-center p-3 my-2 bg-white/[0.03] border transition-all cursor-pointer overflow-hidden ${isActive ? 'border-accent bg-accent/10 shadow-[0_0_15px_rgba(0,212,255,0.1)]' : 'border-white/10 hover:border-accent/40'}`}
-    >
-        <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all ${isLinked ? 'bg-neon-green shadow-[0_0_20px_#22c55e]' : 'bg-white/10 group-hover:bg-accent/40'}`} />
+const NavItem = ({ name, isLinked, isActive, onClick, subtext, description }: { name: string, isLinked?: boolean, isActive?: boolean, onClick?: () => void, subtext?: string, description?: string }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
+    let tooltipTimeout: NodeJS.Timeout;
 
-        <div className={`h-8 w-8 rounded-sm mr-3 flex items-center justify-center border transition-all ${isLinked ? 'border-neon-green bg-neon-green/20 shadow-[inset_0_0_10px_rgba(34,197,94,0.3)]' : 'border-white/10 bg-white/5'}`}>
-             <div className={`h-3 w-3 rounded-full transition-all ${isLinked ? 'bg-neon-green animate-pulse shadow-[0_0_15px_#fff] scale-125' : 'bg-white/10'}`} />
+    const handleMouseEnter = () => {
+        tooltipTimeout = setTimeout(() => {
+            setShowTooltip(true);
+        }, 700);
+    };
+
+    const handleMouseLeave = () => {
+        clearTimeout(tooltipTimeout);
+        setShowTooltip(false);
+    };
+
+    return (
+        <div
+            onClick={onClick}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className={`group relative flex items-center p-3 my-2 bg-white/[0.03] border transition-all cursor-pointer overflow-hidden rounded-md ${isActive ? 'border-accent bg-accent/10 shadow-[0_0_15px_rgba(0,212,255,0.2)]' : 'border-white/10 hover:border-accent/40'}`}
+        >
+            <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all ${isActive ? 'bg-accent shadow-[0_0_10px_var(--accent)]' : isLinked ? 'bg-neon-green shadow-[0_0_20px_#22c55e]' : 'bg-white/10 group-hover:bg-accent/40'}`} />
+
+            <div className={`h-8 w-8 rounded-sm mr-3 flex items-center justify-center border transition-all ${isActive ? 'border-accent bg-accent/20' : isLinked ? 'border-neon-green bg-neon-green/20' : 'border-white/10 bg-white/5'}`}>
+                 <div className={`h-3 w-3 rounded-full transition-all ${isLinked ? 'bg-neon-green animate-pulse shadow-[0_0_15px_#22c55e]' : isActive ? 'bg-accent animate-pulse shadow-[0_0_15px_var(--accent)]' : 'bg-white/10'}`} />
+            </div>
+
+            <div className="flex flex-col">
+                <span className={`system-text text-[10px] font-black tracking-widest ${isActive ? 'text-accent' : isLinked ? 'text-white' : 'text-white/40'}`}>{name}</span>
+                <span className={`text-[7px] font-bold uppercase tracking-tighter transition-colors ${isLinked ? 'text-neon-green font-black' : 'text-white/20'}`}>
+                    {isLinked ? 'LINK_SOLID' : subtext || 'LOCAL_ONLY'}
+                </span>
+            </div>
+
+            {/* Delayed Pop-up Tooltip */}
+            {showTooltip && (
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 w-64 bg-black/95 border-2 border-accent/30 p-4 rounded-lg shadow-2xl z-20 animate-slide-up">
+                    <div className="absolute -left-[9px] top-1/2 -translate-y-1/2 w-4 h-4 bg-black/95 border-l-2 border-b-2 border-accent/30 rotate-45" />
+                    <p className="text-sm font-bold text-accent tracking-widest uppercase mb-2 italic">{name}</p>
+                    <p className="text-[10px] font-light text-white/80 normal-case leading-snug tracking-wide">{description}</p>
+                </div>
+            )}
         </div>
-
-        <div className="flex flex-col">
-            <span className={`system-text text-[10px] font-black tracking-widest ${isActive ? 'text-accent' : isLinked ? 'text-white' : 'text-white/40'}`}>{name}</span>
-            <span className={`text-[7px] font-bold uppercase tracking-tighter transition-colors ${isLinked ? 'text-neon-green font-black' : 'text-white/20'}`}>
-                {isLinked ? 'LINK_SOLID' : subtext || 'LOCAL_ONLY'}
-            </span>
-        </div>
-
-        {/* Hover Reveal Info */}
-        <div className="absolute inset-0 bg-black/95 opacity-0 group-hover:opacity-100 transition-opacity flex items-center px-4 z-10 pointer-events-none border-l-2 border-accent">
-            <p className="text-[8px] font-black text-accent tracking-[0.2em]">{description || `NODE_${name.toUpperCase()}_STABLE`}</p>
-        </div>
-
-        <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-white/10 group-hover:border-accent/40" />
-    </div>
-);
+    );
+};
 
 interface SideNavProps {
     activeModule?: string;
@@ -38,14 +58,15 @@ interface SideNavProps {
 
 export default function SideNav({ activeModule, onModuleChange }: SideNavProps) {
     const { data: session } = useSession();
-    const [status, setStatus] = useState({ notion: false, gemini: false, openai: false });
+    const [status, setStatus] = useState({ notion: false, gemini: false, openai: false, tavily: false });
 
     useEffect(() => {
         const checkKeys = () => {
             setStatus({
                 notion: !!localStorage.getItem("tv_notion_key"),
                 gemini: !!localStorage.getItem("tv_gemini_key"),
-                openai: !!localStorage.getItem("tv_api_key")
+                openai: !!localStorage.getItem("tv_api_key"),
+                tavily: !!localStorage.getItem("tv_search_key")
             });
         };
         checkKeys();
@@ -61,13 +82,13 @@ export default function SideNav({ activeModule, onModuleChange }: SideNavProps) 
             </div>
 
             <div className="flex-grow space-y-1 overflow-y-auto scrollbar-none pr-1">
-                <NavItem name="Signal Bay" isActive={activeModule === 'SIGNALS'} onClick={() => onModuleChange?.('SIGNALS')} subtext="Triage engine active" description="TRIAGE_INBOUND_SIGNAL_STREAM" />
-                <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Strategic" description="MANAGE_MULTI_STAGE_OBJECTIVES" />
-                <NavItem name="Win Board" isActive={activeModule === 'WINBOARD'} onClick={() => onModuleChange?.('WINBOARD')} subtext="Daily Triumphs" description="CELEBRATE_COMPLETED_WINS" />
-                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="NEURAL_AFFINITY_PROJECTION" />
-                <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Flux Capacitor" description="AUDIT_IMMUTABLE_EVENT_LEDGER" />
-                <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Messy thoughts" description="SPATIAL_MEMORY_PROJECTION" />
-                <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized intel" description="CRYSTALLIZE_LINGUISTIC_INTEL" />
+                <NavItem name="Signal Bay" isActive={activeModule === 'SIGNALS'} onClick={() => onModuleChange?.('SIGNALS')} subtext="Triage Engine" description="Filter and route all incoming life signals—emails, notifications, and thoughts into your cognitive field." />
+                <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Objectives" description="Manage multi-stage strategic objectives. Turn large goals into executable tactical tasks." />
+                <NavItem name="Win Board" isActive={activeModule === 'WINBOARD'} onClick={() => onModuleChange?.('WINBOARD')} subtext="Daily Triumphs" description="A visual ledger of every completed action today. Identity reinforcement through proof of execution." />
+                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns. Visualize the Twin+ model of your focus and affinity." />
+                <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Immutable Ledger" description="The raw heartbeat of the system. Audit every event, signal, and neural decision in real-time." />
+                <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="A freeform spatial canvas for messy thoughts, unstructured intel, and evolving ideas." />
+                <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Store and review high-fidelity linguistic patterns. Language shapes the way you think and execute." />
             </div>
 
             <div className="shrink-0 mt-4 border-t border-white/5 pt-4">
@@ -77,10 +98,11 @@ export default function SideNav({ activeModule, onModuleChange }: SideNavProps) 
                 </div>
 
                 <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-none">
-                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : undefined} subtext={session ? "Identity Stable" : "Auth Required"} description={session ? `USER: ${session.user?.name?.toUpperCase()}` : "OAUTH_HANDSHAKE_PENDING"} />
-                    <NavItem name="Gemini" isLinked={status.gemini} subtext="Sovereign Search" description={status.gemini ? "GOOGLE_SEARCH_GROUNDING_ACTIVE" : "GEMINI_KEY_MISSING"} />
-                    <NavItem name="OpenAI" isLinked={status.openai} subtext="Neural Synthesis" description={status.openai ? "GPT4O_PIPELINE_STABLE" : "OPENAI_KEY_MISSING"} />
-                    <NavItem name="Notion" isLinked={status.notion} subtext="Knowledge Base" description={status.notion ? "PERSISTENT_MEMORY_SYNC_ACTIVE" : "NOTION_TOKEN_MISSING"} />
+                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : undefined} subtext={session ? "Identity Stable" : "Auth Required"} description={session ? `Neural link established with ${session.user?.name?.split(' ')[0]}. Cross-device sync enabled.` : "Connect your Google ID to bridge the Mothership and unify your memory."} />
+                    <NavItem name="Gemini" isLinked={status.gemini} subtext="Sovereign Search" description={status.gemini ? "Google Search grounding pipeline is active and verified." : "Requires Gemini API Key. Enables real-time internet validation for neural outputs."} />
+                    <NavItem name="OpenAI" isLinked={status.openai} subtext="Neural Synthesis" description={status.openai ? "GPT-4o Reasoning Engine is stable and ready for command." : "Requires OpenAI Neural Key. Enables deep synthesis, planning, and Socrates mode."} />
+                    <NavItem name="Notion" isLinked={status.notion} subtext="Knowledge Base" description={status.notion ? "Persistent memory bridge to Notion workspace is synced." : "Requires Notion Token. Sync your crystallized intel to an external knowledge graph."} />
+                    <NavItem name="Internet" isLinked={status.tavily} subtext="Tavily Triage" description={status.tavily ? "Internet triage engine is filtering live data signals." : "Requires Tavily Key. Optimized for high-speed news, traffic, and finance ingestion."} />
                 </div>
 
                 <div className="mt-4 space-y-3 border-t border-white/5 pt-4">

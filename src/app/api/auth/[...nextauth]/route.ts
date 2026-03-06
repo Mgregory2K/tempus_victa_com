@@ -9,7 +9,8 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+          // Scope expanded to include Drive AppData for cross-device sync
+          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.appdata",
           access_type: "offline",
           prompt: "consent",
         },
@@ -27,7 +28,6 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      // Add tokens to session for use in API routes
       session.accessToken = token.accessToken as string;
       session.refreshToken = token.refreshToken as string;
       return session;

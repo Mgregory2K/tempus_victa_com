@@ -1,0 +1,18 @@
+The correct workflow is to always build on the laptop and then push to the VM.
+Here is the "Sovereign Development Lifecycle" we will follow from now on:
+1.Code & Test Locally (Your Laptop)
+◦This is your "Sandbox." You will make all code changes here (src/... files).
+◦You will use npm run dev to test your changes in real-time at http://localhost:3010.
+2.Commit & Push to GitHub
+◦Once a feature is complete and tested locally, you push it to the "Source of Truth" (GitHub).
+◦git add -A
+◦git commit -m "feat: Implemented the Snooze Engine"
+◦git push
+3.Deploy to the Mothership (Your Azure VM)
+◦SSH into your VM.
+◦Navigate to C:/Projects/tempus_victa_com.
+◦Pull the latest code, rebuild the app, and restart the service:
+
+git pull
+npm run build
+nssm restart TempusVicta
