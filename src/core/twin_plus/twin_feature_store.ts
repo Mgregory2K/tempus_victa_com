@@ -1,10 +1,10 @@
 // src/core/twin_plus/twin_feature_store.ts
 import { TwinEvent } from './twin_event';
 import { TwinPreferenceLedger } from './twin_preference_ledger';
-import { TwinIdentity, INITIAL_IDENTITY } from './identity_model';
+import { TwinIdentity, INITIAL_IDENTITY, CognitiveProfile } from './identity_model';
 
 /**
- * TWIN+ FEATURE STORE v2.0
+ * TWIN+ FEATURE STORE v2.5 - HARDCORE LEARNING MODE
  * The processing organ of the OS. Ingests events to refine the User Identity Graph.
  */
 
@@ -56,6 +56,13 @@ export class TwinFeatureStore {
     }
   }
 
+  private saveSovereignLedger() {
+    if (typeof window !== 'undefined') {
+        this.identity.lastUpdated = new Date().toISOString();
+        localStorage.setItem("tv_identity_graph", JSON.stringify(this.identity));
+    }
+  }
+
   public apply(e: TwinEvent): void {
     // 1. Log to Episodic Memory
     this.episodicMemory.push({ ts: e.ts, type: e.type, surface: e.surface });
@@ -65,9 +72,9 @@ export class TwinFeatureStore {
     const hour = new Date(e.ts).getHours();
     this.activityRhythm[hour]++;
 
-    // 3. Lexicon Extraction (Learning Michael's Language)
-    if (e.payload?.text) {
-        const words = e.payload.text.toLowerCase().split(/\s+/);
+    // 3. Lexicon Extraction
+    if (e.payload?.content && typeof e.payload.content === 'string') {
+        const words = e.payload.content.toLowerCase().split(/\s+/);
         words.forEach((w: string) => {
             if (w.length > 3) {
                 this.identity.lexicon[w] = (this.identity.lexicon[w] || 0) + 1;
@@ -75,10 +82,45 @@ export class TwinFeatureStore {
         });
     }
 
-    // 4. Persistence
-    if (typeof window !== 'undefined') {
-        localStorage.setItem("tv_identity_graph", JSON.stringify(this.identity));
+    // 4. NEURAL REINFORCEMENT (God Mode Feedback Processing)
+    if (e.type === 'INTENT_ROUTED' && e.payload.feedback) {
+        this.reinforceIdentity(e.payload.feedback);
     }
+
+    // 5. Persistence
+    this.saveSovereignLedger();
+  }
+
+  private reinforceIdentity(feedbackType: string) {
+    const p = this.identity.userProfile;
+    const step = 0.05;
+
+    switch (feedbackType) {
+        case 'UP':
+            // High alignment: Lock in existing bias
+            p.directness = this.nudge(p.directness, 0.02);
+            p.efficiencyBias = this.nudge(p.efficiencyBias, 0.02);
+            break;
+        case 'DOWN':
+            // Off target: Invert or reduce strong biases
+            p.directness = this.nudge(p.directness, -step);
+            p.challengeLevel = this.nudge(p.challengeLevel, step); // Pushing back on failure
+            p.verbosity = this.nudge(p.verbosity, step); // Try being more descriptive
+            break;
+        case 'WRONG_SOURCE':
+            // Stale source: Increase skepticism/risk tolerance adjustment
+            p.efficiencyBias = this.nudge(p.efficiencyBias, -step); // Prioritize accuracy more
+            break;
+    }
+  }
+
+  private nudge(val: number, delta: number): number {
+    return Math.max(0, Math.min(1, val + delta));
+  }
+
+  public updateManualWeights(newProfile: CognitiveProfile) {
+    this.identity.userProfile = { ...newProfile };
+    this.saveSovereignLedger();
   }
 
   public snapshot() {

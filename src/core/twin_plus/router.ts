@@ -28,37 +28,50 @@ export class TwinRouter {
 
   public route(intent: QueryIntent): RoutePlan {
     const text = intent.queryText.toLowerCase();
-    const aiOptIn = typeof window !== 'undefined' ? localStorage.getItem('tv_api_key') : null;
+    const aiOptIn = typeof window !== 'undefined' ? !!localStorage.getItem('tv_api_key') : false;
+    const hasInternet = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
     let strategy: RoutePlan['strategy'] = 'LOCAL';
     const reasons: string[] = ['DOCTRINE_INITIAL_CHECK'];
 
-    // 1. Check for Local Action Commands
-    if (text.includes("remind") || text.includes("todo") || text.includes("grocery") || text.includes("buy")) {
+    // 1. HARDCORE LOCAL-FIRST DOCTRINE
+    // If we're offline or the user didn't opt-in, we MUST stay local.
+    if (!hasInternet) {
+        strategy = 'LOCAL';
+        reasons.push('OFFLINE_MODE_ENFORCED');
+        return this.finalize(strategy, aiOptIn, reasons);
+    }
+
+    // 2. Check for Local Action Commands (No Internet/AI needed)
+    if (text.includes("remind") || text.includes("todo") || text.includes("grocery") || text.includes("buy") || text.includes("cork it")) {
         strategy = 'LOCAL';
         reasons.push('ACTION_COMMAND_DETECTED');
     }
-    // 2. Check for App Help
-    else if (text.includes("how do i") || text.includes("what is")) {
+    // 3. Check for Internal App Knowledge (Blunt Local)
+    else if (text.includes("how do i") || text.includes("what is") || text.includes("status")) {
         strategy = 'LOCAL';
         reasons.push('INTERNAL_DOC_QUERY');
     }
-    // 3. Escalate to Internet for facts
-    else if (text.includes("who is") || text.includes("where is") || text.includes("current")) {
+    // 4. Escalate to Internet only if local fails or facts are required
+    else if (text.includes("who is") || text.includes("where is") || text.includes("current") || text.includes("news")) {
         strategy = 'INTERNET';
         reasons.push('EXTERNAL_FACT_REQ');
     }
-    // 4. AI Synthesis if needed and opted-in
-    else if (aiOptIn) {
+    // 5. AI Synthesis if complex and opted-in
+    else if (aiOptIn && (text.length > 50 || text.includes("think") || text.includes("plan"))) {
         strategy = 'AI';
-        reasons.push('NEURAL_SYNTHESIS_OPT_IN');
+        reasons.push('COMPLEX_SYNTHESIS_REQ');
     }
 
-    return {
-      decisionId: `route-${Date.now()}`,
-      strategy,
-      aiAllowed: !!aiOptIn,
-      reasonCodes: reasons,
-    };
+    return this.finalize(strategy, aiOptIn, reasons);
+  }
+
+  private finalize(strategy: RoutePlan['strategy'], aiAllowed: boolean, reasons: string[]): RoutePlan {
+      return {
+          decisionId: `route-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          strategy,
+          aiAllowed,
+          reasonCodes: reasons
+      };
   }
 }

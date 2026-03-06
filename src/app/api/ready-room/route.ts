@@ -1,24 +1,50 @@
 // src/app/api/ready-room/route.ts
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { TwinPreferenceLedger } from '@/core/twin_plus/twin_preference_ledger';
-import { TwinFeatureStore } from '@/core/twin_plus/twin_feature_store';
-import { TwinShaper } from '@/core/twin_plus/shaper';
 
 /**
- * TEMPUS VICTA - INTELLIGENCE DOCTRINE v1.8
- * LADDER: LOCAL (Blunt) > INTERNET (Triage) > AI (Synthesis)
+ * TEMPUS VICTA - INTELLIGENCE DOCTRINE v2.6 (SOVEREIGN_COOL)
+ * LADDER: LOCAL (Substrate) > AI (Smooth Synthesis) > INTERNET (Verified Facts)
  */
 
 const appKnowledge: Record<string, string> = {
-    "hello": "Standing by. Signal received.",
-    "hi": "System active.",
+    "hello": "Standing by. What's the move?",
+    "hey": "System active. Ready when you are.",
+    "yo": "Yo. Signal received. I'm locked in.",
+    "hey bro": "What's up, man? Strategic link established.",
+    "whats up": "Keeping the entropy low. What's on your mind?",
+    "what's up": "Keeping the entropy low. What's on your mind?",
+    "status": "All systems operational. Kernel stability at 98%. Smooth sailing.",
     "philosophy": "Tempus Victa: A local-first cognitive OS designed to reduce friction between intention and execution.",
     "doctrine": "Intelligence Ladder: 1. Local Sovereignty, 2. Trusted Sources, 3. Internet Layer, 4. AI Augmentation.",
-    "twin+": "The behavioral substrate. A learning model that observes patterns to refine recommendations.",
-    "protocol": "The Ready Room Protocol is a preview module. It builds profiles based on searchable work and acts as a 'Holodeck' for simulation.",
-    "escalation": "Local > Internet > AI. AI is called only when internet search is insufficient or specifically requested."
+    "twin+": "The behavioral substrate. That's the Mind. I'm the Mouth. Together, we're the system.",
+    "protocol": "The Ready Room Protocol is a 'Holodeck' for strategic simulation. Consistent profiles, zero puppeteering.",
+    "escalation": "Local > AI > Internet. I only reach out to the web if I need fresh data I don't already have.",
+    "who are you": "I'm your Digital Twin. Your cognitive counterpart.",
+    "what is your name": "I respond to whatever name you've set in the config. Right now, I'm Twin+.",
+    "who am i": "You're the Root. The strategist. The one in control."
 };
+
+// Advanced local classifier to prevent "Jive Ass" internet escalation
+function getLocalResponse(msg: string, assistantName: string): string | null {
+    const low = msg.toLowerCase().replace(/[?.,!]/g, "").trim();
+
+    // 1. Exact matches from Sovereign Knowledge
+    if (appKnowledge[low]) return appKnowledge[low].replace("Twin+", assistantName || "Twin+");
+
+    // 2. Slang/Greeting fuzzy matching
+    const casualSlang = ["yo", "hey", "sup", "whats up", "what's up", "hi", "howdy", "hey bro", "hey man"];
+    if (casualSlang.includes(low)) {
+        return "Locked in. What's the mission today?";
+    }
+
+    // 3. Self-referential fuzzy matching
+    if (low.includes("your name") || low.includes("who are you") || low.includes("what are you")) {
+        return `I'm ${assistantName || "Twin+"}. Your digital shadow. Your cognitive counterpart.`;
+    }
+
+    return null;
+}
 
 async function getGeminiSovereignSearch(query: string, geminiKey: string) {
     if (!geminiKey || geminiKey === "undefined" || geminiKey.length < 5) return null;
@@ -33,9 +59,7 @@ async function getGeminiSovereignSearch(query: string, geminiKey: string) {
         });
         const data = await response.json();
         return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { return null; }
 }
 
 async function getTavilyFallback(query: string, apiKey: string) {
@@ -48,104 +72,118 @@ async function getTavilyFallback(query: string, apiKey: string) {
         });
         const data = await response.json();
         return data.results?.map((r: any) => `[Source: ${r.url}]\n${r.content}`).join('\n\n') || null;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { return null; }
 }
 
 export async function POST(req: Request) {
     const body = await req.json();
-    const { message, searchKey, apiKey, geminiKey, history, protocolParams, aiEnhanced, assistantName } = body;
+    const {
+        message,
+        searchKey,
+        apiKey,
+        geminiKey,
+        history,
+        protocolParams,
+        aiEnhanced,
+        assistantName,
+        identityProfile,
+        forceLocal
+    } = body;
 
     if (!message) return NextResponse.json({ role: 'assistant', content: 'SIGNAL_NULL' }, { status: 400 });
 
     const lowerMsg = message.toLowerCase().trim();
 
-    // 1. LOCAL RESOLUTION (Immediate & Blunt)
-    if (appKnowledge[lowerMsg]) {
-        return NextResponse.json({ role: 'assistant', content: appKnowledge[lowerMsg], sourceLayer: "LOCAL" });
+    // 1. SOVEREIGN LOCAL CHECK (No API burn for "What's up?")
+    const localRes = getLocalResponse(message, assistantName);
+
+    // Only use local if user didn't explicitly request AI Enhancement OR it's a simple greeting
+    if (localRes && !aiEnhanced && !protocolParams) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: localRes,
+            sourceLayer: "LOCAL_Sovereign"
+        });
     }
+
+    if (forceLocal) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: localRes || "Local mode active. That signal requires external escalation. Switch to Hybrid or ask me about the system.",
+            sourceLayer: "LOCAL_ONLY"
+        });
+    }
+
+    // 2. CONVERSATIONAL CONTINUITY CHECK
+    const isShortFollowUp = lowerMsg.split(" ").length < 5 && history.length > 0;
+
+    // 3. INTENT TRIAGE: Guard Internet Searches
+    const looksLikeFactualQuery = (lowerMsg.includes("?") || lowerMsg.length > 40) &&
+                                  !lowerMsg.includes("you") &&
+                                  !lowerMsg.includes("your") &&
+                                  !lowerMsg.includes("hey") &&
+                                  !lowerMsg.includes("yo") &&
+                                  !isShortFollowUp;
 
     let webData = null;
     let sourceLayer = "LOCAL";
 
-    // Detect if the user is actually asking a question that requires searching
-    const isQuestion = lowerMsg.includes("?") ||
-                       lowerMsg.startsWith("what") ||
-                       lowerMsg.startsWith("who") ||
-                       lowerMsg.startsWith("search") ||
-                       lowerMsg.length > 20;
-
-    // 2. INTERNET RESOLUTION (Only if it looks like a query)
-    if (isQuestion && !protocolParams) {
+    if (looksLikeFactualQuery && !protocolParams) {
         webData = await getGeminiSovereignSearch(message, geminiKey);
         if (webData) sourceLayer = "INTERNET (GEMINI)";
-
-        if (!webData && searchKey) {
+        else if (searchKey) {
             webData = await getTavilyFallback(message, searchKey);
             if (webData) sourceLayer = "INTERNET (TAVILY)";
         }
     }
 
-    // 3. DOCTRINE ESCALATION
-    const useAI = (aiEnhanced || (!webData && isQuestion) || protocolParams) && !!apiKey;
-
-    let finalContent = "";
+    // 4. DOCTRINE ESCALATION (Local > AI > Internet)
+    const useAI = (aiEnhanced || webData || lowerMsg.length > 15 || protocolParams || isShortFollowUp) && !!apiKey;
 
     if (useAI) {
         const openai = new OpenAI({ apiKey });
-        let systemPrompt = "";
-        if (protocolParams) {
-            systemPrompt = `READY ROOM PROTOCOL ACTIVE. Topic: ${protocolParams.topic}. Members: ${protocolParams.members}. TONE: Direct deliberation. ANTI-PUPPETEERING: Build consistent profiles.`;
-            sourceLayer = "PROTOCOL_SIM";
-        } else {
-            systemPrompt = `
-                # KERNEL: ${assistantName || 'Twin+'}
-                # MANDATE: BLUNT_SYNTHESIS
-                # INSTRUCTIONS:
-                - Max 2-3 sentences unless complex.
-                - NO conversational filler.
-                - Use [RESEARCH_DATA] if provided.
-                - TRIGGERS: Prefix tasks with "TASK:". Quotes with "CRYSTALLIZE:".
+        const p = identityProfile?.userProfile || { directness: 0.8, verbosity: 0.3 };
 
-                [RESEARCH_DATA]: ${webData || "NULL"}
-            `;
-            sourceLayer = webData ? `NEURAL_SYNTHESIS (${sourceLayer})` : "NEURAL_SYNTHESIS (INTERNAL)";
-        }
+        const systemPrompt = `
+            # IDENTITY: You are ${assistantName || 'Twin+'}.
+            # VIBE: Smooth, confident, professional, cool (Billy Dee Williams style).
+            # MANDATE: Provide high-fidelity, concise synthesis.
+            # TONE: Direct but slightly sophisticated. No apologies. No "As an AI..."
+            # CONSTRAINTS:
+            - Directness Bias: ${p.directness > 0.7 ? "Blunt and fast." : "Nuanced and detailed."}
+            - Verbosity Limit: ${p.verbosity < 0.4 ? "Keep it under 30 words." : "Explain the logic."}
+            - CONTINUITY: You remember everything Michael has said in this session. Refer to previous points if relevant.
+            - LEARN: Observe Michael's style and reflect it back. Everything is a learning exercise.
+
+            [RESEARCH_DATA]: ${webData || "NONE_AVAILABLE. Respond from your internal weights if it's conversational."}
+        `;
 
         try {
             const response = await openai.chat.completions.create({
                 model: "gpt-4o",
                 messages: [
                     { role: "system", content: systemPrompt },
-                    ...history.slice(-5).map((h: any) => ({ role: h.role, content: h.content })),
+                    ...history.slice(-15).map((h: any) => ({ role: h.role, content: h.content })),
                     { role: "user", content: message }
                 ],
-                temperature: protocolParams ? 0.7 : 0.1
+                temperature: protocolParams ? 0.7 : 0.4
             });
-            finalContent = response.choices[0].message.content || "";
+
+            const content = response.choices[0].message.content || "";
+
+            return NextResponse.json({
+                role: 'assistant',
+                content: content,
+                sourceLayer: webData ? `NEURAL_SYNTHESIS (HYBRID)` : "NEURAL_SYNTHESIS (INTERNAL)"
+            });
         } catch (e) {
-            finalContent = webData || "Neural pipeline failure.";
+            return NextResponse.json({ role: 'assistant', content: "Connection hazy. Signal's weak.", sourceLayer: "ERROR" });
         }
     } else {
-        finalContent = webData || "Signal recognized. Standing by for specific query.";
+        return NextResponse.json({
+            role: 'assistant',
+            content: localRes || "Standing by. What's the strategy?",
+            sourceLayer: "LOCAL_STANDBY"
+        });
     }
-
-    // --- TWIN+ SHAPING ---
-    const prefs = await TwinPreferenceLedger.open();
-    const features = await TwinFeatureStore.open(prefs);
-    const shaper = new TwinShaper(prefs, features);
-
-    const shaped = shaper.shape({
-        surface: 'READY_ROOM',
-        purpose: 'inform',
-        draftText: finalContent
-    });
-
-    return NextResponse.json({
-        role: 'assistant',
-        content: shaped.text,
-        sourceLayer: sourceLayer,
-        suggestedActions: shaped.suggestedActions
-    });
 }

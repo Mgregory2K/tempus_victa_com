@@ -23,7 +23,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN";
 
-const VERSION = "3.1.5-GENESIS";
+const VERSION = "3.1.6-GENESIS";
 
 interface SuggestedAction {
   type: string;
@@ -131,6 +131,7 @@ function AppShell() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const [hasMounted, setHasMounted] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // HYDRATION
   useEffect(() => {
@@ -167,6 +168,43 @@ function AppShell() {
     localStorage.setItem("tv_chat_history", JSON.stringify(messages));
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
+
+  // CLOUD SYNC ENGINE
+  const handleCloudSync = async (direction: 'PUSH' | 'PULL') => {
+    if (!session) return alert("Link Google Identity first.");
+    setIsSyncing(true);
+    try {
+        if (direction === 'PUSH') {
+            const ledger = {
+                tasks, quotes, notes, messages, wishes,
+                config: { apiKey, searchKey, geminiKey, notionKey, assistantName },
+                identityGraph: JSON.parse(localStorage.getItem("tv_identity_graph") || "{}"),
+                preferences: JSON.parse(localStorage.getItem("tv_preferences") || "{}"),
+                lastSync: new Date().toISOString()
+            };
+            const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify(ledger) });
+            if (res.ok) alert("Sovereign Ledger Pushed to Cloud.");
+        } else {
+            const res = await fetch('/api/sync');
+            if (res.ok) {
+                const data = await res.json();
+                setTasks(data.tasks || []); setQuotes(data.quotes || []); setNotes(data.notes || []); setMessages(data.messages || []); setWishes(data.wishes || []);
+                if (data.config) {
+                    setApiKey(data.config.apiKey || ""); setSearchKey(data.config.searchKey || "");
+                    setGeminiKey(data.config.geminiKey || ""); setNotionKey(data.config.notionKey || "");
+                    setAssistantName(data.config.assistantName || "Twin+");
+                    localStorage.setItem("tv_api_key", data.config.apiKey || "");
+                    localStorage.setItem("tv_assistant_name", data.config.assistantName || "Twin+");
+                }
+                if (data.identityGraph) localStorage.setItem("tv_identity_graph", JSON.stringify(data.identityGraph));
+                if (data.preferences) localStorage.setItem("tv_preferences", JSON.stringify(data.preferences));
+                alert("Sovereign Ledger Hydrated.");
+                window.location.reload();
+            }
+        }
+    } catch (e) { alert("Sync Failure."); }
+    finally { setIsSyncing(false); }
+  };
 
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
@@ -257,12 +295,15 @@ function AppShell() {
             <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase text-white font-bold">🌤 DAILY_BRIEF</button>
 
             <div
-                onClick={() => isSystemLinked ? setShowLogoutConfirm(true) : signIn('google')}
+                onClick={() => isSystemLinked ? handleCloudSync('PUSH') : signIn('google')}
                 className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse'}`}
             >
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
-                <div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[8px] tracking-widest leading-none leading-tight">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span><span className="text-[6px] text-white/20 font-bold mt-0.5 tracking-tighter leading-tight uppercase">{isSystemLinked ? 'Sync_Active' : 'Handshake_Req'}</span></div>
+                <div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[8px] tracking-widest leading-none leading-tight">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span><span className="text-[6px] text-white/20 font-bold mt-0.5 tracking-tighter leading-tight uppercase">{isSystemLinked ? (isSyncing ? 'Syncing...' : 'Sync_Active') : 'Handshake_Req'}</span></div>
             </div>
+            {isSystemLinked && (
+                <button onClick={() => handleCloudSync('PULL')} className="p-2 border border-white/10 hover:border-accent transition-all rounded" title="Pull Cloud Data"><svg className="w-3 h-3 text-white/40 hover:text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg></button>
+            )}
           </div>
         </header>
 
