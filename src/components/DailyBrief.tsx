@@ -3,6 +3,14 @@
 
 import React, { useState, useEffect } from 'react';
 
+export interface Event {
+    id: string;
+    summary: string;
+    start: { dateTime?: string; date?: string };
+    end: { dateTime?: string; date?: string };
+    htmlLink?: string;
+}
+
 interface IntelData {
     location: { zip: string };
     weather: any;
