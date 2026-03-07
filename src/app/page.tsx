@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.3.5-NAV-STABLE";
+const VERSION = "3.4.2-CHRONOS";
 
 interface SuggestedAction {
   type: string;
@@ -33,14 +33,12 @@ interface SuggestedAction {
 }
 
 export interface Message {
+  id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  sourceLayer?: string;
   timestamp: string;
-  id: string;
-  suggestedActions?: SuggestedAction[];
-  isManifested?: boolean;
-  feedback?: "UP" | "DOWN";
+  sourceLayer?: string;
+  vote?: number | null;
   wrongSource?: boolean;
 }
 
@@ -132,6 +130,9 @@ function AppShell() {
   const [showDailyBrief, setShowDailyBrief] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  // 🧠 Ready Room Handoff State
+  const [initialReadyRoomMessage, setInitialReadyRoomMessage] = useState<string | null>(null);
 
   const [hasMounted, setHasMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -267,7 +268,7 @@ function AppShell() {
       setWishes(prev => [newWish, ...prev]);
   };
 
-  const handleUniversalIngest = (text: string) => {
+  const handleUniversalIngest = (text: string, isFromBrainstorm: boolean = false) => {
     const lowText = text.toLowerCase();
     let routedTo = "";
     const ts = new Date().toISOString();
@@ -290,11 +291,20 @@ function AppShell() {
         routedTo = "Working Memory";
     }
 
+    // 🧠 Handshake for Brainstorming
+    if (isFromBrainstorm) {
+        setInitialReadyRoomMessage(text);
+    }
+
     const toast = document.createElement('div');
     toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 bg-accent text-black px-6 py-2 system-text text-[10px] font-black z-[3000] animate-bounce uppercase shadow-[0_0_20px_#00d4ff] border-2 border-black';
     toast.innerText = `ROUTED TO ${routedTo.toUpperCase()}`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
+  };
+
+  const handleSnoozeTask = (id: string, time: string) => {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'SNOOZED', snooze_until: time } : t));
   };
 
   if (!hasMounted) return null;
@@ -329,14 +339,13 @@ function AppShell() {
 
       <div className="fixed bottom-24 right-4 md:right-8 z-[2000] flex flex-col items-center gap-2">
           <div className="h-14 w-14 md:h-16 md:w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group active:bg-accent/20">
-              <VoiceButton onTranscript={handleUniversalIngest} size="md" />
+              <VoiceButton onTranscript={(t) => handleUniversalIngest(t)} size="md" />
           </div>
       </div>
 
       <div className="relative z-10 flex-grow w-full flex flex-col hud-panel border-white/10 overflow-hidden shadow-2xl bg-black/40 backdrop-blur-md rounded-none md:rounded-lg">
         <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 flex items-center justify-between px-4 md:px-10 shrink-0 relative">
           <div className="flex items-center gap-3">
-             {/* 🍔 MOBILE HAMBURGER TOGGLE */}
              <button
                 onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
                 className="lg:hidden p-2 border border-white/10 rounded-sm hover:bg-white/5 text-white"
@@ -381,7 +390,6 @@ function AppShell() {
         </header>
 
         <div className="flex flex-grow overflow-hidden relative">
-          {/* 📱 RESPONSIVE SIDENAV WRAPPER */}
           <div className={`
             absolute lg:relative z-[1500] h-full transition-all duration-500 ease-in-out
             ${isMobileNavOpen ? 'left-0' : '-left-64 lg:left-0'}
@@ -389,7 +397,6 @@ function AppShell() {
             <SideNav onModuleChange={(m) => { setActiveModule(m); setIsMobileNavOpen(false); }} activeModule={activeModule} isAdmin={isAdmin} />
           </div>
 
-          {/* 🌑 MOBILE OVERLAY (Closes nav on click) */}
           {isMobileNavOpen && (
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[1400] lg:hidden"
@@ -399,12 +406,12 @@ function AppShell() {
 
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
-              {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} onQuickTask={(text) => handleUniversalIngest(text)} /></div>}
-              {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} /></div>}
+              {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} onQuickTask={(text) => handleUniversalIngest(text)} onSnooze={handleSnoozeTask} /></div>}
+              {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} initialMessage={initialReadyRoomMessage} onContextConsumed={() => setInitialReadyRoomMessage(null)} /></div>}
               {activeModule === "SIGNAL_BAY" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} setExternalTasks={setTasks} /></div>}
-              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => setNotes(prev => prev.filter(x => x.id !== id))} /></div>}
+              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => setNotes(prev => prev.filter(x => x.id !== id))} onBrainstorm={(text) => { handleUniversalIngest(text, true); setActiveModule('READY_ROOM'); }} /></div>}
               {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} /></div>}
               {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}

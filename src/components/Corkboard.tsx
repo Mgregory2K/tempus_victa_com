@@ -23,12 +23,35 @@ interface CorkboardProps {
 }
 
 export default function Corkboard({ externalNotes, setNotes, onPromote, onArchive, onBrainstorm }: CorkboardProps) {
+    const [isAdding, setIsAdding] = useState(false);
+    const [newNoteText, setNewNoteText] = useState("");
+
     const defaultNotes: Note[] = [
         { id: '1', text: 'Structure Volume IV: Trust Mathematics needs a deeper dive into decay constants.', x: 50, y: 80, rotation: -2, color: 'bg-yellow-200/80' },
         { id: '2', text: 'Remember to check the local-first benchmark for the Lexicon engine.', x: 400, y: 120, rotation: 3, color: 'bg-blue-200/80' },
     ];
 
     const activeNotes = externalNotes || defaultNotes;
+
+    const handleCreateNote = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newNoteText.trim() || !setNotes) return;
+
+        const newNote: Note = {
+            id: Date.now().toString(),
+            text: newNoteText,
+            x: 100 + Math.random() * 100,
+            y: 100 + Math.random() * 100,
+            rotation: Math.random() * 6 - 3,
+            color: 'bg-yellow-200/80'
+        };
+
+        setNotes(prev => [...prev, newNote]);
+        setNewNoteText("");
+        setIsAdding(false);
+
+        twinPlusKernel.observe(createEvent('CORKBOARD_PIN', { id: newNote.id, text: newNote.text }, 'CORKBOARD'));
+    };
 
     const handleDragEnd = (id: string, e: React.DragEvent) => {
         const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
@@ -50,10 +73,40 @@ export default function Corkboard({ externalNotes, setNotes, onPromote, onArchiv
             <div className="absolute inset-0 opacity-20 pointer-events-none"
                  style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 0)', backgroundSize: '4px 4px' }} />
 
-            <div className="absolute top-6 left-8 z-10">
-                <h1 className="text-4xl font-black text-white/30 italic uppercase tracking-widest leading-none">Corkboard</h1>
-                <p className="system-text text-[10px] text-white/20 font-black tracking-[0.4em]">Spatial Memory // Volume I, Ch 7</p>
+            <div className="absolute top-6 left-8 z-10 flex flex-col gap-4">
+                <div>
+                    <h1 className="text-4xl font-black text-white/30 italic uppercase tracking-widest leading-none">Corkboard</h1>
+                    <p className="system-text text-[10px] text-white/20 font-black tracking-[0.4em]">Spatial Memory // Volume I, Ch 7</p>
+                </div>
+
+                <button
+                    onClick={() => setIsAdding(true)}
+                    className="w-48 py-2 bg-yellow-200/20 border border-yellow-200/40 text-yellow-200 system-text text-[10px] font-black hover:bg-yellow-200 hover:text-black transition-all shadow-xl"
+                >
+                    + Manifest New Note
+                </button>
             </div>
+
+            {/* Manual Entry Modal */}
+            {isAdding && (
+                <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <form onSubmit={handleCreateNote} className="w-full max-w-md bg-yellow-200 p-8 shadow-2xl rotate-1 relative">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-red-600 shadow-xl border border-red-800" />
+                        <h3 className="text-black font-black uppercase text-xs mb-4 tracking-widest border-b border-black/10 pb-2 italic">New Spatial Memory</h3>
+                        <textarea
+                            autoFocus
+                            value={newNoteText}
+                            onChange={(e) => setNewNoteText(e.target.value)}
+                            placeholder="What's on the mind, Michael? Type it out..."
+                            className="w-full h-32 bg-transparent text-black font-medium text-lg outline-none resize-none placeholder:text-black/20 font-handwriting"
+                        />
+                        <div className="flex gap-4 mt-4">
+                            <button type="submit" className="flex-grow bg-black text-white py-2 text-[10px] font-black uppercase hover:bg-red-600 transition-all">Pin to Board</button>
+                            <button type="button" onClick={() => setIsAdding(false)} className="px-4 border border-black/20 text-black/40 text-[10px] font-black uppercase hover:text-black transition-all">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            )}
 
             {activeNotes.map(note => (
                 <div key={note.id}
