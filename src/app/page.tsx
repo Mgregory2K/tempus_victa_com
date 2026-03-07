@@ -17,13 +17,14 @@ import IdentityMirror from "@/components/IdentityMirror";
 import DailyBrief from "@/components/DailyBrief";
 import ReadyRoom from "@/components/ReadyRoom";
 import AdminBoard from "@/components/AdminBoard";
+import WishBoard from "@/components/WishBoard";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
-export type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN";
+export type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES";
 
-const VERSION = "3.2.0-TEXTBOOK";
+const VERSION = "3.2.1-OPTIMAL";
 
 interface SuggestedAction {
   type: string;
@@ -266,7 +267,7 @@ function AppShell() {
       {showDailyBrief && (
         <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-3xl p-4 md:p-12 overflow-y-auto animate-slide-up">
             <div className="max-w-4xl mx-auto relative text-left text-white">
-                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase">✕ Dismiss_Brief</button>
+                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase px-4 py-2">✕ Dismiss_Brief</button>
                 <DailyBrief />
             </div>
         </div>
@@ -279,8 +280,8 @@ function AppShell() {
                 <h3 className="system-text text-xl font-black text-red-500 mb-4 italic uppercase">Terminate_Session?</h3>
                 <p className="text-white/60 text-xs mb-8 normal-case leading-relaxed">This will sever the connection to the Mothership and clear your current identity token. Local data remains on device.</p>
                 <div className="flex gap-4">
-                    <button onClick={() => signOut()} className="flex-grow bg-red-500 py-3 text-[10px] font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest">Logout</button>
-                    <button onClick={() => setShowLogoutConfirm(false)} className="flex-grow border border-white/10 py-3 text-[10px] font-black text-white/40 hover:text-white transition-all uppercase tracking-widest">Cancel</button>
+                    <button onClick={() => signOut()} className="flex-grow bg-red-500 py-3 text-[10px] font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest ripple">Logout</button>
+                    <button onClick={() => setShowLogoutConfirm(false)} className="flex-grow border border-white/10 py-3 text-[10px] font-black text-white/40 hover:text-white transition-all uppercase tracking-widest ripple">Cancel</button>
                 </div>
                 <div className="bracket-tl" /><div className="bracket-br" />
             </div>
@@ -289,7 +290,7 @@ function AppShell() {
 
       {/* 🎙 UNIVERSAL RECORD BUTTON */}
       <div className="fixed bottom-24 right-8 z-[2000] flex flex-col items-center gap-2">
-          <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group">
+          <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group ripple active:bg-accent/20">
               <VoiceButton onTranscript={handleUniversalIngest} size="md" />
           </div>
       </div>
@@ -298,28 +299,33 @@ function AppShell() {
         <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 flex items-center justify-between px-4 md:px-10 shrink-0 relative">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
              <div className="h-10 w-10 md:h-12 border-2 border-accent/40 bg-black flex items-center justify-center relative shadow-[0_0_15px_rgba(0,212,255,0.2)]"><span className="system-text text-xl font-black text-accent">T</span><div className="bracket-tl" /><div className="bracket-br" /></div>
-             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none text-white">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION} // {activeModule}</span></div>
+             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION} // {activeModule}</span></div>
           </div>
 
           <div className="flex gap-2 items-center">
-            <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase text-white font-bold">🌤 DAILY_BRIEF</button>
+            <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase ripple">🌤 DAILY_BRIEF</button>
 
             <div
-                onClick={() => isSystemLinked ? handleCloudSync('PUSH') : signIn('google')}
-                className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse'}`}
+                onClick={() => isSystemLinked ? setShowLogoutConfirm(true) : signIn('google')}
+                className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10'}`}
             >
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
                 <div className="flex flex-col text-left uppercase text-white font-bold">
-                    <span className="system-text text-[8px] tracking-widest leading-none leading-tight">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span>
+                    <span className="system-text text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span>
                     <span className={`text-[6px] font-bold mt-0.5 tracking-tighter leading-tight uppercase ${isSystemLinked ? 'text-accent animate-pulse' : 'text-white/20'}`}>
-                        {isSystemLinked ? (isSyncing ? 'Syncing...' : 'Sync_Active') : 'Handshake_Req'}
+                        {isSystemLinked ? (isSyncing ? 'Syncing...' : 'Stable') : 'Handshake_Req'}
                     </span>
                 </div>
             </div>
             {isSystemLinked && (
-                <button onClick={() => handleCloudSync('PULL')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group" title="Pull Cloud Data">
-                    <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
-                </button>
+                <div className="flex gap-1">
+                    <button onClick={() => handleCloudSync('PUSH')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Push Cloud Data">
+                        <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </button>
+                    <button onClick={() => handleCloudSync('PULL')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Pull Cloud Data">
+                        <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                    </button>
+                </div>
             )}
           </div>
         </header>
@@ -332,39 +338,40 @@ function AppShell() {
               {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} /></div>}
               {activeModule === "SIGNALS" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
-              {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} /></div>}
+              {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} setExternalTasks={setTasks} /></div>}
               {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => setNotes(prev => prev.filter(x => x.id !== id))} /></div>}
               {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} /></div>}
               {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}
+              {activeModule === "WISHES" && <div className="module-enter h-full"><WishBoard wishes={wishes} onWish={submitWish} /></div>}
               {activeModule === "ADMIN" && isAdmin && <div className="module-enter h-full"><AdminBoard wishes={wishes} setWishes={setWishes} setTasks={setTasks} /></div>}
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
-                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase text-white font-black tracking-widest leading-none uppercase text-white">Cognitive_Config</h2>
+                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase leading-none">Cognitive_Config</h2>
                     {/* WISH INPUT */}
                     <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded text-white">
-                        <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em] text-white font-bold">Manifest a wish for the system development</label>
-                        <div className="flex gap-4 text-white">
+                        <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em]">Manifest a wish for the system development</label>
+                        <div className="flex gap-4">
                             <span className="text-sm font-bold text-white/40 italic flex items-center">I wish this app would...</span>
-                            <input id="wishInput" className="flex-grow bg-transparent border-b border-white/20 focus:border-accent outline-none text-white italic uppercase text-white" placeholder="be even faster." onKeyDown={(e) => { if(e.key === 'Enter') { submitWish((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} />
+                            <input id="wishInput" className="flex-grow bg-transparent border-b border-white/20 focus:border-accent outline-none text-white italic uppercase" placeholder="be even faster." onKeyDown={(e) => { if(e.key === 'Enter') { submitWish((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-white">
                         <div className="space-y-6 text-white">
-                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase text-white">Neural Substrate</h3>
+                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase">Neural Substrate</h3>
                             {[{ l: "OpenAI Key", v: apiKey, sv: setApiKey, k: "tv_api_key", d: "Synthesis" }, { l: "Gemini Key", v: geminiKey, sv: setGeminiKey, k: "tv_gemini_key", d: "Grounding" }].map(field => (
-                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors text-white">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase text-white">SET</button></div></div>
+                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase ripple">SET</button></div></div>
                             ))}
                         </div>
                         <div className="space-y-6 text-white">
-                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase uppercase text-white text-white">External Nodes</h3>
+                            <h3 className="system-text text-[10px] text-white/40 font-black mb-4 tracking-widest uppercase">External Nodes</h3>
                             {[{ l: "Tavily Key", v: searchKey, sv: setSearchKey, k: "tv_search_key", d: "Triage" }, { l: "Notion Token", v: notionKey, sv: setNotionKey, k: "tv_notion_key", d: "Knowledge" }].map(field => (
-                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors text-white uppercase">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase text-white text-white">SET</button></div></div>
+                                <div key={field.l} className="flex flex-col gap-2 group text-white"><label className="text-[8px] text-white/20 font-bold uppercase group-hover:text-accent transition-colors">{field.l} // {field.d}</label><div className="flex gap-2"><input type="password" value={field.v} onChange={(e) => field.sv(e.target.value)} className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs focus:border-accent outline-none font-mono text-white" /><button onClick={() => { localStorage.setItem(field.k, field.v); alert("Stored"); } } className="bg-accent/10 border border-accent/20 px-4 py-2 text-[8px] font-black text-accent hover:bg-accent hover:text-black transition-all uppercase ripple">SET</button></div></div>
                             ))}
                         </div>
                     </div>
-                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 text-left uppercase text-white"><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 border border-red-500/20 text-red-500/40 text-[9px] font-black hover:bg-red-500 hover:text-white transition-all tracking-[0.3em] uppercase text-white">MASTER_OS_RESET</button></div>
+                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 text-left uppercase text-white"><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 border border-red-500/20 text-red-500/40 text-[9px] font-black hover:bg-red-500 hover:text-white transition-all tracking-[0.3em] uppercase ripple">MASTER_OS_RESET</button></div>
                     <div className="bracket-tl" /><div className="bracket-br" />
                   </div>
                 </div>
@@ -375,15 +382,16 @@ function AppShell() {
 
         <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-1 md:gap-2 shrink-0 z-50 text-white font-bold">
               {[
-                { id: "BRIDGE", label: "BRIDGE" }, { id: "SIGNALS", label: "SIGNALS" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
-                ...(isAdmin ? [{ id: "ADMIN", label: "WISHES" }] : [])
+                { id: "BRIDGE", label: "BRIDGE" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "SIGNALS", label: "SIGNAL BAY" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
+                { id: "WISHES", label: "WISHES" },
+                ...(isAdmin ? [{ id: "ADMIN", label: "COMMAND" }] : [])
               ].map(item => (
-                <div key={item.id} className="relative group text-white">
+                <div key={item.id} className="relative group text-white shrink-0">
                     <button
                         onClick={() => setActiveModule(item.id as Module)}
-                        className={`nav-parallelogram px-6 py-1.5 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
+                        className={`nav-parallelogram px-4 py-1.5 md:px-6 md:py-1.5 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase ripple ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
                     >
-                        <span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span>
+                        <span className="nav-text-fix relative z-10 block whitespace-nowrap">{item.label}</span>
                     </button>
                 </div>
               ))}

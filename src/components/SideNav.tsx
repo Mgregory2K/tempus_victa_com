@@ -91,11 +91,12 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
                 <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Immutable Ledger" description="Audit every signal and neural decision in real-time." />
                 <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured intel." />
                 <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Review high-fidelity linguistic patterns." />
+                <NavItem name="Wishes" isActive={activeModule === 'WISHES'} onClick={() => onModuleChange?.('WISHES')} subtext="Future Dev" description="Log requests for system expansion." />
             </div>
 
             {isAdmin && (
                 <div className="shrink-0 mt-4 border-t border-accent/20 pt-4 animate-pulse">
-                    <NavItem name="Admin Board" isActive={activeModule === 'ADMIN'} onClick={() => onModuleChange?.('ADMIN')} subtext="System Control" description="Restricted module for scaling telemetry and user wish review." />
+                    <NavItem name="Command" isActive={activeModule === 'ADMIN'} onClick={() => onModuleChange?.('ADMIN')} subtext="High Council" description="Restricted module for scaling telemetry and user wish review." />
                 </div>
             )}
 
