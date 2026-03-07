@@ -50,9 +50,21 @@ export default function ReadyRoom({
         }
     }, [externalMessages, isTyping]);
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        let value = e.target.value;
+        // Auto-capitalize first letter of sentences if needed,
+        // but browser 'autocapitalize="sentences"' handles most of this.
+        setInput(value);
+    };
+
     const handleSend = async (overrideInput?: string) => {
-        const text = overrideInput || input.trim();
+        let text = overrideInput || input.trim();
         if (!text || isTyping) return;
+
+        // Smart capitalization fallback for manual entry
+        if (!overrideInput && text.length > 0) {
+            text = text.charAt(0).toUpperCase() + text.slice(1);
+        }
 
         const userMsg: Message = {
             id: Date.now().toString(),
@@ -74,7 +86,7 @@ export default function ReadyRoom({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    history: externalMessages.slice(-15), // increased history for better memory
+                    history: externalMessages.slice(-15),
                     assistantName,
                     aiEnhanced: isProtocolActive,
                     apiKey,
@@ -313,8 +325,12 @@ export default function ReadyRoom({
                     <div className="flex-grow relative bg-white/[0.03] border border-white/10 rounded-2xl overflow-hidden focus-within:border-accent/40 focus-within:bg-white/[0.05] transition-all shadow-inner">
                         <textarea
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={handleInputChange}
                             onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                            spellCheck="true"
+                            autoCapitalize="sentences"
+                            autoComplete="on"
+                            autoCorrect="on"
                             placeholder={isProtocolActive ? "PROTOCOL_ACTIVE: Command_Simulation..." : forceLocal ? "Local Sovereign Access..." : `Talk to ${assistantName || "Twin+"}...`}
                             className="w-full bg-transparent p-4 text-[13px] font-medium text-white outline-none resize-none placeholder:text-white/20 min-h-[56px] max-h-32"
                             rows={1}

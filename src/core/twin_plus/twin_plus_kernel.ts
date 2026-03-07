@@ -37,7 +37,7 @@ class TwinPlusKernel {
   public async init(): Promise<void> {
     if (this.isInitialized) return;
 
-    // Ordered instantiation to prevent race conditions
+    // Ordered instantiation
     this.ledger = await TwinEventLedger.open();
     this.prefs = await TwinPreferenceLedger.open();
     this.features = await TwinFeatureStore.open(this.prefs);
@@ -47,7 +47,6 @@ class TwinPlusKernel {
     this.isInitialized = true;
     console.log("Twin+ Kernel Initialized.");
 
-    // Drain queued events into the ledger
     if (this.eventQueue.length > 0) {
         this.eventQueue.forEach(e => this.observe(e));
         this.eventQueue = [];
@@ -56,13 +55,44 @@ class TwinPlusKernel {
     this.observe(createEvent('ENTROPY_REDUCED', { action: 'KERNEL_INIT' }, 'SYSTEM'));
   }
 
+  /**
+   * High-Fidelity Merge: Combines remote mind state with local substrate.
+   * v3.2.2 - TEMPORAL_INTEGRITY
+   */
+  public async hydrate(remoteLedger: any): Promise<void> {
+    if (!this.isInitialized) await this.init();
+
+    // 1. Merge the Ledger (Event History)
+    if (remoteLedger.eventHistory) {
+        this.ledger.merge(remoteLedger.eventHistory);
+    }
+
+    // 2. Re-process the Mind (Rebuild Features/Identity from the combined ledger)
+    const allEvents = this.ledger.query({});
+    // Reset identity to baseline before re-applying to ensure consistency
+    // Note: In a full implementation, we might want to smart-merge the graph instead of full re-processing
+    allEvents.forEach(e => this.features.apply(e));
+
+    // 3. Merge Preferences
+    if (remoteLedger.preferences) {
+        Object.entries(remoteLedger.preferences).forEach(([k, v]: [string, any]) => {
+            const local = this.prefs.getPreference(k);
+            // Bias towards the most recent update
+            if (!local || new Date(v.lastUpdated) > new Date((local as any).lastUpdated)) {
+                this.prefs.setPreference(k, v.value, v);
+            }
+        });
+    }
+
+    console.log("Twin+ Mind Hydrated and Merged.");
+  }
+
   public observe(e: TwinEvent): void {
     if (!this.isInitialized) {
         this.eventQueue.push(e);
         return;
     }
 
-    // Single source of truth for persistence: The Ledger handles the save
     this.ledger.append(e);
     this.features.apply(e);
   }
