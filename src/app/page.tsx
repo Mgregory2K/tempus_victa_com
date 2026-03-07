@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Bridge from "@/components/bridge";
 import SideNav from "@/components/SideNav";
 import WorkoutTracker from "@/components/WorkoutTracker";
@@ -22,7 +22,7 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
-export type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES";
+export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
 const VERSION = "3.2.1-OPTIMAL";
 
@@ -171,11 +171,11 @@ function AppShell() {
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
 
-  // CLOUD SYNC ENGINE
-  const handleCloudSync = async (direction: 'PUSH' | 'PULL') => {
-    if (!session) return alert("Link Google Identity first.");
+  // ITALY PROTOCOL (AUTO-SYNC)
+  const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL', force: boolean = false) => {
+    if (!session) return;
 
-    if (direction === 'PULL') {
+    if (direction === 'PULL' && force) {
         const confirmPull = confirm("ATTENTION: This will overwrite your local digital mind with the cloud version. Proceed?");
         if (!confirmPull) return;
     }
@@ -191,13 +191,19 @@ function AppShell() {
                 eventHistory: JSON.parse(localStorage.getItem("tv_event_history") || "[]"),
                 lastSync: new Date().toISOString()
             };
-            const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify(ledger) });
-            if (res.ok) alert("Sovereign Ledger Pushed to Cloud.");
+            await fetch('/api/sync', { method: 'POST', body: JSON.stringify(ledger) });
         } else {
             const res = await fetch('/api/sync');
             if (res.ok) {
                 const data = await res.json();
-                setTasks(data.tasks || []); setQuotes(data.quotes || []); setNotes(data.notes || []); setMessages(data.messages || []); setWishes(data.wishes || []);
+                // Neural Merge (Italy Protocol)
+                if (data.eventHistory) await twinPlusKernel.hydrate(data);
+
+                setTasks(data.tasks || []);
+                setQuotes(data.quotes || []);
+                setNotes(data.notes || []);
+                setMessages(data.messages || []);
+                setWishes(data.wishes || []);
                 if (data.config) {
                     setApiKey(data.config.apiKey || ""); setSearchKey(data.config.searchKey || "");
                     setGeminiKey(data.config.geminiKey || ""); setNotionKey(data.config.notionKey || "");
@@ -208,19 +214,31 @@ function AppShell() {
                 if (data.identityGraph) localStorage.setItem("tv_identity_graph", JSON.stringify(data.identityGraph));
                 if (data.preferences) localStorage.setItem("tv_preferences", JSON.stringify(data.preferences));
                 if (data.eventHistory) localStorage.setItem("tv_event_history", JSON.stringify(data.eventHistory));
-
-                alert("Sovereign Ledger Hydrated.");
-                window.location.reload();
             }
         }
-    } catch (e) { alert("Sync Failure."); }
+    } catch (e) { console.error("Sync Failure", e); }
     finally { setIsSyncing(false); }
-  };
+  }, [session, tasks, quotes, notes, messages, wishes, apiKey, searchKey, geminiKey, notionKey, assistantName]);
+
+  // INITIAL HYDRATION
+  useEffect(() => {
+    if (status === 'authenticated' && hasMounted) {
+        handleCloudSync('PULL');
+    }
+  }, [status, hasMounted]); // intentionally limited deps
+
+  // DEBOUNCED AUTO-PUSH
+  useEffect(() => {
+    if (!hasMounted || !session) return;
+    const timer = setTimeout(() => {
+        handleCloudSync('PUSH');
+    }, 5000); // 5s debounce
+    return () => clearTimeout(timer);
+  }, [tasks, quotes, notes, messages, wishes, hasMounted, session]);
 
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
       setWishes(prev => [newWish, ...prev]);
-      alert("Wish Manifested.");
   };
 
   const handleUniversalIngest = (text: string) => {
@@ -267,7 +285,7 @@ function AppShell() {
       {showDailyBrief && (
         <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-3xl p-4 md:p-12 overflow-y-auto animate-slide-up">
             <div className="max-w-4xl mx-auto relative text-left text-white">
-                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase px-4 py-2">✕ Dismiss_Brief</button>
+                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase">✕ Dismiss_Brief</button>
                 <DailyBrief />
             </div>
         </div>
@@ -290,7 +308,7 @@ function AppShell() {
 
       {/* 🎙 UNIVERSAL RECORD BUTTON */}
       <div className="fixed bottom-24 right-8 z-[2000] flex flex-col items-center gap-2">
-          <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group ripple active:bg-accent/20">
+          <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group active:bg-accent/20">
               <VoiceButton onTranscript={handleUniversalIngest} size="md" />
           </div>
       </div>
@@ -322,7 +340,7 @@ function AppShell() {
                     <button onClick={() => handleCloudSync('PUSH')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Push Cloud Data">
                         <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     </button>
-                    <button onClick={() => handleCloudSync('PULL')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Pull Cloud Data">
+                    <button onClick={() => handleCloudSync('PULL', true)} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Pull Cloud Data">
                         <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
                     </button>
                 </div>
@@ -336,7 +354,7 @@ function AppShell() {
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
               {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} /></div>}
-              {activeModule === "SIGNALS" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
+              {activeModule === "SIGNAL_BAY" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} setExternalTasks={setTasks} /></div>}
               {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => setNotes(prev => prev.filter(x => x.id !== id))} /></div>}
@@ -382,16 +400,16 @@ function AppShell() {
 
         <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-1 md:gap-2 shrink-0 z-50 text-white font-bold">
               {[
-                { id: "BRIDGE", label: "BRIDGE" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "SIGNALS", label: "SIGNAL BAY" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
+                { id: "BRIDGE", label: "BRIDGE" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "SIGNAL_BAY", label: "SIGNAL BAY" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
                 { id: "WISHES", label: "WISHES" },
                 ...(isAdmin ? [{ id: "ADMIN", label: "COMMAND" }] : [])
               ].map(item => (
                 <div key={item.id} className="relative group text-white shrink-0">
                     <button
                         onClick={() => setActiveModule(item.id as Module)}
-                        className={`nav-parallelogram px-4 py-1.5 md:px-6 md:py-1.5 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase ripple ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
+                        className={`nav-parallelogram px-6 py-1.5 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
                     >
-                        <span className="nav-text-fix relative z-10 block whitespace-nowrap">{item.label}</span>
+                        <span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span>
                     </button>
                 </div>
               ))}
