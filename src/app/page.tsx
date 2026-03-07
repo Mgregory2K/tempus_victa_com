@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.2.7-FORCE-COMMAND";
+const VERSION = "3.2.9-MOBILE-READY";
 
 interface SuggestedAction {
   type: string;
@@ -108,7 +108,7 @@ export default function Home() {
   const { status } = useSession();
   const [isKernelReady, setIsKernelReady] = useState(false);
   useEffect(() => { async function start() { try { await twinPlusKernel.init(); setIsKernelReady(true); } catch (e) {} } start(); }, []);
-  if (status === "loading" || !isKernelReady) return <div className="h-screen w-screen bg-black flex items-center justify-center"><div className="flex flex-col items-center gap-4"><div className="h-16 w-16 border-4 border-accent border-t-transparent rounded-full animate-spin shadow-[0_0_20px_var(--accent)]" /><p className="system-text text-accent animate-pulse tracking-[0.4em]">INITIALIZING NEURAL LINK...</p></div></div>;
+  if (status === "loading" || !isKernelReady) return <div className="h-dvh w-screen bg-black flex items-center justify-center"><div className="flex flex-col items-center gap-4"><div className="h-16 w-16 border-4 border-accent border-t-transparent rounded-full animate-spin shadow-[0_0_20px_var(--accent)]" /><p className="system-text text-accent animate-pulse tracking-[0.4em]">INITIALIZING NEURAL LINK...</p></div></div>;
   return <AppShell />;
 }
 
@@ -206,17 +206,21 @@ function AppShell() {
   useEffect(() => {
     setHasMounted(true);
     setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
-    setApiKey(localStorage.getItem("tv_api_key") || "");
-    setSearchKey(localStorage.getItem("tv_search_key") || "");
-    setGeminiKey(localStorage.getItem("tv_gemini_key") || "");
-    setNotionKey(localStorage.getItem("tv_notion_key") || "");
-    setAssistantName(localStorage.getItem("tv_assistant_name") || "Twin+");
+
+    // GUEST SOVEREIGNTY: Use sessionStorage for guests, localStorage for members
+    const storage = status === 'authenticated' ? localStorage : sessionStorage;
+
+    setApiKey(storage.getItem("tv_api_key") || "");
+    setSearchKey(storage.getItem("tv_search_key") || "");
+    setGeminiKey(storage.getItem("tv_gemini_key") || "");
+    setNotionKey(storage.getItem("tv_notion_key") || "");
+    setAssistantName(storage.getItem("tv_assistant_name") || "Twin+");
     try {
-        setTasks(JSON.parse(localStorage.getItem("tv_tasks") || "[]"));
-        setQuotes(JSON.parse(localStorage.getItem("tv_quotes") || "[]"));
-        setNotes(JSON.parse(localStorage.getItem("tv_notes") || "[]"));
-        setMessages(JSON.parse(localStorage.getItem("tv_chat_history") || "[]"));
-        setWishes(JSON.parse(localStorage.getItem("tv_wishes") || "[]"));
+        setTasks(JSON.parse(storage.getItem("tv_tasks") || "[]"));
+        setQuotes(JSON.parse(storage.getItem("tv_quotes") || "[]"));
+        setNotes(JSON.parse(storage.getItem("tv_notes") || "[]"));
+        setMessages(JSON.parse(storage.getItem("tv_chat_history") || "[]"));
+        setWishes(JSON.parse(storage.getItem("tv_wishes") || "[]"));
     } catch (e) {}
 
     const fetchCouncil = async () => {
@@ -228,22 +232,23 @@ function AppShell() {
     fetchCouncil();
 
     const now = new Date();
-    const lastBriefSeen = localStorage.getItem("tv_last_brief_seen");
+    const lastBriefSeen = storage.getItem("tv_last_brief_seen");
     const todayStr = now.toLocaleDateString();
     if (now.getHours() >= 6 && lastBriefSeen !== todayStr) {
         setShowDailyBrief(true);
-        localStorage.setItem("tv_last_brief_seen", todayStr);
+        storage.setItem("tv_last_brief_seen", todayStr);
     }
-  }, []);
+  }, [status]);
 
   useEffect(() => {
     if (!hasMounted) return;
-    localStorage.setItem("tv_tasks", JSON.stringify(tasks));
-    localStorage.setItem("tv_quotes", JSON.stringify(quotes));
-    localStorage.setItem("tv_notes", JSON.stringify(notes));
-    localStorage.setItem("tv_chat_history", JSON.stringify(messages));
-    localStorage.setItem("tv_wishes", JSON.stringify(wishes));
-  }, [tasks, quotes, notes, messages, wishes, hasMounted]);
+    const storage = status === 'authenticated' ? localStorage : sessionStorage;
+    storage.setItem("tv_tasks", JSON.stringify(tasks));
+    storage.setItem("tv_quotes", JSON.stringify(quotes));
+    storage.setItem("tv_notes", JSON.stringify(notes));
+    storage.setItem("tv_chat_history", JSON.stringify(messages));
+    storage.setItem("tv_wishes", JSON.stringify(wishes));
+  }, [tasks, quotes, notes, messages, wishes, hasMounted, status]);
 
   useEffect(() => {
     if (status === 'authenticated' && hasMounted) {
@@ -263,7 +268,6 @@ function AppShell() {
   const userEmail = session?.user?.email?.toLowerCase() || "";
   const isSystemLinked = status === 'authenticated';
 
-  // 🏛 FORCE ADMIN ON LOCALHOST
   const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const isAdmin = !!(session as any)?.isAdmin ||
                   isLocalhost ||
@@ -277,7 +281,7 @@ function AppShell() {
   }, [userEmail, isAdmin, serverAdmins, isSystemLinked, isLocalhost]);
 
   const submitWish = (text: string) => {
-      const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
+      const newWish = { id: Date.now().toString(), user: session?.user?.name || "Guest", text, timestamp: new Date().toISOString(), status: 'PENDING' };
       setWishes(prev => [newWish, ...prev]);
   };
 
@@ -287,22 +291,22 @@ function AppShell() {
     if (lowText.includes("cork it") || lowText.includes("corkboard")) {
         const cleaned = text.replace(/cork it/i, "").replace(/corkboard/i, "").trim();
         setNotes(prev => [...prev, { id: Date.now().toString(), text: cleaned || text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80' }]);
-        routedTo = "CORKBOARD";
+        routedTo = "Corkboard";
     } else if (lowText.includes("task") || lowText.includes("reminder")) {
         const cleaned = text.replace(/task/i, "").replace(/reminder/i, "").trim();
         setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'VOICE' }, ...prev]);
-        routedTo = "PROJECTS";
+        routedTo = "Project Board";
     } else if (lowText.includes("i wish")) {
         const cleaned = text.replace(/i wish/i, "").replace(/the app would/i, "").trim();
         submitWish(cleaned);
-        routedTo = "ADMIN (WISH)";
+        routedTo = "Command (Wish)";
     } else {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: `[INGEST]: ${text}`, timestamp: new Date().toISOString() }]);
-        routedTo = "READY ROOM";
+        routedTo = "Ready Room";
     }
     const toast = document.createElement('div');
     toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 bg-accent text-black px-6 py-2 system-text text-[10px] font-black z-[3000] animate-bounce uppercase shadow-[0_0_20px_#00d4ff] border-2 border-black';
-    toast.innerText = `ROUTED TO ${routedTo}`;
+    toast.innerText = `ROUTED TO ${routedTo.toUpperCase()}`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
   };
@@ -310,7 +314,7 @@ function AppShell() {
   if (!hasMounted) return null;
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
+    <div className="relative h-dvh w-screen overflow-hidden bg-black text-white p-0 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px] flex flex-col">
       <div className="fixed inset-0 z-0 pointer-events-none"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.1),transparent_70%)] opacity-60" /><div className="scanline" /></div>
 
       {showDailyBrief && (
@@ -337,13 +341,13 @@ function AppShell() {
         </div>
       )}
 
-      <div className="fixed bottom-24 right-8 z-[2000] flex flex-col items-center gap-2">
-          <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group active:bg-accent/20">
+      <div className="fixed bottom-24 right-4 md:right-8 z-[2000] flex flex-col items-center gap-2">
+          <div className="h-14 w-14 md:h-16 md:w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group active:bg-accent/20">
               <VoiceButton onTranscript={handleUniversalIngest} size="md" />
           </div>
       </div>
 
-      <div className="relative z-10 h-full w-full flex flex-col hud-panel border-white/10 overflow-hidden shadow-2xl bg-black/40 backdrop-blur-md rounded-none md:rounded-lg">
+      <div className="relative z-10 flex-grow w-full flex flex-col hud-panel border-white/10 overflow-hidden shadow-2xl bg-black/40 backdrop-blur-md rounded-none md:rounded-lg">
         <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 flex items-center justify-between px-4 md:px-10 shrink-0 relative">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
              <div className="h-10 w-10 md:h-12 border-2 border-accent/40 bg-black flex items-center justify-center relative shadow-[0_0_15px_rgba(0,212,255,0.2)]"><span className="system-text text-xl font-black text-accent">T</span><div className="bracket-tl" /><div className="bracket-br" /></div>
@@ -355,12 +359,12 @@ function AppShell() {
 
             <div
                 onClick={() => isSystemLinked ? setShowLogoutConfirm(true) : signIn('google')}
-                className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10'}`}
+                className={`flex items-center gap-3 px-3 md:px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10'}`}
             >
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
                 <div className="flex flex-col text-left uppercase text-white font-bold">
-                    <span className="system-text text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership Stable' : 'Identity Unlinked'}</span>
-                    <span className={`text-[6px] font-bold mt-0.5 tracking-tighter leading-tight uppercase ${isSystemLinked ? 'text-accent animate-pulse' : 'text-white/20'}`}>
+                    <span className="system-text text-[7px] md:text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership Stable' : 'Identity Unlinked'}</span>
+                    <span className={`text-[5px] md:text-[6px] font-bold mt-0.5 tracking-tighter leading-tight uppercase ${isSystemLinked ? 'text-accent animate-pulse' : 'text-white/20'}`}>
                         {isSystemLinked ? (isSyncing ? 'Syncing...' : 'Stable') : 'Handshake Req'}
                     </span>
                 </div>
@@ -396,7 +400,7 @@ function AppShell() {
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
-                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase leading-none">Cognitive Config</h2>
+                    <h2 className="text-2xl md:text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase leading-none">Cognitive Config</h2>
                     <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded text-white">
                         <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em]">Manifest a wish for the system development</label>
                         <div className="flex gap-4">
@@ -427,16 +431,16 @@ function AppShell() {
           </main>
         </div>
 
-        <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-1 md:gap-2 shrink-0 z-50 text-white font-bold">
+        <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-start px-2 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50 text-white font-bold md:justify-center">
               {[
-                { id: "BRIDGE", label: "BRIDGE" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "SIGNAL_BAY", label: "SIGNAL BAY" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
-                { id: "WISHES", label: "WISHES" },
-                ...(isAdmin ? [{ id: "ADMIN", label: "COMMAND" }] : [])
+                { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SIGNAL_BAY", label: "Signal Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "WINBOARD", label: "Win Board" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "QUOTES", label: "Quotes" }, { id: "CLOCK_TOWER", label: "Clock Tower" }, { id: "SETTINGS", label: "Config" },
+                { id: "WISHES", label: "Wishes" },
+                ...(isAdmin ? [{ id: "ADMIN", label: "Command" }] : [])
               ].map(item => (
                 <div key={item.id} className="relative group text-white shrink-0">
                     <button
                         onClick={() => setActiveModule(item.id as Module)}
-                        className={`nav-parallelogram px-6 py-1.5 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
+                        className={`nav-parallelogram px-4 md:px-6 py-2 system-text text-[7px] md:text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}
                     >
                         <span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span>
                     </button>
