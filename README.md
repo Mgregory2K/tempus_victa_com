@@ -1,13 +1,13 @@
 # Tempus Victa // Cognitive OS
 
-**Operational Status: v3.2.3 (The Neural Link)**
+**Operational Status: v3.2.4 (The Shared Council)**
 
-Tempus Victa is a local-first cognitive operating system. We have now reached the **Neural Link** phase, where the nervous system is fully unified across all surfaces via the Mothership.
+Tempus Victa is a local-first cognitive operating system. We have now reached the **Shared Council** phase, where the nervous system is unified across all surfaces and administrative authority is managed via a shared sovereign ledger.
 
 ## 🧠 Twin+: The Digital Counterpart
 Twin+ is the soul of the system. It is a persistent personal cognitive model that learns and replicates your identity, decision patterns, and dialect. Johnny 5 (J5) serves as the optional conversational alias for this entity.
 - **Layered Memory**: Stratifies information into Working, Episodic, and Semantic layers for human-like recall.
-- **Neural Merge**: v3.2.3 introduces non-destructive ID-based merging. No data is overwritten; it is only reinforced.
+- **Neural Merge**: v3.2.4 introduces non-destructive ID-based merging. No data is overwritten; it is only reinforced.
 - **Identity Graph**: Stores a vector-based model of user preferences, risk tolerance, and decision-making patterns.
 - **Sovereign Efficiency**: All modeling happens locally on the device to ensure absolute privacy.
 
@@ -22,7 +22,7 @@ The primary expression layer of Twin+. It synthesizes data from all cognitive mo
 - **Signal Bay**: The triage deck where all inbound life signals are weighted and routed.
 - **Clock Tower**: The temporal container for the **Sovereign Ledger**, your immutable neural record.
 - **The Mirror**: The deck where your Identity Graph weights are reflected back to you.
-- **Command**: Restricted telemetry and dynamic council access for Root and Authorized Identities.
+- **Command**: Restricted telemetry and dynamic council access for Root and Authorized Identities. Shared across the instance deployment.
 
 ## 🎙️ Universal Ingestion (The Record Button)
 A floating, visual-frequency monitored record button:
