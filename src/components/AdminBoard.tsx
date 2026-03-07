@@ -20,14 +20,24 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
         feedback: { up: 0, down: 0, stale: 0 }
     });
 
+    // 🏛 SYNC WITH GLOBAL COUNCIL (Server-side)
     useEffect(() => {
-        // Load events
+        const fetchCouncil = async () => {
+            try {
+                const res = await fetch('/api/admin/council');
+                if (res.ok) {
+                    const data = await res.json();
+                    setAdmins(data);
+                }
+            } catch (e) { console.error("Council Sync Error", e); }
+        };
+        fetchCouncil();
+    }, []);
+
+    useEffect(() => {
+        // Load local ledger events
         const allEvents = twinPlusKernel.ledger.query({});
         setEvents(allEvents);
-
-        // Load admins from local storage (synced config)
-        const storedAdmins = JSON.parse(localStorage.getItem("tv_authorized_admins") || "[]");
-        setAdmins(storedAdmins);
 
         // Calculate Stats
         const usage: Record<string, number> = {};
@@ -49,18 +59,35 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
         });
     }, [wishes]);
 
-    const addAdmin = () => {
+    const addAdmin = async () => {
         if (!newAdminEmail.includes("@")) return;
         const updated = [...new Set([...admins, newAdminEmail.toLowerCase().trim()])];
         setAdmins(updated);
-        localStorage.setItem("tv_authorized_admins", JSON.stringify(updated));
-        setNewAdminEmail("");
+
+        // PUSH TO SERVER-SIDE SHARED COUNCIL
+        try {
+            await fetch('/api/admin/council', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emails: updated })
+            });
+            localStorage.setItem("tv_authorized_admins", JSON.stringify(updated));
+            setNewAdminEmail("");
+        } catch (e) { alert("Failed to secure Council. Persistence offline."); }
     };
 
-    const removeAdmin = (email: string) => {
+    const removeAdmin = async (email: string) => {
         const updated = admins.filter(a => a !== email);
         setAdmins(updated);
-        localStorage.setItem("tv_authorized_admins", JSON.stringify(updated));
+
+        try {
+            await fetch('/api/admin/council', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emails: updated })
+            });
+            localStorage.setItem("tv_authorized_admins", JSON.stringify(updated));
+        } catch (e) { alert("Failed to update Council."); }
     };
 
     return (
@@ -68,30 +95,30 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
             {/* Header */}
             <div className="flex justify-between items-end border-b border-white/10 pb-4">
                 <div>
-                    <h1 className="text-4xl font-black italic text-accent uppercase tracking-tight">Admin_Command_Board</h1>
-                    <p className="system-text text-[10px] text-white/40 font-black tracking-widest mt-1 uppercase">Sovereign Instance Control // v3.1.2</p>
+                    <h1 className="text-4xl font-black italic text-accent uppercase tracking-tight">Admin Command Board</h1>
+                    <p className="system-text text-[10px] text-white/40 font-black tracking-widest mt-1 uppercase italic">Sovereign Instance Control // v3.2.3</p>
                 </div>
                 <div className="text-right">
                     <span className="text-2xl font-black text-white italic">{stats.totalEvents}</span>
-                    <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">Total_Neural_Events</p>
+                    <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">Total Neural Events</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* 📊 USAGE TELEMETRY */}
                 <div className="lg:col-span-2 hud-panel p-6 bg-black/40 border-white/10 relative">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6">Surface_Usage_Distribution</h3>
+                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Surface Usage Distribution</h3>
                     <div className="space-y-4">
                         {Object.entries(stats.moduleUsage).sort((a:any, b:any) => b[1] - a[1]).map(([surface, count]: [string, any]) => (
                             <div key={surface} className="space-y-1">
                                 <div className="flex justify-between text-[9px] font-black uppercase">
-                                    <span className="text-white/60">{surface}</span>
+                                    <span className="text-white/60">{surface.replace('_', ' ')}</span>
                                     <span className="text-accent">{count}</span>
                                 </div>
                                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-accent shadow-[0_0_10px_var(--accent)] transition-all duration-1000"
-                                        style={{ width: `${(count / stats.totalEvents) * 100}%` }}
+                                        style={{ width: `${(count / Math.max(1, stats.totalEvents)) * 100}%` }}
                                     />
                                 </div>
                             </div>
@@ -102,22 +129,22 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
 
                 {/* 🛡️ IDENTITY ACCESS CONTROL */}
                 <div className="hud-panel p-6 bg-black/40 border-white/10 relative">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6">Authorized_Admins</h3>
+                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Authorized Council</h3>
                     <div className="space-y-3 mb-6 max-h-40 overflow-y-auto scrollbar-none">
                         {admins.map(email => (
-                            <div key={email} className="flex justify-between items-center p-2 bg-white/5 border border-white/5 rounded group">
+                            <div key={email} className="flex justify-between items-center p-2 bg-white/5 border border-white/5 rounded group transition-all hover:bg-white/10">
                                 <span className="text-[10px] font-bold text-white/80 lowercase">{email}</span>
                                 <button onClick={() => removeAdmin(email)} className="opacity-0 group-hover:opacity-100 text-red-500 text-[8px] font-black uppercase transition-opacity">Remove</button>
                             </div>
                         ))}
-                        {admins.length === 0 && <p className="text-[9px] text-white/20 italic text-center py-4 uppercase">No_External_Admins_Configured</p>}
+                        {admins.length === 0 && <p className="text-[9px] text-white/20 italic text-center py-4 uppercase">No External Identities Authorized</p>}
                     </div>
                     <div className="flex gap-2">
                         <input
                             value={newAdminEmail}
                             onChange={(e) => setNewAdminEmail(e.target.value)}
-                            placeholder="ADMIN_EMAIL..."
-                            className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-accent lowercase"
+                            placeholder="ADMIN EMAIL..."
+                            className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-accent lowercase italic"
                         />
                         <button onClick={addAdmin} className="bg-accent text-black px-4 py-2 text-[8px] font-black uppercase hover:bg-white transition-all">Add</button>
                     </div>
@@ -128,19 +155,19 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* 💭 NEURAL FEEDBACK LEDGER */}
                 <div className="hud-panel p-6 bg-black/40 border-white/10 relative">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6">Twin+_Alignment_Metrics</h3>
+                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Twin+ Alignment Metrics</h3>
                     <div className="grid grid-cols-3 gap-4 mb-8">
                         <div className="text-center p-4 bg-neon-green/5 border border-neon-green/10">
                             <span className="text-2xl font-black text-neon-green italic">{stats.feedback.up}</span>
-                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">High_Alignment</p>
+                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">High Alignment</p>
                         </div>
                         <div className="text-center p-4 bg-red-500/5 border border-red-500/10">
                             <span className="text-2xl font-black text-red-500 italic">{stats.feedback.down}</span>
-                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">Off_Target</p>
+                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">Off Target</p>
                         </div>
                         <div className="text-center p-4 bg-orange-500/5 border border-orange-500/10">
                             <span className="text-2xl font-black text-orange-500 italic">{stats.feedback.stale}</span>
-                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">Stale_Sources</p>
+                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">Stale Sources</p>
                         </div>
                     </div>
                     <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin pr-2">
@@ -154,14 +181,14 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
                     <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
                 </div>
 
-                {/* 🌠 TESTER WISH LEDGER (Original logic preserved) */}
+                {/* 🌠 TESTER WISH LEDGER */}
                 <div className="hud-panel p-6 bg-black/40 border-white/10 relative overflow-hidden">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6">Tester_Wish_Manifestations</h3>
+                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Tester Wish Manifestations</h3>
                     <div className="space-y-4 max-h-[400px] overflow-y-auto scrollbar-thin pr-2">
                         {wishes.map(wish => (
                             <div key={wish.id} className="p-4 bg-white/[0.03] border border-white/10 relative group">
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className="text-accent font-black text-[8px] tracking-widest uppercase">{wish.user}</span>
+                                    <span className="text-accent font-black text-[8px] tracking-widest uppercase italic">{wish.user}</span>
                                     <span className="text-[7px] text-white/20 uppercase">{new Date(wish.timestamp).toLocaleDateString()}</span>
                                 </div>
                                 <p className="text-[11px] font-bold italic text-white/90 uppercase leading-tight">"I wish this app would {wish.text}"</p>
@@ -173,13 +200,13 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
                                         }}
                                         className="bg-neon-green/10 border border-neon-green/20 px-3 py-1 text-[7px] font-black text-neon-green uppercase hover:bg-neon-green hover:text-black transition-all"
                                     >
-                                        Manifest_As_Task
+                                        Manifest As Task
                                     </button>
                                     <button onClick={() => setWishes(prev => prev.filter(w => w.id !== wish.id))} className="text-red-500/40 text-[7px] font-black uppercase hover:text-red-500 transition-all">Archive</button>
                                 </div>
                             </div>
                         ))}
-                        {wishes.length === 0 && <p className="text-[9px] text-white/20 italic text-center py-10 uppercase border border-dashed border-white/5">No_Pending_Manifestations</p>}
+                        {wishes.length === 0 && <p className="text-[9px] text-white/20 italic text-center py-10 uppercase border border-dashed border-white/5">No Pending Manifestations</p>}
                     </div>
                     <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
                 </div>

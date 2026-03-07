@@ -24,8 +24,11 @@ const handler = NextAuth({
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
       }
+      if (user) {
+        token.email = user.email;
+      }
 
-      // Check if user is an admin from env variable
+      // Check if user is an admin from env variable (Legacy/Static check)
       const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
       if (user?.email && adminEmails.includes(user.email.toLowerCase())) {
         token.isAdmin = true;
@@ -37,6 +40,9 @@ const handler = NextAuth({
       session.accessToken = token.accessToken as string;
       session.refreshToken = token.refreshToken as string;
       session.isAdmin = !!token.isAdmin;
+      if (session.user) {
+        session.user.email = token.email as string;
+      }
       return session;
     },
   },

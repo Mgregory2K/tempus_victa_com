@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.2.3-NEURAL-LINK";
+const VERSION = "3.2.4-COUNCIL";
 
 interface SuggestedAction {
   type: string;
@@ -128,6 +128,7 @@ function AppShell() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
+  const [serverAdmins, setServerAdmins] = useState<string[]>([]);
 
   const [showDailyBrief, setShowDailyBrief] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -152,6 +153,15 @@ function AppShell() {
         setWishes(JSON.parse(localStorage.getItem("tv_wishes") || "[]"));
     } catch (e) {}
 
+    // Fetch Global Council
+    const fetchCouncil = async () => {
+        try {
+            const res = await fetch('/api/admin/council');
+            if (res.ok) setServerAdmins(await res.json());
+        } catch (e) {}
+    };
+    fetchCouncil();
+
     const now = new Date();
     const lastBriefSeen = localStorage.getItem("tv_last_brief_seen");
     const todayStr = now.toLocaleDateString();
@@ -171,7 +181,7 @@ function AppShell() {
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
 
-  // NEURAL MERGE LOGIC (ID-based combo)
+  // NEURAL MERGE LOGIC
   const mergeNeuralData = (local: any[], remote: any[]) => {
       const map = new Map();
       [...(remote || []), ...(local || [])].forEach(item => {
@@ -180,7 +190,7 @@ function AppShell() {
       return Array.from(map.values());
   };
 
-  // ITALY PROTOCOL (AUTO-SYNC / NEURAL MERGE)
+  // ITALY PROTOCOL
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL', force: boolean = false) => {
     if (!session) return;
 
@@ -195,7 +205,6 @@ function AppShell() {
             const ledger = {
                 tasks, quotes, notes, messages, wishes,
                 config: { apiKey, searchKey, geminiKey, notionKey, assistantName },
-                authorizedAdmins: JSON.parse(localStorage.getItem("tv_authorized_admins") || "[]"),
                 identityGraph: JSON.parse(localStorage.getItem("tv_identity_graph") || "{}"),
                 preferences: JSON.parse(localStorage.getItem("tv_preferences") || "{}"),
                 eventHistory: JSON.parse(localStorage.getItem("tv_event_history") || "[]"),
@@ -206,8 +215,6 @@ function AppShell() {
             const res = await fetch('/api/sync');
             if (res.ok) {
                 const data = await res.json();
-
-                // 🧠 THE NEURAL MERGE (NO DESTRUCTION)
                 if (data.eventHistory) await twinPlusKernel.hydrate(data);
 
                 setTasks(prev => mergeNeuralData(prev, data.tasks));
@@ -216,7 +223,6 @@ function AppShell() {
                 setMessages(prev => mergeNeuralData(prev, data.messages));
                 setWishes(prev => mergeNeuralData(prev, data.wishes));
 
-                // 🔑 CONFIG PROTECTION (Don't overwrite local keys with empty remote keys)
                 if (data.config) {
                     const newApiKey = data.config.apiKey || apiKey;
                     const newSearchKey = data.config.searchKey || searchKey;
@@ -224,38 +230,14 @@ function AppShell() {
                     const newNotionKey = data.config.notionKey || notionKey;
                     const newAssistantName = data.config.assistantName || assistantName;
 
-                    setApiKey(newApiKey);
-                    setSearchKey(newSearchKey);
-                    setGeminiKey(newGeminiKey);
-                    setNotionKey(newNotionKey);
-                    setAssistantName(newAssistantName);
+                    setApiKey(newApiKey); setSearchKey(newSearchKey); setGeminiKey(newGeminiKey);
+                    setNotionKey(newNotionKey); setAssistantName(newAssistantName);
 
                     if (newApiKey) localStorage.setItem("tv_api_key", newApiKey);
                     if (newSearchKey) localStorage.setItem("tv_search_key", newSearchKey);
                     if (newGeminiKey) localStorage.setItem("tv_gemini_key", newGeminiKey);
                     if (newNotionKey) localStorage.setItem("tv_notion_key", newNotionKey);
                     if (newAssistantName) localStorage.setItem("tv_assistant_name", newAssistantName);
-                }
-
-                // Council Sync
-                if (data.authorizedAdmins) {
-                    localStorage.setItem("tv_authorized_admins", JSON.stringify(data.authorizedAdmins));
-                }
-
-                if (data.identityGraph) {
-                    const localGraph = JSON.parse(localStorage.getItem("tv_identity_graph") || "{}");
-                    const mergedGraph = { ...data.identityGraph, ...localGraph };
-                    localStorage.setItem("tv_identity_graph", JSON.stringify(mergedGraph));
-                }
-                if (data.preferences) {
-                    const localPref = JSON.parse(localStorage.getItem("tv_preferences") || "{}");
-                    const mergedPref = { ...data.preferences, ...localPref };
-                    localStorage.setItem("tv_preferences", JSON.stringify(mergedPref));
-                }
-                if (data.eventHistory) {
-                    const localHistory = JSON.parse(localStorage.getItem("tv_event_history") || "[]");
-                    const mergedHistory = mergeNeuralData(localHistory, data.eventHistory);
-                    localStorage.setItem("tv_event_history", JSON.stringify(mergedHistory));
                 }
             }
         }
@@ -275,7 +257,7 @@ function AppShell() {
     if (!hasMounted || !session) return;
     const timer = setTimeout(() => {
         handleCloudSync('PUSH');
-    }, 15000); // 15s debounce for auto-push
+    }, 15000);
     return () => clearTimeout(timer);
   }, [tasks, quotes, notes, messages, wishes, hasMounted, session, apiKey, searchKey, geminiKey, notionKey]);
 
@@ -313,20 +295,19 @@ function AppShell() {
   if (!hasMounted) return null;
   const isSystemLinked = status === 'authenticated';
 
-  // RESILIENT ADMIN CHECK (ROOT IDENTITY PROTECTION)
+  // 🏛 SHARED SOVEREIGN COUNCIL CHECK
   const rootEmails = ["stewart.jared@gmail.com", "jared@tempusvicta.com"];
-  const authorizedAdmins = JSON.parse(localStorage.getItem("tv_authorized_admins") || "[]");
   const userEmail = session?.user?.email?.toLowerCase() || "";
   const isAdmin = !!(session as any)?.isAdmin ||
                   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ||
                   rootEmails.includes(userEmail) ||
-                  authorizedAdmins.includes(userEmail);
+                  serverAdmins.includes(userEmail);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
       <div className="fixed inset-0 z-0 pointer-events-none"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.1),transparent_70%)] opacity-60" /><div className="scanline" /></div>
 
-      {/* 🌤 DAILY BRIEF MODAL (OVERLAY) */}
+      {/* 🌤 DAILY BRIEF MODAL */}
       {showDailyBrief && (
         <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-4 md:p-12 overflow-y-auto animate-slide-up">
             <div className="max-w-4xl w-full mx-auto relative text-left text-white bg-black/40 p-8 border border-white/10 rounded-lg shadow-2xl">
@@ -337,7 +318,7 @@ function AppShell() {
         </div>
       )}
 
-      {/* 🔐 LOGOUT CONFIRMATION MODAL */}
+      {/* 🔐 LOGOUT CONFIRMATION */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
             <div className="hud-panel max-sm w-full p-8 border-red-500/40 text-center relative animate-slide-up">
