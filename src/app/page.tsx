@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.2.9-MOBILE-READY";
+const VERSION = "3.3.2-SYNTHESIS";
 
 interface SuggestedAction {
   type: string;
@@ -288,22 +288,27 @@ function AppShell() {
   const handleUniversalIngest = (text: string) => {
     const lowText = text.toLowerCase();
     let routedTo = "";
+
+    // 🧬 INTELLIGENT ROUTING LOGIC
     if (lowText.includes("cork it") || lowText.includes("corkboard")) {
         const cleaned = text.replace(/cork it/i, "").replace(/corkboard/i, "").trim();
         setNotes(prev => [...prev, { id: Date.now().toString(), text: cleaned || text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80' }]);
         routedTo = "Corkboard";
-    } else if (lowText.includes("task") || lowText.includes("reminder")) {
-        const cleaned = text.replace(/task/i, "").replace(/reminder/i, "").trim();
-        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'VOICE' }, ...prev]);
+    } else if (lowText.includes("project") || lowText.includes("priority")) {
+        const cleaned = text.replace(/project/i, "").trim();
+        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'HIGH', status: 'TODO', source: 'DIRECT' }, ...prev]);
         routedTo = "Project Board";
     } else if (lowText.includes("i wish")) {
         const cleaned = text.replace(/i wish/i, "").replace(/the app would/i, "").trim();
         submitWish(cleaned);
         routedTo = "Command (Wish)";
     } else {
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: `[INGEST]: ${text}`, timestamp: new Date().toISOString() }]);
-        routedTo = "Ready Room";
+        // DEFAULT: Working Memory (The "Get Gas" Route)
+        const cleaned = text.replace(/task/i, "").replace(/reminder/i, "").trim();
+        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY' }, ...prev]);
+        routedTo = "Working Memory";
     }
+
     const toast = document.createElement('div');
     toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 bg-accent text-black px-6 py-2 system-text text-[10px] font-black z-[3000] animate-bounce uppercase shadow-[0_0_20px_#00d4ff] border-2 border-black';
     toast.innerText = `ROUTED TO ${routedTo.toUpperCase()}`;
@@ -386,7 +391,7 @@ function AppShell() {
           <SideNav onModuleChange={setActiveModule} activeModule={activeModule} isAdmin={isAdmin} />
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
-              {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} /></div>}
+              {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} onQuickTask={(text) => handleUniversalIngest(text)} /></div>}
               {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} /></div>}
               {activeModule === "SIGNAL_BAY" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}

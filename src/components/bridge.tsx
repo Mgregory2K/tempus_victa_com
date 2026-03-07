@@ -9,14 +9,16 @@ interface BridgeProps {
     notes?: any[];
     messages?: any[];
     onNavigate?: (module: any) => void;
+    onQuickTask?: (text: string) => void;
 }
 
-export default function Bridge({ tasks = [], notes = [], messages = [], onNavigate }: BridgeProps) {
+export default function Bridge({ tasks = [], notes = [], messages = [], onNavigate, onQuickTask }: BridgeProps) {
     const { data: session } = useSession();
     const [todaysEvents, setTodaysEvents] = useState<any[]>([]);
     const [loadingCalendar, setLoading] = useState(false);
     const [isCalendarHidden, setIsCalendarHidden] = useState(false);
     const [greeting, setGreeting] = useState("Good Day");
+    const [quickTaskText, setQuickTaskText] = useState("");
 
     const activeProjectsCount = tasks.filter(t => t.status !== 'DONE').length;
     const todayWins = tasks.filter(t => t.status === 'DONE');
@@ -24,7 +26,8 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
     const firstName = session?.user?.name?.split(' ')[0] || "User";
 
     // 🧬 WORKING MEMORY (LOOSE SIGNALS)
-    const looseSignals = tasks.filter(t => t.status !== 'DONE').slice(0, 3);
+    // Pull tasks that are not done and specifically tagged as WORKING_MEMORY
+    const looseSignals = tasks.filter(t => t.status !== 'DONE' && t.source === 'WORKING_MEMORY').slice(0, 5);
 
     useEffect(() => {
         const hour = new Date().getHours();
@@ -50,6 +53,13 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
         fetchCal();
         return () => { isMounted = false; };
     }, [session]);
+
+    const handleQuickTaskSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!quickTaskText.trim()) return;
+        onQuickTask?.(quickTaskText);
+        setQuickTaskText("");
+    };
 
     const MetricCard = ({ title, value, unit, trend, glowColor, targetModule }: { title: string, value: string | number, unit?: string, trend?: string, glowColor: string, targetModule?: string }) => (
         <div
@@ -155,14 +165,26 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                         <span className="system-text text-[9px] text-white/40 font-black uppercase tracking-widest">Working Memory</span>
                         <span className="text-[8px] text-orange-500 font-black uppercase tracking-widest">Loose Signals</span>
                     </div>
+
+                    {/* 🚀 QUICK INPUT FIELD */}
+                    <form onSubmit={handleQuickTaskSubmit} className="mb-4 flex gap-2">
+                        <input
+                            value={quickTaskText}
+                            onChange={(e) => setQuickTaskText(e.target.value)}
+                            placeholder="Manifest a loose signal (e.g. Get Gas)..."
+                            className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-accent italic uppercase"
+                        />
+                        <button type="submit" className="bg-accent/10 border border-accent/20 px-4 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all">ADD</button>
+                    </form>
+
                     <div className="space-y-2 text-left">
                         {looseSignals.length === 0 ? (
-                            <p className="text-[9px] text-white/20 italic py-4">No loose signals detected. System clear.</p>
+                            <p className="text-[9px] text-white/20 italic py-4 font-bold">NO LOOSE SIGNALS DETECTED. SYSTEM NOMINAL.</p>
                         ) : (
                             looseSignals.map(signal => (
-                                <div key={signal.id} className="flex justify-between items-center text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-accent/40 transition-all ripple" onClick={() => onNavigate?.('PROJECTS')}>
-                                    <span className="font-bold text-white/80 uppercase truncate pr-4">{signal.title}</span>
-                                    <span className="text-accent font-black shrink-0">ACTIVE</span>
+                                <div key={signal.id} className="flex justify-between items-center text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-accent/40 transition-all group ripple" onClick={() => onNavigate?.('PROJECTS')}>
+                                    <span className="font-bold text-white/80 uppercase truncate pr-4 italic">{signal.title}</span>
+                                    <span className="text-accent/40 font-black shrink-0 group-hover:text-accent transition-colors">ACTIVE</span>
                                 </div>
                             ))
                         )}

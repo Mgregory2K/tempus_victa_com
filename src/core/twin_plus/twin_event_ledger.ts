@@ -4,7 +4,7 @@ import { TwinEvent } from './twin_event';
 
 /**
  * The TwinEventLedger is the append-only source of truth.
- * v3.2.3 - REINFORCEMENT_CAPABLE
+ * v3.3.3 - RESILIENT_MERGE (Heals missing payloads)
  */
 export class TwinEventLedger {
   private events: TwinEvent[] = [];
@@ -29,41 +29,52 @@ export class TwinEventLedger {
   }
 
   public append(e: TwinEvent): void {
-    const existing = this.events.find(x => x.id === e.id);
+    // Neural Healing: Ensure payload exists
+    const event = { ...e, payload: e.payload || {} };
+    const existing = this.events.find(x => x.id === event.id);
+
     if (!existing) {
-        // Initialize reinforcement at 1 for new events
-        this.events.push({ ...e, payload: { ...e.payload, reinforcement: 1 } });
+        this.events.push({ ...event, payload: { ...event.payload, reinforcement: 1 } });
     } else {
-        // Local reinforcement: increment if the same event ID is somehow re-processed locally
+        existing.payload = existing.payload || {};
         existing.payload.reinforcement = (existing.payload.reinforcement || 1) + 1;
     }
     this.saveLocal();
   }
 
   /**
-   * Merges external events.
-   * v3.2.3: DUPLICATES = REINFORCEMENT.
-   * This is the "J5 Protocol": more input of the same kind strengthens the pattern.
+   * Merges external events with Fault-Tolerance.
+   * v3.3.3: HEALS GHOST EVENTS (Missing payloads)
    */
   public merge(externalEvents: TwinEvent[]): void {
+    if (!Array.isArray(externalEvents)) return;
+
     const localMap = new Map(this.events.map(e => [e.id, e]));
 
     externalEvents.forEach(e => {
-        const local = localMap.get(e.id);
+        if (!e || !e.id) return;
+
+        // Neural Healing: Pre-emptive payload stabilization
+        const incoming = { ...e, payload: e.payload || {} };
+        const local = localMap.get(incoming.id);
+
         if (local) {
-            // REINFORCEMENT DOCTRINE: Duplicates = confirmation.
-            // Accumulate reinforcement counts from both sources.
-            local.payload.reinforcement = (local.payload.reinforcement || 1) + (e.payload?.reinforcement || 1);
+            // Ensure local also has a payload to prevent undefined errors
+            local.payload = local.payload || {};
+            local.payload.reinforcement = (local.payload.reinforcement || 1) + (incoming.payload?.reinforcement || 1);
         } else {
             // New event from another surface.
-            this.events.push({ ...e, payload: { ...e.payload, reinforcement: e.payload?.reinforcement || 1 } });
+            this.events.push({
+                ...incoming,
+                payload: { ...incoming.payload, reinforcement: incoming.payload?.reinforcement || 1 }
+            });
         }
     });
 
     // Re-align timeline
     this.events.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
-    // Safety cap for local substrate memory
+    // Safety cap
     if (this.events.length > 2000) {
         this.events = this.events.slice(-2000);
     }
