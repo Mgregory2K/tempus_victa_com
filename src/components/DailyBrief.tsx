@@ -3,14 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 
-export interface Event {
-    id: string;
-    summary: string;
-    start: { dateTime?: string; date?: string };
-    end: { dateTime?: string; date?: string };
-    htmlLink?: string;
-}
-
 interface IntelData {
     location: { zip: string };
     weather: any;
@@ -22,11 +14,9 @@ interface IntelData {
 }
 
 export default function DailyBrief() {
-    const [todaysEvents, setTodaysEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
     const [zipCode, setZipCode] = useState("");
     const [searchKey, setSearchKey] = useState("");
-    const [showZipInput, setShowZipInput] = useState(false);
     const [intel, setIntel] = useState<IntelData | null>(null);
 
     useEffect(() => {
@@ -34,7 +24,6 @@ export default function DailyBrief() {
         const savedSearchKey = localStorage.getItem("tv_search_key");
         if (savedZip) setZipCode(savedZip);
         if (savedSearchKey) setSearchKey(savedSearchKey);
-        setShowZipInput(!savedZip);
     }, []);
 
     const fetchIntel = async () => {
@@ -63,71 +52,71 @@ export default function DailyBrief() {
         }
     }, [zipCode, searchKey]);
 
-    const handleZipSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        localStorage.setItem("tv_zip", zipCode);
-        setShowZipInput(false);
-        fetchIntel();
-    };
-
-    const Section = ({ icon, title, data, children }: { icon: string, title: string, data?: any, children?: React.ReactNode }) => (
-        <section className="animate-slide-up border-t border-white/5 pt-6">
-            <div className="flex items-center gap-3 mb-4 px-2">
-                <span className="text-xl">{icon}</span>
-                <h2 className="system-text text-[11px] font-black tracking-widest text-white/90 uppercase">{title}</h2>
-            </div>
-            {loading && !intel ? (
-                <div className="text-center py-8 text-xs text-white/20 italic">LOADING INTEL...</div>
-            ) : children ? (
-                children
-            ) : (
-                <div className="text-sm text-white/60 space-y-4 font-light italic px-2">
-                    <p>{data?.answer || "No new intelligence for this sector."}</p>
-                    <div className="flex flex-wrap gap-2">
-                        {data?.results?.map((item: any) => (
-                            <a href={item.url} target="_blank" key={item.url} className="text-[10px] bg-white/5 px-2 py-1 rounded hover:bg-accent hover:text-black transition-colors">{item.title}</a>
-                        ))}
-                    </div>
+    const DossierSection = ({ title, data }: { title: string, data?: any }) => (
+        <div className="mb-6 border-b border-black/10 pb-4">
+            <h3 className="font-mono text-[10px] font-black text-red-800 uppercase tracking-[0.2em] mb-2">Section: {title}</h3>
+            <p className="text-black font-serif italic text-sm leading-relaxed">
+                {data?.answer || "SIGNAL_EMPTY // NO RELEVANT DATA DETECTED IN SECTOR."}
+            </p>
+            {data?.results?.length > 0 && (
+                <div className="mt-2 flex flex-col gap-1">
+                    {data.results.slice(0, 2).map((item: any, i: number) => (
+                        <a key={i} href={item.url} target="_blank" className="text-[9px] text-blue-800 underline uppercase font-mono truncate max-w-full">
+                            {">"} Ref: {item.title}
+                        </a>
+                    ))}
                 </div>
             )}
-        </section>
+        </div>
     );
 
     return (
-        <div className="space-y-10 pb-20 max-w-4xl mx-auto">
-            <header className="flex justify-between items-start bg-accent/5 p-6 border border-accent/20 rounded-lg relative overflow-hidden">
-                <div className="relative z-10">
-                    <h1 className="text-3xl font-black italic text-white leading-none">👋 Morning Glory</h1>
-                    <p className="system-text text-[9px] text-accent font-black tracking-[0.3em] mt-2 italic">Actionable Intelligence Brief</p>
+        <div className="relative bg-[#f4f1ea] p-8 md:p-12 shadow-[20px_20px_60px_rgba(0,0,0,0.5)] border-l-[12px] border-red-900/20 rotate-[-0.5deg] min-h-[80vh] flex flex-col text-black max-w-3xl mx-auto">
+            {/* Dossier Header */}
+            <div className="flex justify-between items-start mb-10 border-b-2 border-black pb-6">
+                <div className="space-y-1">
+                    <h1 className="font-mono text-3xl font-black tracking-tighter uppercase leading-none">Intelligence Dossier</h1>
+                    <div className="flex gap-4 items-center">
+                        <span className="bg-red-800 text-white px-2 py-0.5 text-[10px] font-black uppercase tracking-widest">TOP_SECRET</span>
+                        <span className="font-mono text-[10px] font-bold text-black/40">REF: MORNING_GLORY_{new Date().toISOString().slice(0,10).replace(/-/g, "")}</span>
+                    </div>
                 </div>
-                <div className="text-right relative z-10">
-                    <p className="text-2xl font-black text-white leading-none">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                    <p className="text-[8px] text-white/40 font-bold uppercase mt-1 tracking-widest cursor-pointer" onClick={() => setShowZipInput(true)}>
-                        {zipCode ? `📍 ${zipCode}` : "SET_LOCATION"}
-                    </p>
+                <div className="text-right font-mono">
+                    <p className="text-xl font-black leading-none">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
+                    <p className="text-[10px] font-bold text-black/60 uppercase mt-1">Sovereign Link: Stable</p>
                 </div>
-            </header>
+            </div>
 
-            {showZipInput && (
-                <form onSubmit={handleZipSubmit} className="hud-panel p-6 bg-black/90 border-accent/40 animate-slide-up flex gap-4">
-                    <input value={zipCode} onChange={e => setZipCode(e.target.value)} placeholder="Enter ZIP Code for Intel..." className="flex-grow bg-white/5 border border-white/10 px-4 py-2 text-sm text-white focus:border-accent outline-none" />
-                    <button type="submit" className="bg-accent px-6 py-2 system-text text-[10px] font-black">GENERATE</button>
-                </form>
-            )}
+            {/* Stamped Watermark */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none select-none text-[150px] font-black rotate-[-45deg] whitespace-nowrap">
+                TEMPUS VICTA
+            </div>
 
-            {intel ? (
-                <div className="space-y-8">
-                    <Section icon="🌤️" title="Weather" data={intel.weather} />
-                    <Section icon="🚗" title="Traffic" data={intel.traffic} />
-                    <Section icon="📰" title="Local News" data={intel.news} />
-                    <Section icon="🎟️" title="Events" data={intel.events} />
-                    <Section icon="💰" title="Financial Intel" data={intel.finance} />
-                </div>
-            ) : !showZipInput && (
-                <div className="text-center py-20 border-2 border-dashed border-white/10 rounded-lg">
-                    <p className="system-text text-sm text-white/20 tracking-[0.4em]">Awaiting Directives...</p>
-                </div>
-            )}
+            <div className="flex-grow">
+                {loading && !intel ? (
+                    <div className="py-20 text-center space-y-4">
+                        <div className="inline-block w-8 h-8 border-4 border-red-800 border-t-transparent rounded-full animate-spin" />
+                        <p className="font-mono text-[10px] font-black uppercase tracking-widest animate-pulse">Decrypting Inbound Signals...</p>
+                    </div>
+                ) : intel ? (
+                    <div className="animate-in fade-in duration-1000">
+                        <DossierSection title="Atmospheric Conditions" data={intel.weather} />
+                        <DossierSection title="Logistics & Transit" data={intel.traffic} />
+                        <DossierSection title="Local Intel" data={intel.news} />
+                        <DossierSection title="Tactical Events" data={intel.events} />
+                        <DossierSection title="Financial Density" data={intel.finance} />
+                    </div>
+                ) : (
+                    <div className="py-20 text-center border-2 border-dashed border-black/10 rounded">
+                        <p className="font-mono text-[10px] text-black/40 uppercase tracking-[0.3em]">Awaiting Location Coordinates</p>
+                    </div>
+                )}
+            </div>
+
+            <footer className="mt-12 pt-6 border-t border-black/10 flex justify-between items-end italic text-[10px] font-serif text-black/60">
+                <div>Generated via Twin+ Neural Link // J5 Chief of Staff</div>
+                <div className="text-right">DO NOT REPLICATE // ROOT ACCESS ONLY</div>
+            </footer>
         </div>
     );
 }
