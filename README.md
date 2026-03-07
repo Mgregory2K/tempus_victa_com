@@ -1,13 +1,13 @@
 # Tempus Victa // Cognitive OS
 
-**Operational Status: v3.2.7 (Force Command Link)**
+**Operational Status: v3.2.9 (Mobile Sovereign Link)**
 
-Tempus Victa is a local-first cognitive operating system. We have now reached the **Force Command Link** phase, implementing developer overrides for local visibility and high-fidelity error reporting.
+Tempus Victa is a local-first cognitive operating system. We have now reached the **Mobile Sovereign Link** phase, implementing dynamic viewport heights and responsive navigation layers for a native-mobile experience.
 
 ## 🧠 Twin+: The Digital Counterpart
 Twin+ is the soul of the system. It is a persistent personal cognitive model that learns and replicates your identity, decision patterns, and dialect. Johnny 5 (J5) serves as the optional conversational alias for this entity.
 - **Layered Memory**: Stratifies information into Working, Episodic, and Semantic layers for human-like recall.
-- **Neural Merge**: v3.2.7 introduces non-destructive ID-based merging. No data is overwritten; it is only reinforced.
+- **Neural Merge**: v3.2.9 introduces non-destructive ID-based merging. No data is overwritten; it is only reinforced.
 - **Identity Graph**: Stores a vector-based model of user preferences, risk tolerance, and decision-making patterns.
 - **Sovereign Efficiency**: All modeling happens locally on the device to ensure absolute privacy.
 
@@ -22,7 +22,7 @@ The primary expression layer of Twin+. It synthesizes data from all cognitive mo
 - **Signal Bay**: The triage deck where all inbound life signals are weighted and routed.
 - **Clock Tower**: The temporal container for the **Sovereign Ledger**, your immutable neural record.
 - **The Mirror**: The deck where your Identity Graph weights are reflected back to you.
-- **Command**: Force-manifested on local development. Shared council access for Root and Authorized Identities on production instance.
+- **Command**: Shared council access for Root and Authorized Identities. Shareable cross-session via root-level server persistence.
 
 ## 🎙️ Universal Ingestion (The Record Button)
 A floating, visual-frequency monitored record button:
