@@ -27,14 +27,18 @@ export default function ReadyRoom({
     apiKey,
     searchKey,
     geminiKey,
-    assistantName
+    assistantName,
+    initialMessage,
+    onContextConsumed
 }: {
     messages: Message[],
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
     apiKey: string,
     searchKey: string,
     geminiKey: string,
-    assistantName: string
+    assistantName: string,
+    initialMessage?: string | null,
+    onContextConsumed?: () => void
 }) {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -43,6 +47,16 @@ export default function ReadyRoom({
     const [protocolConfig, setProtocolConfig] = useState<ProtocolConfig | null>(null);
     const [forceLocal, setForceLocal] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const hasConsumedInitial = useRef(false);
+
+    // 🧬 BRAINSTORM HANDSHAKE
+    useEffect(() => {
+        if (initialMessage && !hasConsumedInitial.current) {
+            hasConsumedInitial.current = true;
+            handleSend(`[BRAINSTORM_CONTEXT]: ${initialMessage}`);
+            onContextConsumed?.();
+        }
+    }, [initialMessage]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -70,6 +84,7 @@ export default function ReadyRoom({
         setIsTyping(true);
 
         try {
+            const isBrainstorm = text.startsWith("[BRAINSTORM_CONTEXT]");
             const response = await fetch('/api/ready-room', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -77,10 +92,11 @@ export default function ReadyRoom({
                     message: text,
                     history: externalMessages.slice(-10),
                     assistantName,
-                    aiEnhanced: isProtocolActive,
+                    aiEnhanced: isProtocolActive || isBrainstorm,
                     apiKey,
                     searchKey,
                     geminiKey,
+                    isBrainstorm,
                     protocolParams: isProtocolActive ? protocolConfig : null,
                     identityProfile: twinPlusKernel.snapshot().features?.identity,
                     forceLocal: forceLocal
@@ -143,14 +159,9 @@ export default function ReadyRoom({
         }, 3000);
     };
 
-    // 🧬 SOVEREIGN LINK RENDERER (Makes URLs/Markdown Clickable)
     const renderContent = (content: string) => {
         const urlRegex = /(https?:\/\/[^\s]+)/g;
         const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g;
-
-        let parts = content.split(markdownLinkRegex);
-
-        // Handle Markdown Links first
         const elements: React.ReactNode[] = [];
         const segments = content.split(/(\[[^\]]+\]\(https?:\/\/[^\s]+\)|https?:\/\/[^\s]+)/g);
 
@@ -172,10 +183,9 @@ export default function ReadyRoom({
 
     return (
         <div className="flex flex-col h-full relative overflow-hidden bg-black/40 rounded-xl border border-white/10 shadow-2xl">
-            {/* Matrix Rain Overlay (Unchanged) */}
+            {/* Matrix Rain Overlay */}
             {matrixStage !== 'IDLE' && (
                 <div className="fixed inset-0 z-[5000] bg-black/95 flex flex-col items-center justify-center">
-                    {/* ... Matrix Animation Logic ... */}
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
                         <div className="matrix-container opacity-60">
                             {Array.from({ length: 40 }).map((_, i) => (
