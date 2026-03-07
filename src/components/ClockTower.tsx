@@ -26,13 +26,17 @@ export default function ClockTower({ onNavigate }: ClockTowerProps) {
 
     const filteredEvents = filter === 'ALL'
         ? events
-        : events.filter(e => e.type.includes(filter) || e.surface === filter);
+        : events.filter(e => {
+            const typeStr = String(e.type || "");
+            return typeStr.includes(filter) || e.surface === filter;
+        });
 
-    const getEventColor = (type: string) => {
-        if (type.includes('ERROR')) return 'text-red-500';
-        if (type.includes('ACTION')) return 'text-neon-green';
-        if (type.includes('SIGNAL')) return 'text-accent';
-        if (type.includes('PROTOCOL')) return 'text-purple-400';
+    const getEventColor = (type: any) => {
+        const typeStr = String(type || "");
+        if (typeStr.includes('ERROR')) return 'text-red-500';
+        if (typeStr.includes('ACTION')) return 'text-neon-green';
+        if (typeStr.includes('SIGNAL')) return 'text-accent';
+        if (typeStr.includes('PROTOCOL')) return 'text-purple-400';
         return 'text-white/60';
     };
 
@@ -40,8 +44,8 @@ export default function ClockTower({ onNavigate }: ClockTowerProps) {
         <div className="h-full flex flex-col space-y-6 animate-slide-up">
             <header className="flex justify-between items-end border-b border-white/10 pb-4">
                 <div>
-                    <h1 className="text-4xl font-black italic text-white uppercase tracking-tight">Clock Tower</h1>
-                    <p className="system-text text-[10px] text-accent font-black tracking-widest mt-1">Raw Ledger // Flux Capacitor v1.0</p>
+                    <h1 className="text-4xl font-black italic text-white uppercase tracking-tight">Sovereign Ledger</h1>
+                    <p className="system-text text-[10px] text-accent font-black tracking-widest mt-1">Immutable Neural Record // v1.1</p>
                 </div>
                 <div className="flex gap-2">
                     {['ALL', 'SIGNAL', 'ACTION', 'WINBOARD', 'CORKBOARD'].map(f => (
@@ -76,7 +80,7 @@ export default function ClockTower({ onNavigate }: ClockTowerProps) {
                             <div className="flex-grow space-y-1">
                                 <div className="flex items-center gap-2">
                                     <span className={`text-[10px] font-black tracking-widest ${getEventColor(event.type)}`}>
-                                        {event.type}
+                                        {String(event.type)}
                                     </span>
                                     <span className="text-[8px] px-1.5 py-0.5 rounded-sm bg-white/5 text-white/40 font-black uppercase">
                                         {event.surface}
@@ -96,7 +100,7 @@ export default function ClockTower({ onNavigate }: ClockTowerProps) {
 
             <footer className="pt-4 border-t border-white/10 flex justify-between items-center opacity-40">
                 <span className="system-text text-[8px] font-black">ENTROPY LEVEL: {(events.length * 0.12).toFixed(2)}%</span>
-                <span className="system-text text-[8px] font-black uppercase tracking-[0.2em]">Year 45,000,003 AD // KERNEL_LOG</span>
+                <span className="system-text text-[8px] font-black uppercase tracking-[0.2em]">IDENTITY_SURFACE // KERNEL_LOG</span>
             </footer>
         </div>
     );

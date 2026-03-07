@@ -23,7 +23,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "DOCTRINE" | "SETTINGS" | "MISSIONS" | "REVIEW" | "SIGNALS" | "CORKBOARD" | "QUOTES" | "WINBOARD" | "PROJECTS" | "LISTS" | "TODO" | "CLOCK_TOWER" | "MIRROR" | "ADMIN";
 
-const VERSION = "3.1.6-GENESIS";
+const VERSION = "3.2.0-TEXTBOOK";
 
 interface SuggestedAction {
   type: string;
@@ -40,6 +40,7 @@ export interface Message {
   suggestedActions?: SuggestedAction[];
   isManifested?: boolean;
   feedback?: "UP" | "DOWN";
+  wrongSource?: boolean;
 }
 
 interface Note {
@@ -172,6 +173,12 @@ function AppShell() {
   // CLOUD SYNC ENGINE
   const handleCloudSync = async (direction: 'PUSH' | 'PULL') => {
     if (!session) return alert("Link Google Identity first.");
+
+    if (direction === 'PULL') {
+        const confirmPull = confirm("ATTENTION: This will overwrite your local digital mind with the cloud version. Proceed?");
+        if (!confirmPull) return;
+    }
+
     setIsSyncing(true);
     try {
         if (direction === 'PUSH') {
@@ -180,6 +187,7 @@ function AppShell() {
                 config: { apiKey, searchKey, geminiKey, notionKey, assistantName },
                 identityGraph: JSON.parse(localStorage.getItem("tv_identity_graph") || "{}"),
                 preferences: JSON.parse(localStorage.getItem("tv_preferences") || "{}"),
+                eventHistory: JSON.parse(localStorage.getItem("tv_event_history") || "[]"),
                 lastSync: new Date().toISOString()
             };
             const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify(ledger) });
@@ -198,6 +206,8 @@ function AppShell() {
                 }
                 if (data.identityGraph) localStorage.setItem("tv_identity_graph", JSON.stringify(data.identityGraph));
                 if (data.preferences) localStorage.setItem("tv_preferences", JSON.stringify(data.preferences));
+                if (data.eventHistory) localStorage.setItem("tv_event_history", JSON.stringify(data.eventHistory));
+
                 alert("Sovereign Ledger Hydrated.");
                 window.location.reload();
             }
@@ -299,10 +309,17 @@ function AppShell() {
                 className={`flex items-center gap-3 px-4 py-1 md:py-2 border-2 cursor-pointer group transition-all ${isSystemLinked ? 'border-accent shadow-[0_0_15px_#00d4ff] animate-pulse' : 'border-red-500 bg-red-500/10 animate-pulse'}`}
             >
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
-                <div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[8px] tracking-widest leading-none leading-tight">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span><span className="text-[6px] text-white/20 font-bold mt-0.5 tracking-tighter leading-tight uppercase">{isSystemLinked ? (isSyncing ? 'Syncing...' : 'Sync_Active') : 'Handshake_Req'}</span></div>
+                <div className="flex flex-col text-left uppercase text-white font-bold">
+                    <span className="system-text text-[8px] tracking-widest leading-none leading-tight">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span>
+                    <span className={`text-[6px] font-bold mt-0.5 tracking-tighter leading-tight uppercase ${isSystemLinked ? 'text-accent animate-pulse' : 'text-white/20'}`}>
+                        {isSystemLinked ? (isSyncing ? 'Syncing...' : 'Sync_Active') : 'Handshake_Req'}
+                    </span>
+                </div>
             </div>
             {isSystemLinked && (
-                <button onClick={() => handleCloudSync('PULL')} className="p-2 border border-white/10 hover:border-accent transition-all rounded" title="Pull Cloud Data"><svg className="w-3 h-3 text-white/40 hover:text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg></button>
+                <button onClick={() => handleCloudSync('PULL')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group" title="Pull Cloud Data">
+                    <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                </button>
             )}
           </div>
         </header>
@@ -358,8 +375,8 @@ function AppShell() {
 
         <footer className="h-12 border-t border-white/10 bg-black/95 flex items-center justify-start md:justify-center px-4 overflow-x-auto scrollbar-none gap-1 md:gap-2 shrink-0 z-50 text-white font-bold">
               {[
-                { id: "BRIDGE", label: "BRIDGE" }, { id: "SIGNALS", label: "SIGNALS" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "CLOCK TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
-                ...(isAdmin ? [{ id: "ADMIN", label: "COMMAND" }] : [])
+                { id: "BRIDGE", label: "BRIDGE" }, { id: "SIGNALS", label: "SIGNALS" }, { id: "PROJECTS", label: "PROJECTS" }, { id: "WINBOARD", label: "WINBOARD" }, { id: "CORKBOARD", label: "CORKBOARD" }, { id: "QUOTES", label: "QUOTES" }, { id: "READY_ROOM", label: "READY ROOM" }, { id: "CLOCK_TOWER", label: "CLOCK TOWER" }, { id: "SETTINGS", label: "CONFIG" },
+                ...(isAdmin ? [{ id: "ADMIN", label: "WISHES" }] : [])
               ].map(item => (
                 <div key={item.id} className="relative group text-white">
                     <button
