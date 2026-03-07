@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.2.1-OPTIMAL";
+const VERSION = "3.2.3-NEURAL-LINK";
 
 interface SuggestedAction {
   type: string;
@@ -171,12 +171,21 @@ function AppShell() {
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
 
-  // ITALY PROTOCOL (AUTO-SYNC)
+  // NEURAL MERGE LOGIC (ID-based combo)
+  const mergeNeuralData = (local: any[], remote: any[]) => {
+      const map = new Map();
+      [...(remote || []), ...(local || [])].forEach(item => {
+          if (item && item.id) map.set(item.id, item);
+      });
+      return Array.from(map.values());
+  };
+
+  // ITALY PROTOCOL (AUTO-SYNC / NEURAL MERGE)
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL', force: boolean = false) => {
     if (!session) return;
 
     if (direction === 'PULL' && force) {
-        const confirmPull = confirm("ATTENTION: This will overwrite your local digital mind with the cloud version. Proceed?");
+        const confirmPull = confirm("ATTENTION: This will trigger a manual merge with the Mothership. Proceed?");
         if (!confirmPull) return;
     }
 
@@ -186,6 +195,7 @@ function AppShell() {
             const ledger = {
                 tasks, quotes, notes, messages, wishes,
                 config: { apiKey, searchKey, geminiKey, notionKey, assistantName },
+                authorizedAdmins: JSON.parse(localStorage.getItem("tv_authorized_admins") || "[]"),
                 identityGraph: JSON.parse(localStorage.getItem("tv_identity_graph") || "{}"),
                 preferences: JSON.parse(localStorage.getItem("tv_preferences") || "{}"),
                 eventHistory: JSON.parse(localStorage.getItem("tv_event_history") || "[]"),
@@ -196,24 +206,57 @@ function AppShell() {
             const res = await fetch('/api/sync');
             if (res.ok) {
                 const data = await res.json();
-                // Neural Merge (Italy Protocol)
+
+                // 🧠 THE NEURAL MERGE (NO DESTRUCTION)
                 if (data.eventHistory) await twinPlusKernel.hydrate(data);
 
-                setTasks(data.tasks || []);
-                setQuotes(data.quotes || []);
-                setNotes(data.notes || []);
-                setMessages(data.messages || []);
-                setWishes(data.wishes || []);
+                setTasks(prev => mergeNeuralData(prev, data.tasks));
+                setQuotes(prev => mergeNeuralData(prev, data.quotes));
+                setNotes(prev => mergeNeuralData(prev, data.notes));
+                setMessages(prev => mergeNeuralData(prev, data.messages));
+                setWishes(prev => mergeNeuralData(prev, data.wishes));
+
+                // 🔑 CONFIG PROTECTION (Don't overwrite local keys with empty remote keys)
                 if (data.config) {
-                    setApiKey(data.config.apiKey || ""); setSearchKey(data.config.searchKey || "");
-                    setGeminiKey(data.config.geminiKey || ""); setNotionKey(data.config.notionKey || "");
-                    setAssistantName(data.config.assistantName || "Twin+");
-                    localStorage.setItem("tv_api_key", data.config.apiKey || "");
-                    localStorage.setItem("tv_assistant_name", data.config.assistantName || "Twin+");
+                    const newApiKey = data.config.apiKey || apiKey;
+                    const newSearchKey = data.config.searchKey || searchKey;
+                    const newGeminiKey = data.config.geminiKey || geminiKey;
+                    const newNotionKey = data.config.notionKey || notionKey;
+                    const newAssistantName = data.config.assistantName || assistantName;
+
+                    setApiKey(newApiKey);
+                    setSearchKey(newSearchKey);
+                    setGeminiKey(newGeminiKey);
+                    setNotionKey(newNotionKey);
+                    setAssistantName(newAssistantName);
+
+                    if (newApiKey) localStorage.setItem("tv_api_key", newApiKey);
+                    if (newSearchKey) localStorage.setItem("tv_search_key", newSearchKey);
+                    if (newGeminiKey) localStorage.setItem("tv_gemini_key", newGeminiKey);
+                    if (newNotionKey) localStorage.setItem("tv_notion_key", newNotionKey);
+                    if (newAssistantName) localStorage.setItem("tv_assistant_name", newAssistantName);
                 }
-                if (data.identityGraph) localStorage.setItem("tv_identity_graph", JSON.stringify(data.identityGraph));
-                if (data.preferences) localStorage.setItem("tv_preferences", JSON.stringify(data.preferences));
-                if (data.eventHistory) localStorage.setItem("tv_event_history", JSON.stringify(data.eventHistory));
+
+                // Council Sync
+                if (data.authorizedAdmins) {
+                    localStorage.setItem("tv_authorized_admins", JSON.stringify(data.authorizedAdmins));
+                }
+
+                if (data.identityGraph) {
+                    const localGraph = JSON.parse(localStorage.getItem("tv_identity_graph") || "{}");
+                    const mergedGraph = { ...data.identityGraph, ...localGraph };
+                    localStorage.setItem("tv_identity_graph", JSON.stringify(mergedGraph));
+                }
+                if (data.preferences) {
+                    const localPref = JSON.parse(localStorage.getItem("tv_preferences") || "{}");
+                    const mergedPref = { ...data.preferences, ...localPref };
+                    localStorage.setItem("tv_preferences", JSON.stringify(mergedPref));
+                }
+                if (data.eventHistory) {
+                    const localHistory = JSON.parse(localStorage.getItem("tv_event_history") || "[]");
+                    const mergedHistory = mergeNeuralData(localHistory, data.eventHistory);
+                    localStorage.setItem("tv_event_history", JSON.stringify(mergedHistory));
+                }
             }
         }
     } catch (e) { console.error("Sync Failure", e); }
@@ -225,16 +268,16 @@ function AppShell() {
     if (status === 'authenticated' && hasMounted) {
         handleCloudSync('PULL');
     }
-  }, [status, hasMounted]); // intentionally limited deps
+  }, [status, hasMounted]);
 
   // DEBOUNCED AUTO-PUSH
   useEffect(() => {
     if (!hasMounted || !session) return;
     const timer = setTimeout(() => {
         handleCloudSync('PUSH');
-    }, 5000); // 5s debounce
+    }, 15000); // 15s debounce for auto-push
     return () => clearTimeout(timer);
-  }, [tasks, quotes, notes, messages, wishes, hasMounted, session]);
+  }, [tasks, quotes, notes, messages, wishes, hasMounted, session, apiKey, searchKey, geminiKey, notionKey]);
 
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
@@ -270,23 +313,26 @@ function AppShell() {
   if (!hasMounted) return null;
   const isSystemLinked = status === 'authenticated';
 
-  // RESILIENT ADMIN CHECK (SESSION + LOCALHOST + AUTHORIZED LIST)
+  // RESILIENT ADMIN CHECK (ROOT IDENTITY PROTECTION)
+  const rootEmails = ["stewart.jared@gmail.com", "jared@tempusvicta.com"];
   const authorizedAdmins = JSON.parse(localStorage.getItem("tv_authorized_admins") || "[]");
   const userEmail = session?.user?.email?.toLowerCase() || "";
   const isAdmin = !!(session as any)?.isAdmin ||
                   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ||
+                  rootEmails.includes(userEmail) ||
                   authorizedAdmins.includes(userEmail);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
       <div className="fixed inset-0 z-0 pointer-events-none"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.1),transparent_70%)] opacity-60" /><div className="scanline" /></div>
 
-      {/* 🌤 MORNING GLORY POPUP MODAL (Over Bridge) */}
+      {/* 🌤 DAILY BRIEF MODAL (OVERLAY) */}
       {showDailyBrief && (
-        <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-3xl p-4 md:p-12 overflow-y-auto animate-slide-up">
-            <div className="max-w-4xl mx-auto relative text-left text-white">
-                <button onClick={() => setShowDailyBrief(false)} className="absolute -top-8 right-0 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase">✕ Dismiss_Brief</button>
+        <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-4 md:p-12 overflow-y-auto animate-slide-up">
+            <div className="max-w-4xl w-full mx-auto relative text-left text-white bg-black/40 p-8 border border-white/10 rounded-lg shadow-2xl">
+                <button onClick={() => setShowDailyBrief(false)} className="absolute top-4 right-4 text-white/40 hover:text-white system-text text-[10px] font-black tracking-widest transition-all uppercase">✕ Dismiss</button>
                 <DailyBrief />
+                <div className="bracket-tl" /><div className="bracket-br" />
             </div>
         </div>
       )}
@@ -295,7 +341,7 @@ function AppShell() {
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
             <div className="hud-panel max-sm w-full p-8 border-red-500/40 text-center relative animate-slide-up">
-                <h3 className="system-text text-xl font-black text-red-500 mb-4 italic uppercase">Terminate_Session?</h3>
+                <h3 className="system-text text-xl font-black text-red-500 mb-4 italic uppercase">Terminate Session?</h3>
                 <p className="text-white/60 text-xs mb-8 normal-case leading-relaxed">This will sever the connection to the Mothership and clear your current identity token. Local data remains on device.</p>
                 <div className="flex gap-4">
                     <button onClick={() => signOut()} className="flex-grow bg-red-500 py-3 text-[10px] font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest ripple">Logout</button>
@@ -317,11 +363,11 @@ function AppShell() {
         <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 flex items-center justify-between px-4 md:px-10 shrink-0 relative">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
              <div className="h-10 w-10 md:h-12 border-2 border-accent/40 bg-black flex items-center justify-center relative shadow-[0_0_15px_rgba(0,212,255,0.2)]"><span className="system-text text-xl font-black text-accent">T</span><div className="bracket-tl" /><div className="bracket-br" /></div>
-             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION} // {activeModule}</span></div>
+             <div className="flex flex-col text-left"><span className="system-text text-[10px] font-black tracking-[0.4em] text-white/90 uppercase font-black tracking-widest leading-none">The Bridge</span><span className="system-text text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION} // {activeModule.replace('_', ' ')}</span></div>
           </div>
 
           <div className="flex gap-2 items-center">
-            <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase ripple">🌤 DAILY_BRIEF</button>
+            <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase ripple">🌤 DAILY BRIEF</button>
 
             <div
                 onClick={() => isSystemLinked ? setShowLogoutConfirm(true) : signIn('google')}
@@ -329,18 +375,18 @@ function AppShell() {
             >
                 <div className={`h-2.5 w-2.5 rounded-full ${isSystemLinked ? 'bg-accent shadow-[0_0_15px_#00d4ff]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} />
                 <div className="flex flex-col text-left uppercase text-white font-bold">
-                    <span className="system-text text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership_Stable' : 'Identity_Unlinked'}</span>
+                    <span className="system-text text-[8px] tracking-widest leading-none">{isSystemLinked ? 'Mothership Stable' : 'Identity Unlinked'}</span>
                     <span className={`text-[6px] font-bold mt-0.5 tracking-tighter leading-tight uppercase ${isSystemLinked ? 'text-accent animate-pulse' : 'text-white/20'}`}>
-                        {isSystemLinked ? (isSyncing ? 'Syncing...' : 'Stable') : 'Handshake_Req'}
+                        {isSystemLinked ? (isSyncing ? 'Syncing...' : 'Stable') : 'Handshake Req'}
                     </span>
                 </div>
             </div>
             {isSystemLinked && (
                 <div className="flex gap-1">
-                    <button onClick={() => handleCloudSync('PUSH')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Push Cloud Data">
-                        <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    <button onClick={() => handleCloudSync('PUSH')} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Push to Cloud">
+                        <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0l-4 4m4-4v12" /></svg>
                     </button>
-                    <button onClick={() => handleCloudSync('PULL', true)} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Pull Cloud Data">
+                    <button onClick={() => handleCloudSync('PULL', true)} className="p-2 border border-white/10 hover:border-accent transition-all rounded group ripple" title="Pull from Cloud">
                         <svg className="w-3 h-3 text-white/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
                     </button>
                 </div>
@@ -366,7 +412,7 @@ function AppShell() {
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
-                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase leading-none">Cognitive_Config</h2>
+                    <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase leading-none">Cognitive Config</h2>
                     {/* WISH INPUT */}
                     <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded text-white">
                         <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em]">Manifest a wish for the system development</label>
@@ -389,7 +435,7 @@ function AppShell() {
                             ))}
                         </div>
                     </div>
-                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 text-left uppercase text-white"><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 border border-red-500/20 text-red-500/40 text-[9px] font-black hover:bg-red-500 hover:text-white transition-all tracking-[0.3em] uppercase ripple">MASTER_OS_RESET</button></div>
+                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 text-left uppercase text-white"><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 border border-red-500/20 text-red-500/40 text-[9px] font-black hover:bg-red-500 hover:text-white transition-all tracking-[0.3em] uppercase ripple">MASTER OS RESET</button></div>
                     <div className="bracket-tl" /><div className="bracket-br" />
                   </div>
                 </div>

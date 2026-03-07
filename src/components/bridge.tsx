@@ -16,11 +16,19 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
     const [todaysEvents, setTodaysEvents] = useState<any[]>([]);
     const [loadingCalendar, setLoading] = useState(false);
     const [isCalendarHidden, setIsCalendarHidden] = useState(false);
+    const [greeting, setGreeting] = useState("Good Day");
 
     const activeProjectsCount = tasks.filter(t => t.status !== 'DONE').length;
     const todayWins = tasks.filter(t => t.status === 'DONE');
     const recentWin = todayWins.length > 0 ? todayWins[todayWins.length - 1] : null;
-    const userName = session?.user?.name?.split(' ')[0] || "Root";
+    const firstName = session?.user?.name?.split(' ')[0] || "User";
+
+    useEffect(() => {
+        const hour = new Date().getHours();
+        if (hour < 12) setGreeting("Good Morning");
+        else if (hour < 17) setGreeting("Good Afternoon");
+        else setGreeting("Good Evening");
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -59,6 +67,14 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
 
     return (
         <div className="space-y-6 animate-slide-up pb-20">
+            {/* 👋 PERSONALIZED GREETING HEADER */}
+            <div className="mb-8 border-b border-white/5 pb-4">
+                <h1 className="text-4xl font-black italic text-white tracking-tighter uppercase leading-none">
+                    {greeting}, <span className="text-accent">{firstName}</span>
+                </h1>
+                <p className="system-text text-[8px] text-white/20 font-black tracking-[0.4em] mt-2 uppercase">Neural Link Stable // System Nominal</p>
+            </div>
+
             {/* Interactive Metrics Row */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <MetricCard title="Clock Tower" value="85H" trend="12%+" glowColor="accent" targetModule="CLOCK_TOWER" />
@@ -77,14 +93,14 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                                 onClick={() => setIsCalendarHidden(true)}
                                 className="text-[8px] text-white/20 hover:text-accent font-black tracking-widest uppercase italic transition-colors"
                             >
-                                Acknowledge_&_Hide
+                                Dismiss Timeline
                             </button>
                         </div>
                         <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin pr-2 text-left uppercase">
                             {loadingCalendar ? (
-                                <div className="py-10 text-center opacity-20 animate-pulse text-[10px] text-white">SYNCING_CHRONOS...</div>
+                                <div className="py-10 text-center opacity-20 animate-pulse text-[10px] text-white font-bold">SYNCING CHRONOS...</div>
                             ) : todaysEvents.length === 0 ? (
-                                <div className="py-10 text-center border border-dashed border-white/5 text-[9px] text-white/20 uppercase italic">NO_SCHEDULED_EVENTS_DETECTED</div>
+                                <div className="py-10 text-center border border-dashed border-white/5 text-[9px] text-white/20 uppercase italic font-bold">NO SCHEDULED EVENTS DETECTED</div>
                             ) : (
                                 todaysEvents.map((e: any) => (
                                     <div key={e.id} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/10 rounded hover:border-accent/30 transition-all group">
@@ -92,7 +108,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                                             <span className="text-[10px] font-black text-accent min-w-[60px]">{new Date(e.start.dateTime || e.start.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</span>
                                             <p className="text-xs font-bold italic text-white/90 truncate uppercase">{e.summary}</p>
                                         </div>
-                                        <a href={e.htmlLink} target="_blank" className="text-[8px] font-black text-white/40 group-hover:text-accent transition-colors uppercase whitespace-nowrap ml-4">View_Event 🔗</a>
+                                        <a href={e.htmlLink} target="_blank" className="text-[8px] font-black text-white/40 group-hover:text-accent transition-colors uppercase whitespace-nowrap ml-4">View Event 🔗</a>
                                     </div>
                                 ))
                             )}
@@ -104,7 +120,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                         onClick={() => setIsCalendarHidden(false)}
                         className="lg:col-span-2 hud-panel p-4 bg-black/40 border-dashed border-white/10 relative text-center cursor-pointer hover:bg-white/[0.02] transition-all group"
                     >
-                        <span className="system-text text-[8px] text-white/20 group-hover:text-accent font-black tracking-[0.4em] uppercase">Temporal_Timeline_Minimized // Click_to_Restore</span>
+                        <span className="system-text text-[8px] text-white/20 group-hover:text-accent font-black tracking-[0.4em] uppercase">Temporal Timeline Minimized // Click to Restore</span>
                     </div>
                 )}
 
@@ -117,13 +133,13 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                     {recentWin ? (
                         <div className="space-y-4 text-left">
                             <p className="text-lg font-black text-white italic leading-tight uppercase group-hover:text-neon-green transition-colors">{recentWin.title}</p>
-                            <p className="text-[8px] text-white/40 font-bold tracking-widest uppercase">MANIFESTED_LOGGED</p>
+                            <p className="text-[8px] text-white/40 font-bold tracking-widest uppercase">MANIFEST LOGGED</p>
                             <div className="mt-4 flex gap-1">
                                 {[1,2,3,4,5].map(i => <div key={i} className={`h-1 flex-grow rounded-full ${i <= todayWins.length ? 'bg-neon-green shadow-[0_0_5px_#22c55e]' : 'bg-white/5'}`} />)}
                             </div>
                         </div>
                     ) : (
-                        <div className="py-10 text-center border border-dashed border-neon-green/10 text-[9px] text-neon-green/30 uppercase italic">AWAITING_VERIFIED_WIN</div>
+                        <div className="py-10 text-center border border-dashed border-neon-green/10 text-[9px] text-neon-green/30 uppercase italic font-bold">AWAITING VERIFIED WIN</div>
                     )}
                     <div className="bracket-tl border-neon-green/40" /><div className="bracket-br border-neon-green/40" />
                 </div>
@@ -134,14 +150,14 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 <div className="hud-panel p-6 border-white/10 bg-black/40 relative text-white">
                     <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
                         <span className="system-text text-[9px] text-white/40 font-black uppercase tracking-widest">Signals Summary</span>
-                        <span className="text-[8px] text-orange-500 font-black uppercase tracking-widest">SYSTEM_URGENT</span>
+                        <span className="text-[8px] text-orange-500 font-black uppercase tracking-widest">SYSTEM URGENT</span>
                     </div>
                     <div className="space-y-2 text-left">
                         <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-orange-500/40 transition-all ripple" onClick={() => onNavigate?.('SIGNAL_BAY')}>
                             <span className="font-bold text-white/60 uppercase">Encrypted Signals</span><span className="text-accent font-black">12 NEW</span>
                         </div>
                         <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-orange-500/40 transition-all ripple" onClick={() => onNavigate?.('SIGNAL_BAY')}>
-                            <span className="font-bold text-white/60 uppercase">Strategic Priority</span><span className="text-accent font-black">4 ACTION_REQ</span>
+                            <span className="font-bold text-white/60 uppercase">Strategic Priority</span><span className="text-accent font-black">4 ACTION REQUIRED</span>
                         </div>
                     </div>
                     <div className="bracket-tl opacity-10" /><div className="bracket-br opacity-10" />
@@ -151,7 +167,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 <div className="hud-panel p-6 bg-accent/5 border-dashed border-accent/20 relative group hover:bg-accent/10 transition-all cursor-pointer text-white ripple" onClick={() => onNavigate?.('READY_ROOM')}>
                     <span className="system-text text-[10px] text-accent font-black tracking-[0.3em] block mb-4 uppercase">Twin+ Executive Summary</span>
                     <p className="text-white/70 text-md font-light leading-relaxed italic uppercase tracking-wide text-left">
-                        {userName}, system synchronization is stable. Neural patterns suggest high focus potential for current objectives. Ready Room simulation is calibrated for strategic synthesis.
+                        {firstName}, system synchronization is stable. Neural patterns suggest high focus potential for current objectives. Ready Room simulation is calibrated for strategic synthesis.
                     </p>
                     <div className="bracket-tl opacity-40" /><div className="bracket-br opacity-40" />
                 </div>

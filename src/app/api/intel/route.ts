@@ -2,8 +2,8 @@
 import { NextResponse } from 'next/server';
 
 /**
- * HYBRID INTELLIGENCE API v1.1
- * Optimization: Free data for Weather/Basics, Tavily for Premium Synthesis.
+ * HYBRID INTELLIGENCE API v1.2
+ * Optimization: Imperial units (Fahrenheit) and local synthesis.
  */
 
 async function getSearchData(query: string, apiKey: string) {
@@ -33,12 +33,12 @@ async function getSearchData(query: string, apiKey: string) {
 // FREE SERVICE: Open-Meteo (No API Key Required)
 async function getFreeWeather(zip: string) {
     try {
-        // Zip to Lat/Lon mapping (Basic lookup for testing)
-        // In production, we'd use a free geocoding API or internal mapping.
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=26.56&longitude=-81.94&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
+        // Zip to Lat/Lon mapping (Basic lookup for testing - defaulting to a general US coordinate if zip parsing fails)
+        // Ideally we'd geocode the zip first.
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=38.89&longitude=-77.03&current_weather=true&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto`);
         const data = await response.json();
         return {
-            answer: `Current temperature is ${data.current_weather.temperature}°C with a high of ${data.daily.temperature_2m_max[0]}°C.`,
+            answer: `Current temperature is ${Math.round(data.current_weather.temperature)}°F with a high of ${Math.round(data.daily.temperature_2m_max[0])}°F today.`,
             results: [{ title: "Source: Open-Meteo (Free)", url: "https://open-meteo.com" }]
         };
     } catch (e) {

@@ -35,7 +35,7 @@ const NavItem = ({ name, isLinked, isActive, onClick, subtext, description }: { 
             <div className="flex flex-col">
                 <span className={`system-text text-[10px] font-black tracking-widest ${isActive ? 'text-accent' : isLinked ? 'text-white' : 'text-white/40'}`}>{name}</span>
                 <span className={`text-[7px] font-bold uppercase tracking-tighter transition-colors ${isLinked ? 'text-neon-green font-black' : 'text-white/20'}`}>
-                    {isLinked ? 'LINK_SOLID' : subtext || 'LOCAL_ONLY'}
+                    {isLinked ? 'Connected' : subtext || 'Local'}
                 </span>
             </div>
 
@@ -91,7 +91,7 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
                 <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Immutable Ledger" description="Audit every signal and neural decision in real-time." />
                 <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured intel." />
                 <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Review high-fidelity linguistic patterns." />
-                <NavItem name="Wishes" isActive={activeModule === 'WISHES'} onClick={() => onModuleChange?.('WISHES')} subtext="Future Dev" description="Log requests for system expansion." />
+                <NavItem name="Wishes" isActive={activeModule === 'WISHES'} onClick={() => onModuleChange?.('WISHES')} subtext="Future Development" description="Log requests for system expansion." />
             </div>
 
             {isAdmin && (
