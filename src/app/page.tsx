@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.2.4-COUNCIL";
+const VERSION = "3.2.6-STABLE";
 
 interface SuggestedAction {
   type: string;
@@ -136,51 +136,6 @@ function AppShell() {
   const [hasMounted, setHasMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // HYDRATION
-  useEffect(() => {
-    setHasMounted(true);
-    setIsOnline(navigator.onLine);
-    setApiKey(localStorage.getItem("tv_api_key") || "");
-    setSearchKey(localStorage.getItem("tv_search_key") || "");
-    setGeminiKey(localStorage.getItem("tv_gemini_key") || "");
-    setNotionKey(localStorage.getItem("tv_notion_key") || "");
-    setAssistantName(localStorage.getItem("tv_assistant_name") || "Twin+");
-    try {
-        setTasks(JSON.parse(localStorage.getItem("tv_tasks") || "[]"));
-        setQuotes(JSON.parse(localStorage.getItem("tv_quotes") || "[]"));
-        setNotes(JSON.parse(localStorage.getItem("tv_notes") || "[]"));
-        setMessages(JSON.parse(localStorage.getItem("tv_chat_history") || "[]"));
-        setWishes(JSON.parse(localStorage.getItem("tv_wishes") || "[]"));
-    } catch (e) {}
-
-    // Fetch Global Council
-    const fetchCouncil = async () => {
-        try {
-            const res = await fetch('/api/admin/council');
-            if (res.ok) setServerAdmins(await res.json());
-        } catch (e) {}
-    };
-    fetchCouncil();
-
-    const now = new Date();
-    const lastBriefSeen = localStorage.getItem("tv_last_brief_seen");
-    const todayStr = now.toLocaleDateString();
-    if (now.getHours() >= 6 && lastBriefSeen !== todayStr) {
-        setShowDailyBrief(true);
-        localStorage.setItem("tv_last_brief_seen", todayStr);
-    }
-  }, []);
-
-  // AUTO-SAVE
-  useEffect(() => {
-    if (!hasMounted) return;
-    localStorage.setItem("tv_tasks", JSON.stringify(tasks));
-    localStorage.setItem("tv_quotes", JSON.stringify(quotes));
-    localStorage.setItem("tv_notes", JSON.stringify(notes));
-    localStorage.setItem("tv_chat_history", JSON.stringify(messages));
-    localStorage.setItem("tv_wishes", JSON.stringify(wishes));
-  }, [tasks, quotes, notes, messages, wishes, hasMounted]);
-
   // NEURAL MERGE LOGIC
   const mergeNeuralData = (local: any[], remote: any[]) => {
       const map = new Map();
@@ -239,6 +194,13 @@ function AppShell() {
                     if (newNotionKey) localStorage.setItem("tv_notion_key", newNotionKey);
                     if (newAssistantName) localStorage.setItem("tv_assistant_name", newAssistantName);
                 }
+            } else {
+                try {
+                    const errorData = await res.json();
+                    console.error("[SYNC ERROR]:", errorData.error);
+                } catch(e) {
+                    console.error("[SYNC ERROR]: Status 500");
+                }
             }
         }
     } catch (e) { console.error("Sync Failure", e); }
@@ -247,10 +209,54 @@ function AppShell() {
 
   // INITIAL HYDRATION
   useEffect(() => {
+    setHasMounted(true);
+    setIsOnline(navigator.onLine);
+    setApiKey(localStorage.getItem("tv_api_key") || "");
+    setSearchKey(localStorage.getItem("tv_search_key") || "");
+    setGeminiKey(localStorage.getItem("tv_gemini_key") || "");
+    setNotionKey(localStorage.getItem("tv_notion_key") || "");
+    setAssistantName(localStorage.getItem("tv_assistant_name") || "Twin+");
+    try {
+        setTasks(JSON.parse(localStorage.getItem("tv_tasks") || "[]"));
+        setQuotes(JSON.parse(localStorage.getItem("tv_quotes") || "[]"));
+        setNotes(JSON.parse(localStorage.getItem("tv_notes") || "[]"));
+        setMessages(JSON.parse(localStorage.getItem("tv_chat_history") || "[]"));
+        setWishes(JSON.parse(localStorage.getItem("tv_wishes") || "[]"));
+    } catch (e) {}
+
+    const fetchCouncil = async () => {
+        try {
+            const res = await fetch('/api/admin/council');
+            if (res.ok) setServerAdmins(await res.json());
+        } catch (e) {}
+    };
+    fetchCouncil();
+
+    const now = new Date();
+    const lastBriefSeen = localStorage.getItem("tv_last_brief_seen");
+    const todayStr = now.toLocaleDateString();
+    if (now.getHours() >= 6 && lastBriefSeen !== todayStr) {
+        setShowDailyBrief(true);
+        localStorage.setItem("tv_last_brief_seen", todayStr);
+    }
+  }, []);
+
+  // AUTO-SAVE
+  useEffect(() => {
+    if (!hasMounted) return;
+    localStorage.setItem("tv_tasks", JSON.stringify(tasks));
+    localStorage.setItem("tv_quotes", JSON.stringify(quotes));
+    localStorage.setItem("tv_notes", JSON.stringify(notes));
+    localStorage.setItem("tv_chat_history", JSON.stringify(messages));
+    localStorage.setItem("tv_wishes", JSON.stringify(wishes));
+  }, [tasks, quotes, notes, messages, wishes, hasMounted]);
+
+  // INITIAL SYNC
+  useEffect(() => {
     if (status === 'authenticated' && hasMounted) {
         handleCloudSync('PULL');
     }
-  }, [status, hasMounted]);
+  }, [status, hasMounted, handleCloudSync]);
 
   // DEBOUNCED AUTO-PUSH
   useEffect(() => {
@@ -259,7 +265,22 @@ function AppShell() {
         handleCloudSync('PUSH');
     }, 15000);
     return () => clearTimeout(timer);
-  }, [tasks, quotes, notes, messages, wishes, hasMounted, session, apiKey, searchKey, geminiKey, notionKey]);
+  }, [tasks, quotes, notes, messages, wishes, hasMounted, session, apiKey, searchKey, geminiKey, notionKey, handleCloudSync]);
+
+  const rootEmails = ["stewart.jared@gmail.com", "jared@tempusvicta.com"];
+  const userEmail = session?.user?.email?.toLowerCase() || "";
+  const isSystemLinked = status === 'authenticated';
+  const isAdmin = !!(session as any)?.isAdmin ||
+                  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+                  rootEmails.includes(userEmail) ||
+                  serverAdmins.includes(userEmail);
+
+  // Identity Diagnostic
+  useEffect(() => {
+      if (isSystemLinked) {
+          console.log("[IDENTITY DIAGNOSTIC]:", { userEmail, isAdmin, serverAdminsCount: serverAdmins.length });
+      }
+  }, [userEmail, isAdmin, serverAdmins, isSystemLinked]);
 
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
@@ -293,21 +314,12 @@ function AppShell() {
   };
 
   if (!hasMounted) return null;
-  const isSystemLinked = status === 'authenticated';
-
-  // 🏛 SHARED SOVEREIGN COUNCIL CHECK
-  const rootEmails = ["stewart.jared@gmail.com", "jared@tempusvicta.com"];
-  const userEmail = session?.user?.email?.toLowerCase() || "";
-  const isAdmin = !!(session as any)?.isAdmin ||
-                  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ||
-                  rootEmails.includes(userEmail) ||
-                  serverAdmins.includes(userEmail);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
       <div className="fixed inset-0 z-0 pointer-events-none"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.1),transparent_70%)] opacity-60" /><div className="scanline" /></div>
 
-      {/* 🌤 DAILY BRIEF MODAL */}
+      {/* 🌤 DAILY BRIEF MODAL (OVERLAY) */}
       {showDailyBrief && (
         <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-4 md:p-12 overflow-y-auto animate-slide-up">
             <div className="max-w-4xl w-full mx-auto relative text-left text-white bg-black/40 p-8 border border-white/10 rounded-lg shadow-2xl">
@@ -318,7 +330,7 @@ function AppShell() {
         </div>
       )}
 
-      {/* 🔐 LOGOUT CONFIRMATION */}
+      {/* 🔐 LOGOUT CONFIRMATION MODAL */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
             <div className="hud-panel max-sm w-full p-8 border-red-500/40 text-center relative animate-slide-up">

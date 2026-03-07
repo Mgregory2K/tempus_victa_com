@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token || !token.accessToken) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    return NextResponse.json({ error: 'Auth_Link_Severed' }, { status: 401 });
   }
 
   const auth = new google.auth.OAuth2(
@@ -19,7 +19,6 @@ export async function GET(req: Request) {
   const drive = google.drive({ version: 'v3', auth });
 
   try {
-    // 1. Find the Tempus Victa ledger file in AppData
     const list = await drive.files.list({
       spaces: 'appDataFolder',
       q: "name = 'tv_sovereign_ledger.json'",
@@ -29,19 +28,18 @@ export async function GET(req: Request) {
     const file = list.data.files?.[0];
 
     if (!file) {
-      return NextResponse.json({ message: 'No ledger found' }, { status: 404 });
+      return NextResponse.json({ message: 'Ledger_Not_Found' }, { status: 404 });
     }
 
-    // 2. Download the ledger
     const content = await drive.files.get({
       fileId: file.id!,
       alt: 'media',
     });
 
     return NextResponse.json(content.data);
-  } catch (error) {
-    console.error('Sync Download Failed', error);
-    return NextResponse.json({ error: 'Sync Failed' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[SYNC ERROR]:', error.message);
+    return NextResponse.json({ error: 'Mothership_Handshake_Failed', details: error.message }, { status: 500 });
   }
 }
 
@@ -50,7 +48,7 @@ export async function POST(req: Request) {
   const ledgerData = await req.json();
 
   if (!token || !token.accessToken) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    return NextResponse.json({ error: 'Auth_Link_Severed' }, { status: 401 });
   }
 
   const auth = new google.auth.OAuth2(
@@ -62,7 +60,6 @@ export async function POST(req: Request) {
   const drive = google.drive({ version: 'v3', auth });
 
   try {
-    // 1. Check if file exists
     const list = await drive.files.list({
       spaces: 'appDataFolder',
       q: "name = 'tv_sovereign_ledger.json'",
@@ -77,13 +74,11 @@ export async function POST(req: Request) {
     };
 
     if (file) {
-      // Update existing
       await drive.files.update({
         fileId: file.id!,
         media: media,
       });
     } else {
-      // Create new
       await drive.files.create({
         requestBody: {
           name: 'tv_sovereign_ledger.json',
@@ -94,8 +89,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Sync Upload Failed', error);
-    return NextResponse.json({ error: 'Sync Failed' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[SYNC ERROR]:', error.message);
+    return NextResponse.json({ error: 'Mothership_Transmission_Failed', details: error.message }, { status: 500 });
   }
 }
