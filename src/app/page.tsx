@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.3.2-SYNTHESIS";
+const VERSION = "3.3.4-STABLE";
 
 interface SuggestedAction {
   type: string;
@@ -53,7 +53,7 @@ interface Note {
     color: string;
 }
 
-// SHARED VOICE COMPONENT
+// SHARED VOICE COMPONENT (RE-EXPORTED)
 export const VoiceButton = ({ onTranscript, isTyping, size = "md" }: { onTranscript: (text: string) => void, isTyping?: boolean, size?: "sm" | "md" }) => {
     const [isListening, setIsListening] = useState(false);
     const [audioData, setAudioData] = useState<Uint8Array>(new Uint8Array(0));
@@ -120,7 +120,6 @@ function AppShell() {
   const [geminiKey, setGeminiKey] = useState("");
   const [notionKey, setNotionKey] = useState("");
   const [assistantName, setAssistantName] = useState("Twin+");
-  const [isOnline, setIsOnline] = useState(true);
 
   // PERSISTENT STATE
   const [tasks, setTasks] = useState<any[]>([]);
@@ -136,6 +135,13 @@ function AppShell() {
   const [hasMounted, setHasMounted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // 🧬 SYNC REFS
+  const syncDataRef = useRef({ tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName } });
+
+  useEffect(() => {
+    syncDataRef.current = { tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName } };
+  }, [tasks, quotes, notes, messages, wishes, apiKey, searchKey, geminiKey, notionKey, assistantName]);
+
   // NEURAL MERGE LOGIC
   const mergeNeuralData = (local: any[], remote: any[]) => {
       const map = new Map();
@@ -148,18 +154,15 @@ function AppShell() {
   // ITALY PROTOCOL
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL', force: boolean = false) => {
     if (!session) return;
-
     if (direction === 'PULL' && force) {
-        const confirmPull = confirm("ATTENTION: This will trigger a manual merge with the Mothership. Proceed?");
-        if (!confirmPull) return;
+        if (!confirm("ATTENTION: This will trigger a manual merge with the Mothership. Proceed?")) return;
     }
 
     setIsSyncing(true);
     try {
         if (direction === 'PUSH') {
             const ledger = {
-                tasks, quotes, notes, messages, wishes,
-                config: { apiKey, searchKey, geminiKey, notionKey, assistantName },
+                ...syncDataRef.current,
                 identityGraph: JSON.parse(localStorage.getItem("tv_identity_graph") || "{}"),
                 preferences: JSON.parse(localStorage.getItem("tv_preferences") || "{}"),
                 eventHistory: JSON.parse(localStorage.getItem("tv_event_history") || "[]"),
@@ -179,37 +182,25 @@ function AppShell() {
                 setWishes(prev => mergeNeuralData(prev, data.wishes));
 
                 if (data.config) {
-                    const newApiKey = data.config.apiKey || apiKey;
-                    const newSearchKey = data.config.searchKey || searchKey;
-                    const newGeminiKey = data.config.geminiKey || geminiKey;
-                    const newNotionKey = data.config.notionKey || notionKey;
-                    const newAssistantName = data.config.assistantName || assistantName;
-
-                    setApiKey(newApiKey); setSearchKey(newSearchKey); setGeminiKey(newGeminiKey);
-                    setNotionKey(newNotionKey); setAssistantName(newAssistantName);
-
-                    if (newApiKey) localStorage.setItem("tv_api_key", newApiKey);
-                    if (newSearchKey) localStorage.setItem("tv_search_key", newSearchKey);
-                    if (newGeminiKey) localStorage.setItem("tv_gemini_key", newGeminiKey);
-                    if (newNotionKey) localStorage.setItem("tv_notion_key", newNotionKey);
-                    if (newAssistantName) localStorage.setItem("tv_assistant_name", newAssistantName);
+                    const c = data.config;
+                    setApiKey(prev => c.apiKey || prev);
+                    setSearchKey(prev => c.searchKey || prev);
+                    setGeminiKey(prev => c.geminiKey || prev);
+                    setNotionKey(prev => c.notionKey || prev);
+                    setAssistantName(prev => c.assistantName || prev);
                 }
             } else {
-                console.error("[MOTHERSHIP SYNC ERROR]:", data.error, data.details || "");
+                console.error("[SYNC ERROR]:", data.error, data.details || "");
             }
         }
     } catch (e) { console.error("Sync Failure", e); }
     finally { setIsSyncing(false); }
-  }, [session, tasks, quotes, notes, messages, wishes, apiKey, searchKey, geminiKey, notionKey, assistantName]);
+  }, [session]);
 
-  // ALL HOOKS AT TOP
+  // HYDRATION
   useEffect(() => {
     setHasMounted(true);
-    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
-
-    // GUEST SOVEREIGNTY: Use sessionStorage for guests, localStorage for members
     const storage = status === 'authenticated' ? localStorage : sessionStorage;
-
     setApiKey(storage.getItem("tv_api_key") || "");
     setSearchKey(storage.getItem("tv_search_key") || "");
     setGeminiKey(storage.getItem("tv_gemini_key") || "");
@@ -233,13 +224,13 @@ function AppShell() {
 
     const now = new Date();
     const lastBriefSeen = storage.getItem("tv_last_brief_seen");
-    const todayStr = now.toLocaleDateString();
-    if (now.getHours() >= 6 && lastBriefSeen !== todayStr) {
+    if (now.getHours() >= 6 && lastBriefSeen !== now.toLocaleDateString()) {
         setShowDailyBrief(true);
-        storage.setItem("tv_last_brief_seen", todayStr);
+        storage.setItem("tv_last_brief_seen", now.toLocaleDateString());
     }
   }, [status]);
 
+  // AUTO-SAVE
   useEffect(() => {
     if (!hasMounted) return;
     const storage = status === 'authenticated' ? localStorage : sessionStorage;
@@ -250,35 +241,25 @@ function AppShell() {
     storage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted, status]);
 
+  // INITIAL PULL
   useEffect(() => {
     if (status === 'authenticated' && hasMounted) {
         handleCloudSync('PULL');
     }
   }, [status, hasMounted, handleCloudSync]);
 
+  // DEBOUNCED PUSH
   useEffect(() => {
     if (!hasMounted || !session) return;
-    const timer = setTimeout(() => {
-        handleCloudSync('PUSH');
-    }, 15000);
+    const timer = setTimeout(() => handleCloudSync('PUSH'), 15000);
     return () => clearTimeout(timer);
-  }, [tasks, quotes, notes, messages, wishes, hasMounted, session, apiKey, searchKey, geminiKey, notionKey, handleCloudSync]);
+  }, [tasks, quotes, notes, messages, wishes, session, hasMounted, handleCloudSync]);
 
   const rootEmails = ["stewart.jared@gmail.com", "jared@tempusvicta.com"];
   const userEmail = session?.user?.email?.toLowerCase() || "";
   const isSystemLinked = status === 'authenticated';
-
   const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const isAdmin = !!(session as any)?.isAdmin ||
-                  isLocalhost ||
-                  rootEmails.includes(userEmail) ||
-                  serverAdmins.includes(userEmail);
-
-  useEffect(() => {
-      if (isSystemLinked || isLocalhost) {
-          console.log("[IDENTITY DIAGNOSTIC]:", { userEmail, isAdmin, isLocalhost, serverAdminsCount: serverAdmins.length });
-      }
-  }, [userEmail, isAdmin, serverAdmins, isSystemLinked, isLocalhost]);
+  const isAdmin = !!(session as any)?.isAdmin || isLocalhost || rootEmails.includes(userEmail) || serverAdmins.includes(userEmail);
 
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Guest", text, timestamp: new Date().toISOString(), status: 'PENDING' };
@@ -288,24 +269,23 @@ function AppShell() {
   const handleUniversalIngest = (text: string) => {
     const lowText = text.toLowerCase();
     let routedTo = "";
+    const ts = new Date().toISOString();
 
-    // 🧬 INTELLIGENT ROUTING LOGIC
     if (lowText.includes("cork it") || lowText.includes("corkboard")) {
         const cleaned = text.replace(/cork it/i, "").replace(/corkboard/i, "").trim();
-        setNotes(prev => [...prev, { id: Date.now().toString(), text: cleaned || text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80' }]);
+        setNotes(prev => [...prev, { id: Date.now().toString(), text: cleaned || text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80', created_at: ts }]);
         routedTo = "Corkboard";
     } else if (lowText.includes("project") || lowText.includes("priority")) {
         const cleaned = text.replace(/project/i, "").trim();
-        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'HIGH', status: 'TODO', source: 'DIRECT' }, ...prev]);
+        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'HIGH', status: 'TODO', source: 'DIRECT', created_at: ts }, ...prev]);
         routedTo = "Project Board";
     } else if (lowText.includes("i wish")) {
         const cleaned = text.replace(/i wish/i, "").replace(/the app would/i, "").trim();
         submitWish(cleaned);
         routedTo = "Command (Wish)";
     } else {
-        // DEFAULT: Working Memory (The "Get Gas" Route)
         const cleaned = text.replace(/task/i, "").replace(/reminder/i, "").trim();
-        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY' }, ...prev]);
+        setTasks(prev => [{ id: Date.now().toString(), title: cleaned || text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY', created_at: ts }, ...prev]);
         routedTo = "Working Memory";
     }
 
