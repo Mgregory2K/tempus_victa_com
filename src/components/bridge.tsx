@@ -23,6 +23,9 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
     const recentWin = todayWins.length > 0 ? todayWins[todayWins.length - 1] : null;
     const firstName = session?.user?.name?.split(' ')[0] || "User";
 
+    // 🧬 WORKING MEMORY (LOOSE SIGNALS)
+    const looseSignals = tasks.filter(t => t.status !== 'DONE').slice(0, 3);
+
     useEffect(() => {
         const hour = new Date().getHours();
         if (hour < 12) setGreeting("Good Morning");
@@ -84,7 +87,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
             </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* 📅 Actionable Calendar Feed */}
+                {/* 📅 Optimized Calendar Feed */}
                 {!isCalendarHidden ? (
                     <div className="lg:col-span-2 hud-panel p-6 bg-black/60 border-white/10 relative text-white">
                         <div className="flex justify-between items-center mb-6">
@@ -96,19 +99,19 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                                 Dismiss Timeline
                             </button>
                         </div>
-                        <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin pr-2 text-left uppercase">
+                        <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-thin pr-2 text-left uppercase">
                             {loadingCalendar ? (
-                                <div className="py-10 text-center opacity-20 animate-pulse text-[10px] text-white font-bold">SYNCING CHRONOS...</div>
+                                <div className="py-6 text-center opacity-20 animate-pulse text-[10px] text-white font-bold">SYNCING CHRONOS...</div>
                             ) : todaysEvents.length === 0 ? (
-                                <div className="py-10 text-center border border-dashed border-white/5 text-[9px] text-white/20 uppercase italic font-bold">NO SCHEDULED EVENTS DETECTED</div>
+                                <div className="py-6 text-center border border-dashed border-white/5 text-[9px] text-white/20 uppercase italic font-bold">NO SCHEDULED EVENTS DETECTED</div>
                             ) : (
                                 todaysEvents.map((e: any) => (
-                                    <div key={e.id} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/10 rounded hover:border-accent/30 transition-all group">
+                                    <div key={e.id} className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/10 rounded hover:border-accent/30 transition-all group">
                                         <div className="flex items-center gap-4 min-w-0">
-                                            <span className="text-[10px] font-black text-accent min-w-[60px]">{new Date(e.start.dateTime || e.start.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</span>
-                                            <p className="text-xs font-bold italic text-white/90 truncate uppercase">{e.summary}</p>
+                                            <span className="text-[9px] font-black text-accent min-w-[50px]">{new Date(e.start.dateTime || e.start.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</span>
+                                            <p className="text-[11px] font-bold italic text-white/90 truncate uppercase">{e.summary}</p>
                                         </div>
-                                        <a href={e.htmlLink} target="_blank" className="text-[8px] font-black text-white/40 group-hover:text-accent transition-colors uppercase whitespace-nowrap ml-4">View Event 🔗</a>
+                                        <a href={e.htmlLink} target="_blank" className="text-[7px] font-black text-white/40 group-hover:text-accent transition-colors uppercase whitespace-nowrap ml-2">VIEW 🔗</a>
                                     </div>
                                 ))
                             )}
@@ -145,20 +148,24 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 </div>
             </div>
 
-            {/* 📬 COMMUNICATIONS & INTELLIGENCE */}
+            {/* 📬 COMMUNICATIONS & WORKING MEMORY */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="hud-panel p-6 border-white/10 bg-black/40 relative text-white">
                     <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
-                        <span className="system-text text-[9px] text-white/40 font-black uppercase tracking-widest">Signals Summary</span>
-                        <span className="text-[8px] text-orange-500 font-black uppercase tracking-widest">SYSTEM URGENT</span>
+                        <span className="system-text text-[9px] text-white/40 font-black uppercase tracking-widest">Working Memory</span>
+                        <span className="text-[8px] text-orange-500 font-black uppercase tracking-widest">Loose Signals</span>
                     </div>
                     <div className="space-y-2 text-left">
-                        <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-orange-500/40 transition-all ripple" onClick={() => onNavigate?.('SIGNAL_BAY')}>
-                            <span className="font-bold text-white/60 uppercase">Encrypted Signals</span><span className="text-accent font-black">12 NEW</span>
-                        </div>
-                        <div className="flex justify-between text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-orange-500/40 transition-all ripple" onClick={() => onNavigate?.('SIGNAL_BAY')}>
-                            <span className="font-bold text-white/60 uppercase">Strategic Priority</span><span className="text-accent font-black">4 ACTION REQUIRED</span>
-                        </div>
+                        {looseSignals.length === 0 ? (
+                            <p className="text-[9px] text-white/20 italic py-4">No loose signals detected. System clear.</p>
+                        ) : (
+                            looseSignals.map(signal => (
+                                <div key={signal.id} className="flex justify-between items-center text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-accent/40 transition-all ripple" onClick={() => onNavigate?.('PROJECTS')}>
+                                    <span className="font-bold text-white/80 uppercase truncate pr-4">{signal.title}</span>
+                                    <span className="text-accent font-black shrink-0">ACTIVE</span>
+                                </div>
+                            ))
+                        )}
                     </div>
                     <div className="bracket-tl opacity-10" /><div className="bracket-br opacity-10" />
                 </div>
