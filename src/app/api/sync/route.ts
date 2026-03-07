@@ -7,7 +7,11 @@ export async function GET(req: Request) {
   const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token || !token.accessToken) {
-    return NextResponse.json({ error: 'Auth_Link_Severed' }, { status: 401 });
+    return NextResponse.json({ error: 'Auth_Link_Severed', details: 'No valid session token found.' }, { status: 401 });
+  }
+
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return NextResponse.json({ error: 'Environment_Mismatch', details: 'Server is missing Google API Credentials.' }, { status: 500 });
   }
 
   const auth = new google.auth.OAuth2(
@@ -28,7 +32,7 @@ export async function GET(req: Request) {
     const file = list.data.files?.[0];
 
     if (!file) {
-      return NextResponse.json({ message: 'Ledger_Not_Found' }, { status: 404 });
+      return NextResponse.json({ message: 'Ledger_Not_Found', details: 'The Mothership vault is currently empty.' }, { status: 404 });
     }
 
     const content = await drive.files.get({
@@ -39,7 +43,10 @@ export async function GET(req: Request) {
     return NextResponse.json(content.data);
   } catch (error: any) {
     console.error('[SYNC ERROR]:', error.message);
-    return NextResponse.json({ error: 'Mothership_Handshake_Failed', details: error.message }, { status: 500 });
+    return NextResponse.json({
+        error: 'Mothership_Handshake_Failed',
+        details: error.response?.data?.error_description || error.message
+    }, { status: 500 });
   }
 }
 
@@ -74,16 +81,10 @@ export async function POST(req: Request) {
     };
 
     if (file) {
-      await drive.files.update({
-        fileId: file.id!,
-        media: media,
-      });
+      await drive.files.update({ fileId: file.id!, media: media });
     } else {
       await drive.files.create({
-        requestBody: {
-          name: 'tv_sovereign_ledger.json',
-          parents: ['appDataFolder'],
-        },
+        requestBody: { name: 'tv_sovereign_ledger.json', parents: ['appDataFolder'] },
         media: media,
       });
     }
@@ -91,6 +92,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[SYNC ERROR]:', error.message);
-    return NextResponse.json({ error: 'Mothership_Transmission_Failed', details: error.message }, { status: 500 });
+    return NextResponse.json({
+        error: 'Mothership_Transmission_Failed',
+        details: error.response?.data?.error_description || error.message
+    }, { status: 500 });
   }
 }

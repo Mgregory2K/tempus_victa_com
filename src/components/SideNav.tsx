@@ -24,7 +24,10 @@ const NavItem = ({ name, isLinked, isActive, onClick, subtext, description }: { 
             onClick={onClick}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`group relative flex items-center p-3 my-2 bg-white/[0.03] border transition-all cursor-pointer overflow-hidden rounded-md ${isActive ? 'border-accent bg-accent/10 shadow-[0_0_15px_rgba(0,212,255,0.2)]' : 'border-white/10 hover:border-accent/40'}`}
+            className={`group relative flex items-center p-3 my-2 bg-white/[0.03] border transition-all cursor-pointer overflow-hidden rounded-md
+                ${isActive ? 'border-accent bg-accent/10 shadow-[0_0_15px_rgba(0,212,255,0.2)]' :
+                  isLinked ? 'border-neon-green/40 bg-neon-green/5 shadow-[0_0_10px_rgba(34,197,94,0.1)]' :
+                  'border-white/10 hover:border-accent/40'}`}
         >
             <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all ${isActive ? 'bg-accent shadow-[0_0_10px_var(--accent)]' : isLinked ? 'bg-neon-green shadow-[0_0_20px_#22c55e]' : 'bg-white/10 group-hover:bg-accent/40'}`} />
 
@@ -63,17 +66,19 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
 
     useEffect(() => {
         const checkKeys = () => {
+            // Respect Sovereignty: Check localStorage for Members, sessionStorage for Guests
+            const storage = session ? localStorage : sessionStorage;
             setStatus({
-                notion: !!localStorage.getItem("tv_notion_key"),
-                gemini: !!localStorage.getItem("tv_gemini_key"),
-                openai: !!localStorage.getItem("tv_api_key"),
-                tavily: !!localStorage.getItem("tv_search_key")
+                notion: !!storage.getItem("tv_notion_key"),
+                gemini: !!storage.getItem("tv_gemini_key"),
+                openai: !!storage.getItem("tv_api_key"),
+                tavily: !!storage.getItem("tv_search_key")
             });
         };
         checkKeys();
         const interval = setInterval(checkKeys, 2000);
         return () => clearInterval(interval);
-    }, []);
+    }, [session]);
 
     return (
         <nav className="w-64 p-6 border-r border-white/10 bg-black/60 hidden lg:flex flex-col relative shrink-0 h-full overflow-hidden">
@@ -84,7 +89,7 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
 
             <div className="flex-grow space-y-1 overflow-y-auto scrollbar-none pr-1">
                 <NavItem name="The Bridge" isActive={activeModule === 'BRIDGE'} onClick={() => onModuleChange?.('BRIDGE')} subtext="Strategic Cockpit" description="The expression layer of your Twin+. High-level synthesis of all cognitive data." />
-                <NavItem name="Signal Bay" isActive={activeModule === 'SIGNALS'} onClick={() => onModuleChange?.('SIGNALS')} subtext="Triage Engine" description="Filter and route all incoming life signals—emails, notifications, and thoughts." />
+                <NavItem name="Signal Bay" isActive={activeModule === 'SIGNAL_BAY'} onClick={() => onModuleChange?.('SIGNAL_BAY')} subtext="Triage Engine" description="Filter and route all incoming life signals—emails, notifications, and thoughts." />
                 <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Objectives" description="Manage multi-stage strategic objectives and tactical tasks." />
                 <NavItem name="Win Board" isActive={activeModule === 'WINBOARD'} onClick={() => onModuleChange?.('WINBOARD')} subtext="Daily Triumphs" description="A visual ledger of every completed action today." />
                 <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns and Twin+ focus model." />

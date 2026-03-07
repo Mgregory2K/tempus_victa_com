@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.2.6-STABLE";
+const VERSION = "3.2.7-FORCE-COMMAND";
 
 interface SuggestedAction {
   type: string;
@@ -168,8 +168,8 @@ function AppShell() {
             await fetch('/api/sync', { method: 'POST', body: JSON.stringify(ledger) });
         } else {
             const res = await fetch('/api/sync');
+            const data = await res.json();
             if (res.ok) {
-                const data = await res.json();
                 if (data.eventHistory) await twinPlusKernel.hydrate(data);
 
                 setTasks(prev => mergeNeuralData(prev, data.tasks));
@@ -195,22 +195,17 @@ function AppShell() {
                     if (newAssistantName) localStorage.setItem("tv_assistant_name", newAssistantName);
                 }
             } else {
-                try {
-                    const errorData = await res.json();
-                    console.error("[SYNC ERROR]:", errorData.error);
-                } catch(e) {
-                    console.error("[SYNC ERROR]: Status 500");
-                }
+                console.error("[MOTHERSHIP SYNC ERROR]:", data.error, data.details || "");
             }
         }
     } catch (e) { console.error("Sync Failure", e); }
     finally { setIsSyncing(false); }
   }, [session, tasks, quotes, notes, messages, wishes, apiKey, searchKey, geminiKey, notionKey, assistantName]);
 
-  // INITIAL HYDRATION
+  // ALL HOOKS AT TOP
   useEffect(() => {
     setHasMounted(true);
-    setIsOnline(navigator.onLine);
+    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
     setApiKey(localStorage.getItem("tv_api_key") || "");
     setSearchKey(localStorage.getItem("tv_search_key") || "");
     setGeminiKey(localStorage.getItem("tv_gemini_key") || "");
@@ -241,7 +236,6 @@ function AppShell() {
     }
   }, []);
 
-  // AUTO-SAVE
   useEffect(() => {
     if (!hasMounted) return;
     localStorage.setItem("tv_tasks", JSON.stringify(tasks));
@@ -251,14 +245,12 @@ function AppShell() {
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
   }, [tasks, quotes, notes, messages, wishes, hasMounted]);
 
-  // INITIAL SYNC
   useEffect(() => {
     if (status === 'authenticated' && hasMounted) {
         handleCloudSync('PULL');
     }
   }, [status, hasMounted, handleCloudSync]);
 
-  // DEBOUNCED AUTO-PUSH
   useEffect(() => {
     if (!hasMounted || !session) return;
     const timer = setTimeout(() => {
@@ -270,17 +262,19 @@ function AppShell() {
   const rootEmails = ["stewart.jared@gmail.com", "jared@tempusvicta.com"];
   const userEmail = session?.user?.email?.toLowerCase() || "";
   const isSystemLinked = status === 'authenticated';
+
+  // 🏛 FORCE ADMIN ON LOCALHOST
+  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const isAdmin = !!(session as any)?.isAdmin ||
-                  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+                  isLocalhost ||
                   rootEmails.includes(userEmail) ||
                   serverAdmins.includes(userEmail);
 
-  // Identity Diagnostic
   useEffect(() => {
-      if (isSystemLinked) {
-          console.log("[IDENTITY DIAGNOSTIC]:", { userEmail, isAdmin, serverAdminsCount: serverAdmins.length });
+      if (isSystemLinked || isLocalhost) {
+          console.log("[IDENTITY DIAGNOSTIC]:", { userEmail, isAdmin, isLocalhost, serverAdminsCount: serverAdmins.length });
       }
-  }, [userEmail, isAdmin, serverAdmins, isSystemLinked]);
+  }, [userEmail, isAdmin, serverAdmins, isSystemLinked, isLocalhost]);
 
   const submitWish = (text: string) => {
       const newWish = { id: Date.now().toString(), user: session?.user?.name || "Tester", text, timestamp: new Date().toISOString(), status: 'PENDING' };
@@ -319,7 +313,6 @@ function AppShell() {
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white p-1 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px]">
       <div className="fixed inset-0 z-0 pointer-events-none"><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.1),transparent_70%)] opacity-60" /><div className="scanline" /></div>
 
-      {/* 🌤 DAILY BRIEF MODAL (OVERLAY) */}
       {showDailyBrief && (
         <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-4 md:p-12 overflow-y-auto animate-slide-up">
             <div className="max-w-4xl w-full mx-auto relative text-left text-white bg-black/40 p-8 border border-white/10 rounded-lg shadow-2xl">
@@ -330,7 +323,6 @@ function AppShell() {
         </div>
       )}
 
-      {/* 🔐 LOGOUT CONFIRMATION MODAL */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
             <div className="hud-panel max-sm w-full p-8 border-red-500/40 text-center relative animate-slide-up">
@@ -345,7 +337,6 @@ function AppShell() {
         </div>
       )}
 
-      {/* 🎙 UNIVERSAL RECORD BUTTON */}
       <div className="fixed bottom-24 right-8 z-[2000] flex flex-col items-center gap-2">
           <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-all cursor-pointer group active:bg-accent/20">
               <VoiceButton onTranscript={handleUniversalIngest} size="md" />
@@ -406,7 +397,6 @@ function AppShell() {
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
                     <h2 className="text-3xl font-black italic text-accent mb-8 tracking-tighter uppercase leading-none">Cognitive Config</h2>
-                    {/* WISH INPUT */}
                     <div className="mb-12 p-6 bg-accent/5 border border-accent/20 rounded text-white">
                         <label className="text-[8px] text-accent font-black block mb-4 uppercase tracking-[0.2em]">Manifest a wish for the system development</label>
                         <div className="flex gap-4">
