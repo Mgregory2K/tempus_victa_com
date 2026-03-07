@@ -9,7 +9,7 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/gmail.readonly",
+          scope: "openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/gmail.readonly",
           access_type: "offline",
           prompt: "consent",
         },
@@ -28,7 +28,6 @@ const handler = NextAuth({
         token.email = user.email;
       }
 
-      // Check if user is an admin from env variable
       const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
       if (user?.email && adminEmails.includes(user.email.toLowerCase())) {
         token.isAdmin = true;
