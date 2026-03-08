@@ -22,9 +22,9 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
-export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
+export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "2.6.0-SOVEREIGN";
+const VERSION = "2.6.5-SOVEREIGN";
 
 export interface Message {
   id: string;
@@ -228,7 +228,7 @@ function AppShell() {
   };
 
   // 🧬 UNIVERSAL INGEST (THE OBSERVER)
-  const handleUniversalIngest = (text: string, options: { isFromBrainstorm?: boolean, skipTask?: boolean } = {}) => {
+  const handleUniversalIngest = (text: string, options: { isFromBrainstorm?: boolean, skipTask?: boolean, targetBoard?: 'PROJECTS' | 'TODO' } = {}) => {
     const ts = new Date().toISOString();
     const userIdentifier = session?.user?.name || session?.user?.email || "User";
 
@@ -241,7 +241,8 @@ function AppShell() {
     } else if (text.toLowerCase().includes("cork")) {
         setNotes(prev => [{ id: Date.now().toString(), text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80', owner: userIdentifier }, ...prev]);
     } else if (!options.skipTask) {
-        setTasks(prev => [{ id: Date.now().toString(), title: text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY', created_at: ts, owner: userIdentifier }, ...prev]);
+        const targetSource = options.targetBoard === 'TODO' ? 'TACTICAL_TODO' : 'WORKING_MEMORY';
+        setTasks(prev => [{ id: Date.now().toString(), title: text, priority: 'MED', status: 'TODO', source: targetSource, created_at: ts, owner: userIdentifier }, ...prev]);
     }
 
     // Auto-trigger push after major change
@@ -319,8 +320,9 @@ function AppShell() {
               {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} userName={userName} initialMessage={initialReadyRoomMessage} onContextConsumed={() => setInitialReadyRoomMessage(null)} /></div>}
               {activeModule === "SIGNAL_BAY" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
+              {activeModule === "TODO" && <div className="module-enter h-full"><SovereignTodo externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} setExternalTasks={setTasks} /></div>}
-              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} userName={userName} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => { setNotes(prev => prev.filter(x => x.id !== id)); twinPlusKernel.observe(createEvent('NOTE_ARCHIVED', { id }, 'CORKBOARD')); }} onBrainstorm={(text) => { handleUniversalIngest(text, { isFromBrainstorm: true, skipTask: true }); }} /></div>}
+              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} userName={userName} onPromote={(id, target) => { const n = notes.find(x => x.id === id); if(n) { const targetSource = target === 'PROJECTS' ? 'CORKBOARD' : 'TACTICAL_TODO'; setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: targetSource}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule(target === 'PROJECTS' ? 'PROJECTS' : 'TODO'); } }} onArchive={(id) => { setNotes(prev => prev.filter(x => x.id !== id)); twinPlusKernel.observe(createEvent('NOTE_ARCHIVED', { id }, 'CORKBOARD')); }} onBrainstorm={(text) => { handleUniversalIngest(text, { isFromBrainstorm: true, skipTask: true }); }} /></div>}
               {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} userName={userName} /></div>}
               {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}
@@ -345,7 +347,7 @@ function AppShell() {
 
         <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-start px-2 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50 text-white font-bold md:justify-center">
               {[
-                { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SIGNAL_BAY", label: "Signal Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "WINBOARD", label: "Win Board" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "QUOTES", label: "Quotes" }, { id: "CLOCK_TOWER", label: "Clock Tower" }, { id: "SETTINGS", label: "Config" },
+                { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SIGNAL_BAY", label: "Signal Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "To-Do" }, { id: "WINBOARD", label: "Win Board" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "QUOTES", label: "Quotes" }, { id: "CLOCK_TOWER", label: "Clock Tower" }, { id: "SETTINGS", label: "Config" },
                 { id: "WISHES", label: "Wishes" },
                 ...(session?.user?.email === "stewart.jared@gmail.com" ? [{ id: "ADMIN", label: "Command" }] : [])
               ].map(item => (

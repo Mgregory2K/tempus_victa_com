@@ -87,15 +87,17 @@ export default function ReadyRoom({
 
         try {
             const isBrainstorm = text.startsWith("[BRAINSTORM_CONTEXT]");
+            const isSystemSignal = text.startsWith("[SYSTEM_SIGNAL]");
+
             const response = await fetch('/api/ready-room', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    history: externalMessages.slice(-10),
+                    history: externalMessages.slice(-20),
                     assistantName,
                     userName,
-                    aiEnhanced: isProtocolActive || isBrainstorm,
+                    aiEnhanced: isProtocolActive || isBrainstorm || isSystemSignal,
                     apiKey,
                     searchKey,
                     geminiKey,
@@ -128,22 +130,12 @@ export default function ReadyRoom({
         }
     };
 
-    const handleFeedback = (msgId: string, type: 'UP' | 'DOWN' | 'WRONG_SOURCE') => {
-        setExternalMessages(prev => prev.map(m => {
-            if (m.id !== msgId) return m;
-            if (type === 'UP') return { ...m, vote: m.vote === 1 ? null : 1 };
-            if (type === 'DOWN') return { ...m, vote: m.vote === -1 ? null : -1 };
-            if (type === 'WRONG_SOURCE') return { ...m, wrongSource: !m.wrongSource };
-            return m;
-        }));
-    };
-
     const invokeProtocol = () => {
         setMatrixStage('ENTERING');
         setProtocolConfig({
             intent: "Strategic Deliberation",
-            issue: "High-Fidelity Simulation",
-            figures: ["Socratic", "Spock", "Kirk"]
+            issue: "Absolute Sovereignty & Persona Fidelity",
+            figures: ["Ernest Hemingway", "Socrates", "Marcus Aurelius"]
         });
     };
 
@@ -153,13 +145,16 @@ export default function ReadyRoom({
         handleSend("INITIATE_PROTOCOL_SIMULATION");
     };
 
-    const exitProtocol = () => {
+    const exitProtocol = async () => {
+        // Trigger the Moderator's Summary before closing
+        handleSend("[SYSTEM_SIGNAL]: Summarize the key insights of this protocol session and frame the next strategic move.");
+
         setMatrixStage('EXITING');
         setTimeout(() => {
             setIsProtocolActive(false);
             setProtocolConfig(null);
             setMatrixStage('IDLE');
-        }, 3000);
+        }, 4000); // 4 seconds of Matrix Rain transition to allow summary delivery
     };
 
     const renderContent = (content: string) => {
@@ -188,7 +183,7 @@ export default function ReadyRoom({
         <div className="flex flex-col h-full relative overflow-hidden bg-black/40 rounded-xl border border-white/10 shadow-2xl">
             {/* Matrix Rain Overlay */}
             {matrixStage !== 'IDLE' && (
-                <div className="fixed inset-0 z-[5000] bg-black/95 flex flex-col items-center justify-center">
+                <div className="fixed inset-0 z-[5000] bg-black/95 flex flex-col items-center justify-center p-6">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
                         <div className="matrix-container opacity-60">
                             {Array.from({ length: 40 }).map((_, i) => (
@@ -202,15 +197,26 @@ export default function ReadyRoom({
                             ))}
                         </div>
                     </div>
-                    {matrixStage === 'ENTERING' && (
-                        <div className="relative z-[5001] flex flex-col items-center gap-8">
-                            <h2 className="system-text text-4xl font-black text-accent tracking-[0.5em] animate-pulse">INVOKING_PROTOCOL</h2>
-                            <button onClick={confirmProtocolEntry} className="px-12 py-4 bg-accent text-black system-text text-xl font-black hover:bg-white transition-all">PROCEED</button>
+                    {matrixStage === 'ENTERING' && protocolConfig && (
+                        <div className="relative z-[5001] flex flex-col items-center gap-8 max-w-2xl text-center">
+                            <h2 className="system-text text-4xl font-black text-accent tracking-[0.5em] animate-pulse uppercase">Invoking Protocol</h2>
+                            <div className="hud-panel p-8 bg-black/80 border border-accent/40 relative">
+                                <p className="text-[10px] text-accent/60 font-black uppercase tracking-widest mb-4">Establishing Representative Personas</p>
+                                <div className="flex flex-wrap justify-center gap-4 mb-8">
+                                    {protocolConfig.figures.map(f => (
+                                        <span key={f} className="px-4 py-2 border border-white/10 text-white font-bold italic text-sm bg-white/5 uppercase">{f}</span>
+                                    ))}
+                                </div>
+                                <p className="text-[12px] text-white/40 italic uppercase leading-relaxed mb-8">"{protocolConfig.issue}"</p>
+                                <button onClick={confirmProtocolEntry} className="px-12 py-4 bg-accent text-black system-text text-xl font-black hover:bg-white transition-all shadow-[0_0_30px_rgba(0,212,255,0.4)]">PROCEED TO CHAMBER</button>
+                                <div className="bracket-tl" /><div className="bracket-br" />
+                            </div>
                         </div>
                     )}
                     {matrixStage === 'EXITING' && (
                         <div className="relative z-[5001] flex flex-col items-center gap-8">
-                            <h2 className="system-text text-4xl font-black text-red-500 tracking-[0.5em] animate-pulse">TERMINATING_SIMULATION</h2>
+                            <h2 className="system-text text-4xl font-black text-red-500 tracking-[0.5em] animate-pulse uppercase">Terminating Simulation</h2>
+                            <p className="system-text text-[10px] text-red-500/40 font-black tracking-widest uppercase italic">J5 generating moderator summary...</p>
                         </div>
                     )}
                 </div>
@@ -220,16 +226,16 @@ export default function ReadyRoom({
             <div className="flex justify-between items-center p-4 border-b border-white/10 bg-black/80 backdrop-blur-md sticky top-0 z-20">
                 <div className="flex flex-col">
                     <h2 className="system-text text-[10px] font-black tracking-[0.3em] text-accent uppercase">
-                        {isProtocolActive ? "Protocol Simulation" : `${assistantName || "J5"} // Ready Room`}
+                        {isProtocolActive ? "Protocol Simulation Mode" : `${assistantName || "J5"} // Ready Room`}
                     </h2>
                     <span className="text-[6px] text-white/40 font-bold uppercase tracking-widest mt-1 italic">
-                        {isProtocolActive ? "Active Insight Grid" : "Sovereign Partnership"}
+                        {isProtocolActive ? "Active Insight Chamber // Neural Strike Required" : "Sovereign Partnership"}
                     </span>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => setForceLocal(!forceLocal)} className={`px-3 py-1.5 border system-text text-[7px] font-black transition-all ${forceLocal ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-white/10 text-white/20'}`}>Local Only</button>
                     <button onClick={isProtocolActive ? exitProtocol : invokeProtocol} className={`px-4 py-1.5 border system-text text-[8px] font-black transition-all ${isProtocolActive ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-accent text-accent bg-accent/5 hover:bg-accent hover:text-black shadow-[0_0_15px_rgba(0,212,255,0.15)]'}`}>
-                        {isProtocolActive ? "Terminate" : "Protocol"}
+                        {isProtocolActive ? "TERMINATE_PROTOCOL" : "INVOKE_PROTOCOL"}
                     </button>
                 </div>
             </div>
@@ -248,9 +254,9 @@ export default function ReadyRoom({
                                     </span>
                                     <span className="text-[6px] text-white/20 font-bold">{new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                                 </div>
-                                <p className="text-[12px] font-medium leading-relaxed tracking-wide text-white/90 whitespace-pre-wrap">
+                                <div className={`text-[12px] font-medium leading-relaxed tracking-wide text-white/90 whitespace-pre-wrap ${msg.sourceLayer === 'PROTOCOL_SIMULATION' ? 'italic border-l-2 border-accent/20 pl-4 py-2 bg-accent/[0.02]' : ''}`}>
                                     {renderContent(msg.content)}
-                                </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -266,8 +272,8 @@ export default function ReadyRoom({
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                            placeholder={isProtocolActive ? "Simulation Active..." : `Talk to ${assistantName || "J5"}...`}
-                            className="w-full bg-transparent p-4 text-[13px] font-medium text-white outline-none resize-none placeholder:text-white/20 min-h-[56px] max-h-32"
+                            placeholder={isProtocolActive ? "Address the chamber..." : `Talk to ${assistantName || "J5"}...`}
+                            className="w-full bg-transparent p-4 text-[13px] font-medium text-white outline-none resize-none placeholder:text-white/20 min-h-[56px] max-h-32 uppercase"
                             rows={1}
                         />
                     </div>
