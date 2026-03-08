@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { Event } from './DailyBrief';
+import { CalendarEvent } from './DailyBrief';
 
 // A single calendar event item - RESTORED AESTHETIC
 const EventItem = ({ summary, startTime, isPast }: { summary: string, startTime: string, isPast: boolean }) => (
@@ -20,11 +20,11 @@ const EventItem = ({ summary, startTime, isPast }: { summary: string, startTime:
 );
 
 // The Calendar component now receives events as a prop
-export default function Calendar({ events }: { events: Event[] }) {
+export default function Calendar({ events }: { events: CalendarEvent[] }) {
   const now = new Date();
 
   // Sort events chronologically
-  const sortedEvents = [...events].sort((a, b) => new Date(a.start.dateTime!).getTime() - new Date(b.start.dateTime!).getTime());
+  const sortedEvents = [...events].sort((a, b) => new Date(a.start.dateTime || a.start.date || 0).getTime() - new Date(b.start.dateTime || b.start.date || 0).getTime());
 
   if (sortedEvents.length === 0) {
       return (
@@ -43,8 +43,8 @@ export default function Calendar({ events }: { events: Event[] }) {
           <EventItem
             key={event.id}
             summary={event.summary}
-            startTime={event.start.dateTime!}
-            isPast={new Date(event.start.dateTime!) < now}
+            startTime={event.start.dateTime || event.start.date!}
+            isPast={new Date(event.start.dateTime || event.start.date!) < now}
           />
         ))}
       </div>
