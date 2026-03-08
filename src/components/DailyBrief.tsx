@@ -4,6 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
+export interface CalendarEvent {
+    id: string;
+    summary: string;
+    start: { dateTime?: string; date?: string };
+    end: { dateTime?: string; date?: string };
+    htmlLink?: string;
+}
+
 interface DailyBriefProps {
     tasks?: any[];
     apiKey?: string;
@@ -16,7 +24,7 @@ export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, on
     const [loading, setLoading] = useState(true);
     const [intel, setIntel] = useState<any>(null);
     const [timeContext, setTimeContext] = useState<'MORNING' | 'AFTERNOON' | 'EVENING'>('MORNING');
-    const name = userName?.split(' ')[0] || "Michael";
+    const name = userName?.split(' ')[0] || "User";
 
     useEffect(() => {
         const hour = new Date().getHours();
