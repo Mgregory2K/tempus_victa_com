@@ -21,7 +21,8 @@ export type TwinEventType =
   | 'TRIUMPH_LOGGED'
   | 'WISH_SUBMITTED'
   | 'DAILY_BRIEF_VIEWED'
-  | 'DAILY_BRIEF_DISMISSED';
+  | 'DAILY_BRIEF_DISMISSED'
+  | 'TIMELINE_DISMISSED';
 
 /**
  * Defines the schema for a TwinEvent.
