@@ -18,7 +18,7 @@ interface CorkboardProps {
     externalNotes?: Note[];
     setNotes?: React.Dispatch<React.SetStateAction<Note[]>>;
     userName?: string;
-    onPromote?: (id: string) => void;
+    onPromote?: (id: string, target: 'PROJECTS' | 'TODO') => void;
     onArchive?: (id: string) => void;
     onBrainstorm?: (noteText: string) => void;
 }
@@ -123,14 +123,17 @@ export default function Corkboard({ externalNotes, setNotes, userName, onPromote
 
                     {/* Tactical Menu */}
                     <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-40">
-                        <button onClick={() => onBrainstorm?.(note.text)} className="h-6 w-6 bg-accent text-black rounded shadow-lg flex items-center justify-center hover:scale-110 transition-transform" title="Brainstorm with J5">
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                        <button onClick={() => onBrainstorm?.(note.text)} className="h-8 w-8 bg-accent text-black rounded shadow-lg flex items-center justify-center hover:scale-110 transition-transform" title="Brainstorm with J5">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                         </button>
-                        <button onClick={() => onPromote?.(note.id)} className="h-6 w-6 bg-neon-green text-black rounded shadow-lg flex items-center justify-center hover:scale-110 transition-transform" title="Promote to Task">
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7-7m-7-7v18" /></svg>
+                        <button onClick={() => onPromote?.(note.id, 'PROJECTS')} className="h-8 w-8 bg-purple-500 text-white rounded shadow-lg flex items-center justify-center hover:scale-110 transition-transform" title="Promote to Project">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         </button>
-                        <button onClick={() => onArchive?.(note.id)} className="h-6 w-6 bg-red-600 text-white rounded shadow-lg flex items-center justify-center hover:scale-110 transition-transform" title="Archive Note">
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <button onClick={() => onPromote?.(note.id, 'TODO')} className="h-8 w-8 bg-neon-green text-black rounded shadow-lg flex items-center justify-center hover:scale-110 transition-transform" title="Promote to To-Do">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        </button>
+                        <button onClick={() => onArchive?.(note.id)} className="h-8 w-8 bg-red-600 text-white rounded shadow-lg flex items-center justify-center hover:scale-110 transition-transform" title="Archive Note">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
 
