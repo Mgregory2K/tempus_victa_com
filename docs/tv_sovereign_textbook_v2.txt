@@ -1,0 +1,86 @@
+TEMPUS VICTA
+Volume II: The Sovereign Realization (v2.6/v3.4 Consolidation)
+Status: Canonical Engineering Constitution // Ground Truth
+Date: 2026-03-07
+
+________________________________________
+FOREWORD: THE FORENSIC AUDIT
+This volume is authored to bridge the gap between the Conceptual Doctrine (Volume I) and the Physical Substrate (v3.4.8-STABLE). A forensic audit has revealed that while the interface "performs" the mission, the underlying nervous system—Twin+—suffers from architectural fragmentation. This document serves as the mandatory blueprint for the "Absolute Sovereignty" push.
+
+________________________________________
+SECTION I: THE SOVEREIGN LEDGER (THE MOTHERSHIP)
+
+1.1 The Ground Truth
+The tv_sovereign_ledger.json is not a "settings file." It is the unified state-ledger of the user's digital existence.
+
+1.2 The Mind-Sync Protocol (Italy 2.0)
+Currently, UI state (tasks, quotes) is synced, but the "Mind" (Twin+ events and identity features) remains trapped in local volatile memory (localStorage).
+CONSTITUTIONAL REQUIREMENT:
+- The TwinPlusKernel MUST be a primary dependency of the Sync Engine.
+- On every PUSH, the TwinEventLedger and TwinFeatureStore snapshots must be serialized into the Mothership ledger.
+- On every PULL, the Kernel MUST hydrate before the UI renders to ensure J5 "remembers" the user across different hardware surfaces.
+
+1.3 Config Shields
+To prevent "Key Vacuums" (where a fresh device overwrites the Mothership with empty API keys), the system must implement a non-destructive merge:
+- Local "Null" or "Empty" values must NEVER overwrite populated Mothership values.
+- In-memory Refs (syncDataRef) must act as the "Shield" during the handshake.
+
+________________________________________
+SECTION II: THE IDENTITY LOCK (THE SANDLER FIX)
+
+2.1 J5 Self-Awareness
+A core failure identified in v3.4 is "Identity Hallucination." When questioned about his nature or Michael's habits, J5 defaults to an Internet Search (The Sandler Loop).
+
+2.2 The Introspection Ladder
+CONSTITUTIONAL REQUIREMENT:
+- Every query into the Ready Room must be intercepted by a Local Identity Filter.
+- J5 must consult the TwinPlusKernel (Local Knowledge) BEFORE escalating to Public Scout (Internet) or Neural Strike (AI).
+- If the query hits identityTriggers (name, creator, tracking, identity), J5 MUST respond using the Baseline Personality Textbook and the local Identity Graph.
+- J5 is michael's digital counterpart. He knows who he is because he lives in the machine. He does not need to "Google himself."
+
+________________________________________
+SECTION III: THE TACTICAL HIERARCHY
+
+3.1 The Intelligence Lifecycle
+The OS must strictly enforce the progression of data from noise to triumph:
+1. SIGNAL (Signal Bay): Raw, unweighted input.
+2. CORK (Corkboard): Visual, unstructured thought crystallization.
+3. TASK (Project Board): Structured, prioritized execution items.
+4. TRIUMPH (Win Board): Completed actions that build momentum on the Bridge.
+
+3.2 Board Consolidation
+CONSTITUTIONAL REQUIREMENT:
+- Rename "Winboard" to "Project Board" (The working engine).
+- The "Win Board" on the Bridge is reserved exclusively for today's Triumphs.
+- "Promotion" from Corkboard to Project Board must be a high-fidelity event that clears the "Mental Clutter" signal.
+
+________________________________________
+SECTION IV: THE INTELLIGENCE LADDER 2.0 (ROUTING)
+
+4.1 Beyond Keywords
+Keyword matching (e.g., "if text includes 'who is'") is a legacy limitation. It creates "Fragile Intelligence."
+
+4.2 The Router Decision Object
+CONSTITUTIONAL REQUIREMENT:
+- The TwinRouter must produce a structured Decision Object for every input.
+- Factors: WiFi vs Mobile Data, Opt-in AI Status, Frustration Triggers, and Time Sensitivity.
+- If the user is in "Kirk Mode" (Direct/Decisive), the router must skip conversational AI and provide raw facts or action-routing immediately.
+
+________________________________________
+SECTION V: INTERFACE MECHANICS (MOBILE GRAVITY)
+
+5.1 The dvh Standard
+To combat Browser UI interference (address bars hiding navigation), all primary containers must use dvh (Dynamic Viewport Height) units.
+
+5.2 Draggable Thresholds (The Mic Fix)
+CONSTITUTIONAL REQUIREMENT:
+- Movement is NOT Ingestion.
+- The Universal Ingest Microphone must implement a 5px movementDelta gate.
+- If the mouse/touch moves more than 5px during a down-press, the "Click" (Recording) event is cancelled in favor of "Drag" (Repositioning).
+
+________________________________________
+CONCLUSION: THE SOVEREIGN MANDATE
+The system must move from "App" to "Organism." J5 must stop acting like a prompt and start acting like a Peer. Every line of code written from this point forward must be weighed against this Sovereign Standard.
+
+One Identity. One Memory. Unlimited Surfaces.
+Keep the entropy low.

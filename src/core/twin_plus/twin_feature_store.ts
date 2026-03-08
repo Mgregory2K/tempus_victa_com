@@ -4,19 +4,25 @@ import { TwinPreferenceLedger } from './twin_preference_ledger';
 import { TwinIdentity, INITIAL_IDENTITY, CognitiveProfile } from './identity_model';
 
 /**
- * TWIN+ FEATURE STORE v2.5 - HARDCORE LEARNING MODE
- * The processing organ of the OS. Ingests events to refine the User Identity Graph.
+ * TWIN+ FEATURE STORE v3.5.9 - USAGE & LEARNING
  */
+
+export interface UsageMetrics {
+    local: number;
+    scout: number;
+    neural: number;
+    estimatedCost: number;
+}
 
 export class TwinFeatureStore {
   private prefs: TwinPreferenceLedger;
 
-  // The Identity Graph (The Mind)
   public identity: TwinIdentity = INITIAL_IDENTITY;
+  public usage: UsageMetrics = { local: 0, scout: 0, neural: 0, estimatedCost: 0 };
 
   // Memory Layers
-  public episodicMemory: any[] = []; // Event-based memories
-  public semanticMemory: Record<string, any> = {}; // Stable facts
+  public episodicMemory: any[] = [];
+  public semanticMemory: Record<string, any> = {};
   public activityRhythm: number[] = new Array(24).fill(0);
   public trustScores: Record<string, number> = {};
 
@@ -27,32 +33,19 @@ export class TwinFeatureStore {
   public static async open(prefs: TwinPreferenceLedger): Promise<TwinFeatureStore> {
     const store = new TwinFeatureStore(prefs);
     await store.loadSovereignLedger();
-    await store.loadSeedData();
     return store;
-  }
-
-  private async loadSeedData() {
-    this.trustScores = {
-        "congress.gov": 0.95,
-        "govinfo.gov": 0.95,
-        "supremecourt.gov": 0.95,
-        "sec.gov": 0.96,
-        "cdc.gov": 0.97,
-        "nist.gov": 0.98,
-        "openai.com": 0.88,
-        "stackoverflow.com": 0.45
-    };
   }
 
   private async loadSovereignLedger() {
     if (typeof window === 'undefined') return;
     const saved = localStorage.getItem("tv_identity_graph");
+    const savedUsage = localStorage.getItem("tv_usage_metrics");
+
     if (saved) {
-        try {
-            this.identity = JSON.parse(saved);
-        } catch (e) {
-            console.error("Identity corrupted. Reverting to Baseline.");
-        }
+        try { this.identity = JSON.parse(saved); } catch (e) {}
+    }
+    if (savedUsage) {
+        try { this.usage = JSON.parse(savedUsage); } catch (e) {}
     }
   }
 
@@ -60,19 +53,31 @@ export class TwinFeatureStore {
     if (typeof window !== 'undefined') {
         this.identity.lastUpdated = new Date().toISOString();
         localStorage.setItem("tv_identity_graph", JSON.stringify(this.identity));
+        localStorage.setItem("tv_usage_metrics", JSON.stringify(this.usage));
     }
   }
 
   public apply(e: TwinEvent): void {
-    // 1. Log to Episodic Memory
+    // 1. Telemetry
     this.episodicMemory.push({ ts: e.ts, type: e.type, surface: e.surface });
     if (this.episodicMemory.length > 100) this.episodicMemory.shift();
 
-    // 2. Behavioral Learning (Rhythm)
+    // 2. Rhythm
     const hour = new Date(e.ts).getHours();
     this.activityRhythm[hour]++;
 
-    // 3. Lexicon Extraction
+    // 3. Usage Tracking
+    if (e.type === 'INTENT_ROUTED' && e.payload.plan) {
+        const strategy = e.payload.plan.strategy;
+        if (strategy === 'LOCAL') this.usage.local++;
+        if (strategy === 'INTERNET') this.usage.scout++;
+        if (strategy === 'AI') {
+            this.usage.neural++;
+            this.usage.estimatedCost += 0.01; // Rough heuristic for GPT-4o
+        }
+    }
+
+    // 4. Lexicon Extraction
     if (e.payload?.content && typeof e.payload.content === 'string') {
         const words = e.payload.content.toLowerCase().split(/\s+/);
         words.forEach((w: string) => {
@@ -82,53 +87,34 @@ export class TwinFeatureStore {
         });
     }
 
-    // 4. NEURAL REINFORCEMENT (God Mode Feedback Processing)
+    // 5. Reinforcement
     if (e.type === 'INTENT_ROUTED' && e.payload.feedback) {
         this.reinforceIdentity(e.payload.feedback);
     }
 
-    // 5. Persistence
     this.saveSovereignLedger();
   }
 
   private reinforceIdentity(feedbackType: string) {
     const p = this.identity.userProfile;
     const step = 0.05;
-
     switch (feedbackType) {
         case 'UP':
-            // High alignment: Lock in existing bias
-            p.directness = this.nudge(p.directness, 0.02);
-            p.efficiencyBias = this.nudge(p.efficiencyBias, 0.02);
+            p.directness = Math.min(1, p.directness + 0.02);
             break;
         case 'DOWN':
-            // Off target: Invert or reduce strong biases
-            p.directness = this.nudge(p.directness, -step);
-            p.challengeLevel = this.nudge(p.challengeLevel, step); // Pushing back on failure
-            p.verbosity = this.nudge(p.verbosity, step); // Try being more descriptive
-            break;
-        case 'WRONG_SOURCE':
-            // Stale source: Increase skepticism/risk tolerance adjustment
-            p.efficiencyBias = this.nudge(p.efficiencyBias, -step); // Prioritize accuracy more
+            p.directness = Math.max(0, p.directness - step);
+            p.verbosity = Math.min(1, p.verbosity + step);
             break;
     }
-  }
-
-  private nudge(val: number, delta: number): number {
-    return Math.max(0, Math.min(1, val + delta));
-  }
-
-  public updateManualWeights(newProfile: CognitiveProfile) {
-    this.identity.userProfile = { ...newProfile };
-    this.saveSovereignLedger();
   }
 
   public snapshot() {
     return {
       identity: this.identity,
+      usage: this.usage,
       rhythm: this.activityRhythm,
-      memoryDepth: this.episodicMemory.length,
-      trust: this.trustScores
+      memoryDepth: this.episodicMemory.length
     };
   }
 }

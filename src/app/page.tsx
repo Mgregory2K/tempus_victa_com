@@ -24,13 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.4.8-STABLE";
-
-interface SuggestedAction {
-  type: string;
-  label: string;
-  payload: any;
-}
+const VERSION = "3.5.0-SOVEREIGN";
 
 export interface Message {
   id: string;
@@ -49,9 +43,10 @@ interface Note {
     y: number;
     rotation: number;
     color: string;
+    owner?: string;
 }
 
-// SHARED VOICE COMPONENT (RE-EXPORTED)
+// 🎤 SHARED VOICE COMPONENT
 export const VoiceButton = ({ onTranscript, isTyping, size = "md" }: { onTranscript: (text: string) => void, isTyping?: boolean, size?: "sm" | "md" }) => {
     const [isListening, setIsListening] = useState(false);
     const [audioData, setAudioData] = useState<Uint8Array>(new Uint8Array(0));
@@ -70,8 +65,7 @@ export const VoiceButton = ({ onTranscript, isTyping, size = "md" }: { onTranscr
             const source = audioContextRef.current.createMediaStreamSource(stream);
             source.connect(analyzerRef.current);
             analyzerRef.current.fftSize = 64;
-            const bufferLength = analyzerRef.current.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+            const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
             const updateFrequency = () => {
                 if (analyzerRef.current) {
                     analyzerRef.current.getByteFrequencyData(dataArray);
@@ -119,7 +113,6 @@ function AppShell() {
   const [notionKey, setNotionKey] = useState("");
   const [assistantName, setAssistantName] = useState("Twin+");
 
-  // PERSISTENT STATE
   const [tasks, setTasks] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -131,53 +124,48 @@ function AppShell() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [initialReadyRoomMessage, setInitialReadyRoomMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [micPos, setMicPos] = useState({ x: 0, y: 0 });
   const isDraggingMic = useRef(false);
-
   const [hasMounted, setHasMounted] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
-  // 🏛 ADMIN CHECKS
-  const rootEmails = ["stewart.jared@gmail.com", "jared@tempusvicta.com"];
-  const userEmail = session?.user?.email?.toLowerCase() || "";
-  const isAdmin = !!(session as any)?.isAdmin || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) || rootEmails.includes(userEmail) || serverAdmins.includes(userEmail);
-
-  // 🧬 SYNC REFS
+  // 🧬 SYNC ENGINE v2.0 (AUTO-HEARTBEAT)
   const syncDataRef = useRef({ tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName } });
+  const lastSyncHash = useRef("");
 
   useEffect(() => {
     syncDataRef.current = { tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName } };
   }, [tasks, quotes, notes, messages, wishes, apiKey, searchKey, geminiKey, notionKey, assistantName]);
 
-  // NEURAL MERGE LOGIC
   const mergeNeuralData = (local: any[], remote: any[]) => {
       const map = new Map();
       [...(remote || []), ...(local || [])].forEach(item => {
           if (item && item.id) map.set(item.id, item);
       });
-      return Array.from(map.values());
+      return Array.from(map.values()).sort((a,b) => (b.created_at || b.id).localeCompare(a.created_at || a.id));
   };
 
-  // ITALY PROTOCOL
-  const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL', force: boolean = false) => {
-    if (!session) return;
+  const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL') => {
+    if (!session || isSyncing) return;
     setIsSyncing(true);
     try {
         if (direction === 'PUSH') {
-            const ledger = {
+            const payload = {
                 ...syncDataRef.current,
-                identityGraph: JSON.parse(localStorage.getItem("tv_identity_graph") || "{}"),
-                preferences: JSON.parse(localStorage.getItem("tv_preferences") || "{}"),
-                eventHistory: JSON.parse(localStorage.getItem("tv_event_history") || "[]"),
+                mind: twinPlusKernel.snapshot(),
                 lastSync: new Date().toISOString()
             };
-            await fetch('/api/sync', { method: 'POST', body: JSON.stringify(ledger) });
+            const hash = JSON.stringify(payload).length.toString();
+            if (hash === lastSyncHash.current) return; // Skip redundant push
+
+            await fetch('/api/sync', { method: 'POST', body: JSON.stringify(payload) });
+            lastSyncHash.current = hash;
         } else {
             const res = await fetch('/api/sync');
             const data = await res.json();
             if (res.ok) {
-                if (data.eventHistory) await twinPlusKernel.hydrate(data);
+                if (data.mind) await twinPlusKernel.hydrate(data.mind);
                 setTasks(prev => mergeNeuralData(prev, data.tasks));
                 setQuotes(prev => mergeNeuralData(prev, data.quotes));
                 setNotes(prev => mergeNeuralData(prev, data.notes));
@@ -185,18 +173,26 @@ function AppShell() {
                 setWishes(prev => mergeNeuralData(prev, data.wishes));
                 if (data.config) {
                     const c = data.config;
-                    setApiKey(prev => (c.apiKey && c.apiKey.length > 5) ? c.apiKey : prev);
-                    setSearchKey(prev => (c.searchKey && c.searchKey.length > 5) ? c.searchKey : prev);
-                    setGeminiKey(prev => (c.geminiKey && c.geminiKey.length > 5) ? c.geminiKey : prev);
-                    setNotionKey(prev => (c.notionKey && c.notionKey.length > 5) ? c.notionKey : prev);
-                    setAssistantName(prev => c.assistantName || prev);
+                    // Overwrite Shield: Never let cloud empty strings wipe local keys
+                    if (c.apiKey?.length > 10) setApiKey(c.apiKey);
+                    if (c.searchKey?.length > 10) setSearchKey(c.searchKey);
+                    if (c.geminiKey?.length > 10) setGeminiKey(c.geminiKey);
+                    if (c.notionKey?.length > 10) setNotionKey(c.notionKey);
+                    if (c.assistantName) setAssistantName(c.assistantName);
                 }
             }
         }
-    } catch (e) {} finally { setIsSyncing(false); }
-  }, [session]);
+    } catch (e) { console.error("Sync Failure", e); } finally { setIsSyncing(false); }
+  }, [session, isSyncing]);
 
-  // HYDRATION
+  // 💓 AUTO-SYNC HEARTBEAT
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const interval = setInterval(() => handleCloudSync('PUSH'), 30000); // Heartbeat every 30s
+    return () => clearInterval(interval);
+  }, [status, handleCloudSync]);
+
+  // 🧬 HYDRATION
   useEffect(() => {
     setHasMounted(true);
     const storage = status === 'authenticated' ? localStorage : sessionStorage;
@@ -206,6 +202,7 @@ function AppShell() {
     setNotionKey(storage.getItem("tv_notion_key") || "");
     setAssistantName(storage.getItem("tv_assistant_name") || "Twin+");
     setMicPos(JSON.parse(storage.getItem("tv_mic_pos") || '{"x":0, "y":0}'));
+
     try {
         setTasks(JSON.parse(storage.getItem("tv_tasks") || "[]"));
         setQuotes(JSON.parse(storage.getItem("tv_quotes") || "[]"));
@@ -213,16 +210,11 @@ function AppShell() {
         setMessages(JSON.parse(storage.getItem("tv_chat_history") || "[]"));
         setWishes(JSON.parse(storage.getItem("tv_wishes") || "[]"));
     } catch (e) {}
-    const fetchCouncil = async () => {
-        try {
-            const res = await fetch('/api/admin/council');
-            if (res.ok) setServerAdmins(await res.json());
-        } catch (e) {}
-    };
-    fetchCouncil();
+
+    if (status === 'authenticated') handleCloudSync('PULL');
   }, [status]);
 
-  // DRAGGABLE MIC
+  // 🎤 DRAGGABLE MIC (WITH THRESHOLD)
   const onMicDrag = (e: React.MouseEvent | React.TouchEvent) => {
       if (!isDraggingMic.current) return;
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -235,15 +227,38 @@ function AppShell() {
       storage.setItem("tv_mic_pos", JSON.stringify(micPos));
   };
 
+  // 🧬 UNIVERSAL INGEST (THE OBSERVER)
   const handleUniversalIngest = (text: string, options: { isFromBrainstorm?: boolean, skipTask?: boolean } = {}) => {
     const ts = new Date().toISOString();
-    if (options.isFromBrainstorm) setInitialReadyRoomMessage(text);
-    else if (text.toLowerCase().includes("cork")) setNotes(prev => [...prev, { id: Date.now().toString(), text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80', owner: userEmail }]);
-    else if (!options.skipTask) setTasks(prev => [{ id: Date.now().toString(), title: text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY', created_at: ts, owner: userEmail }, ...prev]);
+    const userEmail = session?.user?.email || "Michael";
+
+    // 👁️ OBSERVE
+    twinPlusKernel.observe(createEvent('UNIVERSAL_INGEST', { text, options }, 'INGEST_SURFACE'));
+
+    if (options.isFromBrainstorm) {
+        setInitialReadyRoomMessage(text);
+        setActiveModule('READY_ROOM');
+    } else if (text.toLowerCase().includes("cork")) {
+        setNotes(prev => [{ id: Date.now().toString(), text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80', owner: userEmail }, ...prev]);
+    } else if (!options.skipTask) {
+        setTasks(prev => [{ id: Date.now().toString(), title: text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY', created_at: ts, owner: userEmail }, ...prev]);
+    }
+
+    // Auto-trigger push after major change
+    setTimeout(() => handleCloudSync('PUSH'), 1000);
   };
 
   const handleSnoozeTask = (id: string, time: string) => {
+      twinPlusKernel.observe(createEvent('TASK_SNOOZED', { id, time }, 'BRIDGE'));
       setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'SNOOZED', snooze_until: time } : t));
+  };
+
+  const submitWish = (text: string) => {
+    if (!text.trim()) return;
+    const wish = { id: Date.now().toString(), text, status: 'PENDING', created_at: new Date().toISOString(), user: session?.user?.email };
+    setWishes(prev => [wish, ...prev]);
+    twinPlusKernel.observe(createEvent('WISH_SUBMITTED', { text }, 'CONFIG'));
+    handleCloudSync('PUSH');
   };
 
   if (!hasMounted) return null;
@@ -269,6 +284,7 @@ function AppShell() {
         </div>
       )}
 
+      {/* DRAGGABLE MIC */}
       <div className="fixed z-[5000] cursor-grab active:cursor-grabbing touch-none" style={{ left: micPos.x || 'auto', bottom: micPos.y ? 'auto' : '100px', top: micPos.y || 'auto', right: micPos.x ? 'auto' : '32px' }} onMouseDown={() => isDraggingMic.current = true} onTouchStart={() => isDraggingMic.current = true}>
           <div className="h-16 w-16 rounded-full border-2 border-accent/40 bg-black/80 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.2)] hover:scale-110 transition-transform active:bg-accent/20 relative group"><VoiceButton onTranscript={(t) => handleUniversalIngest(t)} size="md" /></div>
       </div>
@@ -280,6 +296,7 @@ function AppShell() {
              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}><div className="h-10 w-10 md:h-12 border-2 border-accent/40 bg-black flex items-center justify-center relative shadow-[0_0_15px_rgba(0,212,255,0.2)]"><span className="system-text text-xl font-black text-accent">T</span><div className="bracket-tl" /><div className="bracket-br" /></div><div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[10px] tracking-widest leading-none">The Bridge</span><span className="text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION}</span></div></div>
           </div>
           <div className="flex gap-2 items-center">
+            {isSyncing && <div className="system-text text-[8px] text-accent animate-pulse mr-2 tracking-widest">SYNC_ACTIVE</div>}
             <button onClick={() => setShowDailyBrief(true)} className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase ripple">🌤 DAILY BRIEF</button>
             <div onClick={() => status === 'authenticated' ? setShowLogoutConfirm(true) : signIn('google')} className={`flex items-center gap-3 px-3 md:px-4 py-1 md:py-2 border-2 cursor-pointer transition-all ${status === 'authenticated' ? 'border-accent shadow-[0_0_15px_#00d4ff]' : 'border-red-500 bg-red-500/10'}`}>
                 <div className={`h-2.5 w-2.5 rounded-full ${status === 'authenticated' ? 'bg-accent animate-pulse' : 'bg-red-500'}`} /><div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[7px] md:text-[8px] leading-none">{status === 'authenticated' ? 'Mothership Stable' : 'Identity Unlinked'}</span></div>
@@ -288,7 +305,11 @@ function AppShell() {
         </header>
 
         <div className="flex flex-grow overflow-hidden relative">
-          <div className={`absolute lg:relative z-[1500] h-full transition-all duration-500 ${isMobileNavOpen ? 'left-0' : '-left-64 lg:left-0'}`}><SideNav onModuleChange={(m) => { setActiveModule(m); setIsMobileNavOpen(false); }} activeModule={activeModule} isAdmin={isAdmin} /></div>
+          <div className={`absolute lg:relative z-[1500] h-full transition-all duration-500 ${isMobileNavOpen ? 'left-0' : '-left-64 lg:left-0'}`}><SideNav onModuleChange={(m) => {
+              setActiveModule(m);
+              setIsMobileNavOpen(false);
+              twinPlusKernel.observe(createEvent('MODULE_SWITCH', { module: m }, 'SIDE_NAV'));
+          }} activeModule={activeModule} isAdmin={!!(session as any)?.isAdmin || session?.user?.email === "stewart.jared@gmail.com"} /></div>
           {isMobileNavOpen && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[1400] lg:hidden" onClick={() => setIsMobileNavOpen(false)} />}
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
@@ -297,12 +318,12 @@ function AppShell() {
               {activeModule === "SIGNAL_BAY" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} setExternalTasks={setTasks} /></div>}
-              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => setNotes(prev => prev.filter(x => x.id !== id))} onBrainstorm={(text) => { handleUniversalIngest(text, { isFromBrainstorm: true, skipTask: true }); setActiveModule('READY_ROOM'); }} /></div>}
+              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => { setNotes(prev => prev.filter(x => x.id !== id)); twinPlusKernel.observe(createEvent('NOTE_ARCHIVED', { id }, 'CORKBOARD')); }} onBrainstorm={(text) => { handleUniversalIngest(text, { isFromBrainstorm: true, skipTask: true }); }} /></div>}
               {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} /></div>}
               {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}
               {activeModule === "WISHES" && <div className="module-enter h-full"><WishBoard wishes={wishes} onWish={submitWish} /></div>}
-              {activeModule === "ADMIN" && isAdmin && <div className="module-enter h-full"><AdminBoard wishes={wishes} setWishes={setWishes} setTasks={setTasks} /></div>}
+              {activeModule === "ADMIN" && <div className="module-enter h-full"><AdminBoard wishes={wishes} setWishes={setWishes} setTasks={setTasks} /></div>}
               {activeModule === "SETTINGS" && (
                 <div className="module-enter h-full overflow-y-auto uppercase flex flex-col items-center py-12 text-left">
                   <div className="w-full max-w-2xl bg-black/40 border border-white/10 p-8 rounded-lg shadow-2xl relative text-white">
@@ -324,7 +345,7 @@ function AppShell() {
               {[
                 { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SIGNAL_BAY", label: "Signal Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "WINBOARD", label: "Win Board" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "QUOTES", label: "Quotes" }, { id: "CLOCK_TOWER", label: "Clock Tower" }, { id: "SETTINGS", label: "Config" },
                 { id: "WISHES", label: "Wishes" },
-                ...(isAdmin ? [{ id: "ADMIN", label: "Command" }] : [])
+                ...(session?.user?.email === "stewart.jared@gmail.com" ? [{ id: "ADMIN", label: "Command" }] : [])
               ].map(item => (
                 <div key={item.id} className="relative group text-white shrink-0">
                     <button onClick={() => setActiveModule(item.id as Module)} className={`nav-parallelogram px-4 md:px-6 py-2 system-text text-[7px] md:text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}><span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span></button>

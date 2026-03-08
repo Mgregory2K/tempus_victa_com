@@ -1,8 +1,9 @@
-// src/components/bridge.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from "next-auth/react";
+import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
+import { createEvent } from "@/core/twin_plus/twin_event";
 
 interface BridgeProps {
     tasks?: any[];
@@ -27,15 +28,25 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
     const recentWin = todayWins.length > 0 ? todayWins[todayWins.length - 1] : null;
     const firstName = session?.user?.name?.split(' ')[0] || "User";
 
-    // 🧬 WORKING MEMORY (LOOSE SIGNALS)
-    const looseSignals = tasks.filter(t => t.status !== 'DONE' && t.status !== 'SNOOZED' && t.source === 'WORKING_MEMORY').slice(0, 5);
+    // 🧬 DYNAMIC SUMMARY (FROM KERNEL)
+    const [executiveSummary, setExecutiveSummary] = useState("System synchronization is stable. Neural patterns suggest high focus potential.");
 
     useEffect(() => {
         const hour = new Date().getHours();
         if (hour < 12) setGreeting("Good Morning");
         else if (hour < 17) setGreeting("Good Afternoon");
         else setGreeting("Good Evening");
-    }, []);
+
+        // Fetch dynamic insights if kernel is ready
+        if (twinPlusKernel.ready()) {
+            const snapshot = twinPlusKernel.snapshot();
+            const recentEvents = snapshot.recentEvents || [];
+            if (recentEvents.length > 0) {
+                const lastAction = recentEvents[0].type.replace('_', ' ').toLowerCase();
+                setExecutiveSummary(`${firstName}, system nominal. Tracking recent ${lastAction} signals. Momentum is holding at ${todayWins.length} Triumphs today.`);
+            }
+        }
+    }, [firstName, todayWins.length]);
 
     useEffect(() => {
         let isMounted = true;
@@ -72,9 +83,14 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
         setActiveSnoozeId(null);
     };
 
+    const navigateWithTelemetry = (module: string) => {
+        twinPlusKernel.observe(createEvent('BRIDGE_NAVIGATION', { target: module }, 'BRIDGE'));
+        onNavigate?.(module);
+    };
+
     const MetricCard = ({ title, value, unit, trend, glowColor, targetModule }: { title: string, value: string | number, unit?: string, trend?: string, glowColor: string, targetModule?: string }) => (
         <div
-            onClick={() => targetModule && onNavigate?.(targetModule)}
+            onClick={() => targetModule && navigateWithTelemetry(targetModule)}
             className="hud-panel p-4 bg-black/40 border-white/5 relative group overflow-hidden cursor-pointer hover:border-accent/40 transition-all active:scale-95 ripple"
         >
             <div className={`absolute -right-4 -top-4 w-24 h-24 blur-3xl opacity-10 group-hover:opacity-20 transition-opacity bg-${glowColor}`} />
@@ -110,7 +126,10 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                     <div className="lg:col-span-2 hud-panel p-6 bg-black/60 border-white/10 relative text-white">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="system-text text-[10px] text-white/60 font-black tracking-widest uppercase">Temporal Timeline</h3>
-                            <button onClick={() => setIsCalendarHidden(true)} className="text-[8px] text-white/20 hover:text-accent font-black tracking-widest uppercase italic transition-colors">Dismiss Timeline</button>
+                            <button onClick={() => {
+                                setIsCalendarHidden(true);
+                                twinPlusKernel.observe(createEvent('TIMELINE_DISMISSED', {}, 'BRIDGE'));
+                            }} className="text-[8px] text-white/20 hover:text-accent font-black tracking-widest uppercase italic transition-colors">Dismiss Timeline</button>
                         </div>
                         <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-thin pr-2 text-left uppercase">
                             {loadingCalendar ? (
@@ -137,14 +156,14 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                     </div>
                 )}
 
-                <div onClick={() => onNavigate?.('WINBOARD')} className="hud-panel p-6 bg-neon-green/5 border-neon-green/20 relative cursor-pointer group hover:bg-neon-green/10 transition-all text-white ripple">
+                <div onClick={() => navigateWithTelemetry('WINBOARD')} className="hud-panel p-6 bg-neon-green/5 border-neon-green/20 relative cursor-pointer group hover:bg-neon-green/10 transition-all text-white ripple">
                     <h3 className="system-text text-[10px] text-neon-green font-black tracking-widest uppercase mb-6">Current Momentum</h3>
                     {recentWin ? (
                         <div className="space-y-4 text-left">
                             <p className="text-lg font-black text-white italic leading-tight uppercase group-hover:text-neon-green transition-colors">{recentWin.title}</p>
-                            <p className="text-[8px] text-white/40 font-bold tracking-widest uppercase">MANIFEST LOGGED</p>
+                            <p className="text-[8px] text-white/40 font-bold tracking-widest uppercase">MANIFEST LOGGED // TRIUMPH</p>
                             <div className="mt-4 flex gap-1">
-                                {[1,2,3,4,5].map(i => <div key={i} className={`h-1 flex-grow rounded-full ${i <= todayWins.length ? 'bg-neon-green shadow-[0_0_5px_#22c55e]' : 'bg-white/5'}`} />)}
+                                {[1,2,3,4,5,6,7,8,9,10].map(i => <div key={i} className={`h-1 flex-grow rounded-full ${i <= todayWins.length ? 'bg-neon-green shadow-[0_0_5px_#22c55e]' : 'bg-white/5'}`} />)}
                             </div>
                         </div>
                     ) : (
@@ -167,16 +186,19 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                     </form>
 
                     <div className="space-y-2 text-left">
-                        {looseSignals.length === 0 ? (
+                        {tasks.filter(t => t.status !== 'DONE' && t.status !== 'SNOOZED' && t.source === 'WORKING_MEMORY').slice(0, 5).length === 0 ? (
                             <p className="text-[9px] text-white/20 italic py-4 font-bold">NO LOOSE SIGNALS DETECTED. SYSTEM NOMINAL.</p>
                         ) : (
-                            looseSignals.map(signal => (
+                            tasks.filter(t => t.status !== 'DONE' && t.status !== 'SNOOZED' && t.source === 'WORKING_MEMORY').slice(0, 5).map(signal => (
                                 <div key={signal.id} className="relative group">
                                     <div className="flex justify-between items-center text-[10px] p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:border-accent/40 transition-all ripple">
-                                        <span className="font-bold text-white/80 uppercase truncate pr-4 italic" onClick={() => onNavigate?.('PROJECTS')}>{signal.title}</span>
+                                        <span className="font-bold text-white/80 uppercase truncate pr-4 italic" onClick={() => navigateWithTelemetry('PROJECTS')}>{signal.title}</span>
                                         <div className="flex items-center gap-3">
                                             <button
-                                                onClick={() => setActiveSnoozeId(activeSnoozeId === signal.id ? null : signal.id)}
+                                                onClick={() => {
+                                                    setActiveSnoozeId(activeSnoozeId === signal.id ? null : signal.id);
+                                                    twinPlusKernel.observe(createEvent('TASK_SNOOZE_CLICK', { id: signal.id }, 'BRIDGE'));
+                                                }}
                                                 className={`text-[8px] font-black uppercase transition-colors ${activeSnoozeId === signal.id ? 'text-orange-500' : 'text-white/20 hover:text-orange-500'}`}
                                             >
                                                 Push To... 🕒
@@ -200,10 +222,10 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                     <div className="bracket-tl opacity-10" /><div className="bracket-br opacity-10" />
                 </div>
 
-                <div className="hud-panel p-6 bg-accent/5 border-dashed border-accent/20 relative group hover:bg-accent/10 transition-all cursor-pointer text-white ripple" onClick={() => onNavigate?.('READY_ROOM')}>
+                <div className="hud-panel p-6 bg-accent/5 border-dashed border-accent/20 relative group hover:bg-accent/10 transition-all cursor-pointer text-white ripple" onClick={() => navigateWithTelemetry('READY_ROOM')}>
                     <span className="system-text text-[10px] text-accent font-black tracking-[0.3em] block mb-4 uppercase">Twin+ Executive Summary</span>
                     <p className="text-white/70 text-md font-light leading-relaxed italic uppercase tracking-wide text-left">
-                        {firstName}, system synchronization is stable. Neural patterns suggest high focus potential for current objectives. Ready Room simulation is calibrated for strategic synthesis.
+                        {executiveSummary}
                     </p>
                     <div className="bracket-tl opacity-40" /><div className="bracket-br opacity-40" />
                 </div>
