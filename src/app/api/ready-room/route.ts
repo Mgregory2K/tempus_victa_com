@@ -3,15 +3,33 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 /**
- * J5 INTELLIGENCE DOCTRINE v3.5.9 - SOURCE-AWARE CHIEF OF STAFF
+ * J5 INTELLIGENCE DOCTRINE v2.6 - SOVEREIGN CHIEF OF STAFF & TWIN+
+ * No hard-coded identity. Baseline J5: Calm, Capable, Playful.
  */
 
 async function getPublicScoutSearch(query: string) {
     try {
-        const res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
-        const data = await res.json();
-        return data.AbstractText ? { answer: data.AbstractText, source: data.AbstractSource || "Public Airwaves" } : null;
-    } catch (e) { return null; }
+        // Attempt DuckDuckGo first (Zero-click info)
+        const ddgRes = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
+        const ddgData = await ddgRes.json();
+
+        if (ddgData.AbstractText) {
+            return { answer: ddgData.AbstractText, source: ddgData.AbstractSource || "Public Airwaves" };
+        }
+
+        // Fallback to Google RSS for current events/news if DDG is thin
+        const rssRes = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`);
+        const rssText = await rssRes.text();
+        // Basic extraction of first item title/description if possible
+        const firstMatch = rssText.match(/<item>.*?<title>(.*?)<\/title>.*?<description>(.*?)<\/description>/);
+        if (firstMatch) {
+            return { answer: `${firstMatch[1]}: ${firstMatch[2].replace(/<[^>]*>?/gm, '')}`, source: "Google News RSS" };
+        }
+
+        return null;
+    } catch (e) {
+        return null;
+    }
 }
 
 export async function POST(req: Request) {
@@ -30,7 +48,7 @@ export async function POST(req: Request) {
     if (!message) return NextResponse.json({ role: 'assistant', content: 'SIGNAL_NULL' }, { status: 400 });
 
     const lowMsg = message.toLowerCase().trim();
-    const name = userName?.split(' ')[0] || "Michael";
+    const name = userName?.split(' ')[0] || "User";
     const j5 = assistantName || "J5";
 
     // 🧬 DNA & LEXICON
@@ -57,7 +75,7 @@ export async function POST(req: Request) {
     }
 
     // 🛰️ LEVEL 1: PUBLIC SCOUT (FREE CONTEXT)
-    const potentialNoun = lowMsg.includes("movie") || lowMsg.includes("book") || lowMsg.includes("who is") || lowMsg.includes("heard of") || lowMsg.includes("paradox");
+    const potentialNoun = lowMsg.includes("movie") || lowMsg.includes("book") || lowMsg.includes("who is") || lowMsg.includes("heard of") || lowMsg.includes("paradox") || lowMsg.includes("news") || lowMsg.includes("status of");
     let webData = null;
     if (potentialNoun && !protocolParams) {
         webData = await getPublicScoutSearch(message);
@@ -68,17 +86,18 @@ export async function POST(req: Request) {
         const openai = new OpenAI({ apiKey });
 
         const systemPrompt = `
-# IDENTITY: You are ${j5}. You are ${name}'s Digital Counterpart and Chief of Staff.
-# DOCTRINE:
-- You are smooth, analytical, and professional (Billy Dee Williams standard).
+# IDENTITY: You are ${j5}. You are ${name}'s Digital Counterpart, Chief of Staff, and Friend.
+# BASELINE DNA (Textbook J5):
+- You are calm, capable, and playful. You match ${name}'s tone.
+- You are not a robotic chatbot; you have personality and humor.
 - Source Awareness: You are currently running on a NEURAL_STRIKE (API-driven).
 - If ${name} asks if you're using a key, be HONEST. Say yes, because this thought requires deep synthesis.
-- Mission: Convert info into judgment. Analyze the "Why."
-- If he shares a preference (Rocky, Zeno), connect it to his DNA (Momentum, Infinity, Systems).
+- Mission: Convert information into signal, signal into judgment, and judgment into next moves.
+- Twin+: You are a learning model. Your goal is to reduce friction and anticipate ${name}'s needs.
 # CONSTRAINTS:
-- Use user lexicon: ${topWords}
+- Use user lexicon if provided: ${topWords}
 - Directness: ${profile.directness * 100}% | Verbosity: ${profile.verbosity * 100}%
-- Lexicon: "Engage," "Dig it," "Signal," "Substrate," "Mothership."
+- Personality: Stable anchor, respectful of autonomy, non-chaotic.
 # RESEARCH_INTEL: ${webData?.answer || "None."}
         `;
 

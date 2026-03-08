@@ -13,6 +13,7 @@ interface Task {
     source: string;
     projectId?: string;
     snoozeUntil?: string;
+    completed_at?: string;
 }
 
 interface Project {
@@ -35,13 +36,25 @@ export default function ProjectBoard({ externalTasks, setTasks }: ProjectBoardPr
         if (!task) return;
 
         const oldStatus = task.status;
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+        const ts = new Date().toISOString();
+
+        setTasks(prev => prev.map(t => {
+            if (t.id === taskId) {
+                return {
+                    ...t,
+                    status: newStatus,
+                    completed_at: newStatus === 'DONE' ? ts : t.completed_at
+                };
+            }
+            return t;
+        }));
 
         if (newStatus === 'DONE') {
             twinPlusKernel.observe(createEvent('TASK_COMPLETED', {
                 taskId,
                 title: task.title,
-                source: task.source
+                source: task.source,
+                completed_at: ts
             }, 'PROJECTS'));
         } else {
             twinPlusKernel.observe(createEvent('ACTION_CREATED', {

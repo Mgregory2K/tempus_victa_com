@@ -24,8 +24,34 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
     const [activeSnoozeId, setActiveSnoozeId] = useState<string | null>(null);
 
     const activeProjectsCount = tasks.filter(t => t.status !== 'DONE' && t.status !== 'SNOOZED').length;
-    const todayWins = tasks.filter(t => t.status === 'DONE');
-    const recentWin = todayWins.length > 0 ? todayWins[todayWins.length - 1] : null;
+
+    // 🧬 MOMENTUM CALCULATION (DAY / MTD / YTD)
+    const now = new Date();
+    const todayStr = now.toDateString();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const allWins = tasks.filter(t => t.status === 'DONE');
+
+    const dayWins = allWins.filter(t => {
+        const d = new Date(t.completed_at || t.completedAt);
+        return d.toDateString() === todayStr;
+    }).length;
+
+    const mtdWins = allWins.filter(t => {
+        const d = new Date(t.completed_at || t.completedAt);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
+
+    const ytdWins = allWins.filter(t => {
+        const d = new Date(t.completed_at || t.completedAt);
+        return d.getFullYear() === currentYear;
+    }).length;
+
+    const recentWins = [...allWins].sort((a, b) =>
+        new Date(b.completed_at || b.completedAt || 0).getTime() - new Date(a.completed_at || a.completedAt || 0).getTime()
+    ).slice(0, 3);
+
     const firstName = session?.user?.name?.split(' ')[0] || "User";
 
     // 🧬 DYNAMIC SUMMARY (FROM KERNEL)
@@ -37,16 +63,15 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
         else if (hour < 17) setGreeting("Good Afternoon");
         else setGreeting("Good Evening");
 
-        // Fetch dynamic insights if kernel is ready
         if (twinPlusKernel.ready()) {
             const snapshot = twinPlusKernel.snapshot();
             const recentEvents = snapshot.recentEvents || [];
             if (recentEvents.length > 0) {
                 const lastAction = recentEvents[0].type.replace('_', ' ').toLowerCase();
-                setExecutiveSummary(`${firstName}, system nominal. Tracking recent ${lastAction} signals. Momentum is holding at ${todayWins.length} Triumphs today.`);
+                setExecutiveSummary(`${firstName}, system nominal. Tracking recent ${lastAction} signals. Momentum is holding at ${dayWins} Triumphs today.`);
             }
         }
-    }, [firstName, todayWins.length]);
+    }, [firstName, dayWins]);
 
     useEffect(() => {
         let isMounted = true;
@@ -114,11 +139,29 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                 <p className="system-text text-[8px] text-white/20 font-black tracking-[0.4em] mt-2 uppercase">Neural Link Stable // System Nominal</p>
             </div>
 
+            {/* 🧬 VITAL SIGNS */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <MetricCard title="Clock Tower" value="85H" trend="12%+" glowColor="accent" targetModule="CLOCK_TOWER" />
                 <MetricCard title="Affinity" value="94" unit="%" trend="PEAK" glowColor="neon-green" targetModule="MIRROR" />
                 <MetricCard title="Objectives" value={activeProjectsCount} trend="ACTIVE" glowColor="purple-500" targetModule="PROJECTS" />
                 <MetricCard title="Signal Bay" value="12" trend="SIGNALS" glowColor="orange-500" targetModule="SIGNAL_BAY" />
+            </section>
+
+            {/* 🧬 MOMENTUM HUD (NEW) */}
+            <section className="grid grid-cols-3 gap-4">
+                {[
+                    { label: "Daily Momentum", value: dayWins, sub: "Triumphs Today" },
+                    { label: "Monthly Streak", value: mtdWins, sub: "MTD Progress" },
+                    { label: "Annual Velocity", value: ytdWins, sub: "YTD Output" }
+                ].map((m, i) => (
+                    <div key={i} className="hud-panel p-3 bg-neon-green/5 border-neon-green/20 relative flex flex-col items-center justify-center group overflow-hidden">
+                        <div className="absolute inset-0 bg-neon-green/5 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+                        <span className="system-text text-[7px] text-neon-green/60 font-black tracking-[0.2em] uppercase relative z-10">{m.label}</span>
+                        <span className="text-2xl font-black text-white italic relative z-10">{m.value}</span>
+                        <span className="text-[6px] text-white/30 font-bold uppercase tracking-widest relative z-10">{m.sub}</span>
+                        <div className="bracket-tl border-neon-green/30" /><div className="bracket-br border-neon-green/30" />
+                    </div>
+                ))}
             </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -156,19 +199,31 @@ export default function Bridge({ tasks = [], notes = [], messages = [], onNaviga
                     </div>
                 )}
 
+                {/* 🧬 WIN LOG / MOMENTUM TRACKER */}
                 <div onClick={() => navigateWithTelemetry('WINBOARD')} className="hud-panel p-6 bg-neon-green/5 border-neon-green/20 relative cursor-pointer group hover:bg-neon-green/10 transition-all text-white ripple">
-                    <h3 className="system-text text-[10px] text-neon-green font-black tracking-widest uppercase mb-6">Current Momentum</h3>
-                    {recentWin ? (
-                        <div className="space-y-4 text-left">
-                            <p className="text-lg font-black text-white italic leading-tight uppercase group-hover:text-neon-green transition-colors">{recentWin.title}</p>
-                            <p className="text-[8px] text-white/40 font-bold tracking-widest uppercase">MANIFEST LOGGED // TRIUMPH</p>
-                            <div className="mt-4 flex gap-1">
-                                {[1,2,3,4,5,6,7,8,9,10].map(i => <div key={i} className={`h-1 flex-grow rounded-full ${i <= todayWins.length ? 'bg-neon-green shadow-[0_0_5px_#22c55e]' : 'bg-white/5'}`} />)}
-                            </div>
+                    <h3 className="system-text text-[10px] text-neon-green font-black tracking-widest uppercase mb-4">Recent Triumphs</h3>
+                    <div className="space-y-3">
+                        {recentWins.length > 0 ? (
+                            recentWins.map((win, idx) => (
+                                <div key={win.id} className={`pb-2 ${idx !== recentWins.length - 1 ? 'border-b border-white/5' : ''} text-left`}>
+                                    <p className="text-[11px] font-black text-white/90 italic uppercase truncate group-hover:text-neon-green transition-colors">{win.title}</p>
+                                    <p className="text-[6px] text-white/30 font-bold uppercase tracking-widest">{new Date(win.completed_at || win.completedAt).toLocaleDateString()} // VERIFIED</p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="py-6 text-center border border-dashed border-neon-green/10 text-[9px] text-neon-green/30 uppercase italic font-bold">AWAITING VERIFIED WIN</div>
+                        )}
+                    </div>
+
+                    <div className="mt-6">
+                         <div className="flex justify-between items-center mb-2">
+                             <span className="text-[7px] text-neon-green/40 font-black uppercase">Momentum Chain</span>
+                             <span className="text-[7px] text-white/40 font-black italic">{dayWins}/10</span>
+                         </div>
+                        <div className="flex gap-1">
+                            {[1,2,3,4,5,6,7,8,9,10].map(i => <div key={i} className={`h-1 flex-grow rounded-full transition-all duration-700 ${i <= dayWins ? 'bg-neon-green shadow-[0_0_8px_#22c55e]' : 'bg-white/5'}`} />)}
                         </div>
-                    ) : (
-                        <div className="py-10 text-center border border-dashed border-neon-green/10 text-[9px] text-neon-green/30 uppercase italic font-bold">AWAITING VERIFIED WIN</div>
-                    )}
+                    </div>
                     <div className="bracket-tl border-neon-green/40" /><div className="bracket-br border-neon-green/40" />
                 </div>
             </div>

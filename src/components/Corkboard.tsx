@@ -17,12 +17,13 @@ interface Note {
 interface CorkboardProps {
     externalNotes?: Note[];
     setNotes?: React.Dispatch<React.SetStateAction<Note[]>>;
+    userName?: string;
     onPromote?: (id: string) => void;
     onArchive?: (id: string) => void;
     onBrainstorm?: (noteText: string) => void;
 }
 
-export default function Corkboard({ externalNotes, setNotes, onPromote, onArchive, onBrainstorm }: CorkboardProps) {
+export default function Corkboard({ externalNotes, setNotes, userName, onPromote, onArchive, onBrainstorm }: CorkboardProps) {
     const [isAdding, setIsAdding] = useState(false);
     const [newNoteText, setNewNoteText] = useState("");
 
@@ -97,7 +98,7 @@ export default function Corkboard({ externalNotes, setNotes, onPromote, onArchiv
                             autoFocus
                             value={newNoteText}
                             onChange={(e) => setNewNoteText(e.target.value)}
-                            placeholder="What's on the mind, Michael? Type it out..."
+                            placeholder={`What's on the mind, ${userName || 'User'}? Type it out...`}
                             className="w-full h-32 bg-transparent text-black font-medium text-lg outline-none resize-none placeholder:text-black/20 font-handwriting"
                         />
                         <div className="flex gap-4 mt-4">

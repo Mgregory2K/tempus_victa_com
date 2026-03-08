@@ -28,6 +28,7 @@ export default function ReadyRoom({
     searchKey,
     geminiKey,
     assistantName,
+    userName,
     initialMessage,
     onContextConsumed
 }: {
@@ -37,6 +38,7 @@ export default function ReadyRoom({
     searchKey: string,
     geminiKey: string,
     assistantName: string,
+    userName?: string,
     initialMessage?: string | null,
     onContextConsumed?: () => void
 }) {
@@ -92,6 +94,7 @@ export default function ReadyRoom({
                     message: text,
                     history: externalMessages.slice(-10),
                     assistantName,
+                    userName,
                     aiEnhanced: isProtocolActive || isBrainstorm,
                     apiKey,
                     searchKey,
@@ -241,7 +244,7 @@ export default function ReadyRoom({
                             } transition-all relative`}>
                                 <div className="flex justify-between items-center mb-2 gap-4">
                                     <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>
-                                        {msg.role === 'user' ? 'Michael // Root' : (msg.sourceLayer || 'Neural_Substrate')}
+                                        {msg.role === 'user' ? `${userName || 'User'} // Root` : (msg.sourceLayer || 'Neural_Substrate')}
                                     </span>
                                     <span className="text-[6px] text-white/20 font-bold">{new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                                 </div>

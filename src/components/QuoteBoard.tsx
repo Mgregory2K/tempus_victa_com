@@ -17,9 +17,10 @@ interface Quote {
 interface QuoteBoardProps {
     externalQuotes?: Quote[];
     setQuotes?: React.Dispatch<React.SetStateAction<Quote[]>>;
+    userName?: string;
 }
 
-export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProps) {
+export default function QuoteBoard({ externalQuotes, setQuotes, userName }: QuoteBoardProps) {
     const [input, setInput] = useState("");
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState("");
@@ -27,8 +28,8 @@ export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProp
 
     const defaultQuotes: Quote[] = [
         { id: '1', text: "The modern human does not suffer from a lack of tools. The modern human suffers from fragmentation.", author: "Tempus Victa Doctrine", timestamp: "Oct 24, 2024", isSynced: true },
-        { id: '2', text: "Sovereignty is leverage.", author: "Michael", timestamp: "Oct 23, 2024", context: "Ready Room Protocol Discussion", isSynced: true },
-        { id: '3', text: "Magic first, mathematics second.", author: "Twin+", timestamp: "Oct 22, 2024", isSynced: false },
+        { id: '2', text: "Sovereignty is leverage.", author: "Sovereign", timestamp: "Oct 23, 2024", context: "Ready Room Protocol Discussion", isSynced: true },
+        { id: '3', text: "Magic first, mathematics second.", author: "J5", timestamp: "Oct 22, 2024", isSynced: false },
     ];
 
     const quotes = externalQuotes || defaultQuotes;
@@ -39,7 +40,7 @@ export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProp
         const newQuote: Quote = {
             id: Date.now().toString(),
             text: input,
-            author: "Michael",
+            author: userName || "Sovereign",
             timestamp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             isSynced: false
         };
@@ -49,8 +50,7 @@ export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProp
         }
         setInput("");
 
-        // FIX: Corrected event type to 'QUOTE_CAPTURED'
-        twinPlusKernel.observe(createEvent('QUOTE_CAPTURED', { text: input }, 'QUOTES'));
+        twinPlusKernel.observe(createEvent('QUOTE_CAPTURED', { text: input, author: newQuote.author }, 'QUOTES'));
 
         // Push to Notion Bridge if key exists
         const notionKey = localStorage.getItem("tv_notion_key");
@@ -63,7 +63,7 @@ export default function QuoteBoard({ externalQuotes, setQuotes }: QuoteBoardProp
                     body: JSON.stringify({
                         type: 'CRYSTALLIZED_QUOTE',
                         content: input,
-                        author: "Michael",
+                        author: newQuote.author,
                         notionKey
                     })
                 });

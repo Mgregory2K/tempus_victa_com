@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.5.0-SOVEREIGN";
+const VERSION = "2.6.0-SOVEREIGN";
 
 export interface Message {
   id: string;
@@ -111,7 +111,7 @@ function AppShell() {
   const [searchKey, setSearchKey] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
   const [notionKey, setNotionKey] = useState("");
-  const [assistantName, setAssistantName] = useState("Twin+");
+  const [assistantName, setAssistantName] = useState("J5");
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
@@ -200,7 +200,7 @@ function AppShell() {
     setSearchKey(storage.getItem("tv_search_key") || "");
     setGeminiKey(storage.getItem("tv_gemini_key") || "");
     setNotionKey(storage.getItem("tv_notion_key") || "");
-    setAssistantName(storage.getItem("tv_assistant_name") || "Twin+");
+    setAssistantName(storage.getItem("tv_assistant_name") || "J5");
     setMicPos(JSON.parse(storage.getItem("tv_mic_pos") || '{"x":0, "y":0}'));
 
     try {
@@ -230,7 +230,7 @@ function AppShell() {
   // 🧬 UNIVERSAL INGEST (THE OBSERVER)
   const handleUniversalIngest = (text: string, options: { isFromBrainstorm?: boolean, skipTask?: boolean } = {}) => {
     const ts = new Date().toISOString();
-    const userEmail = session?.user?.email || "Michael";
+    const userIdentifier = session?.user?.name || session?.user?.email || "User";
 
     // 👁️ OBSERVE
     twinPlusKernel.observe(createEvent('UNIVERSAL_INGEST', { text, options }, 'INGEST_SURFACE'));
@@ -239,9 +239,9 @@ function AppShell() {
         setInitialReadyRoomMessage(text);
         setActiveModule('READY_ROOM');
     } else if (text.toLowerCase().includes("cork")) {
-        setNotes(prev => [{ id: Date.now().toString(), text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80', owner: userEmail }, ...prev]);
+        setNotes(prev => [{ id: Date.now().toString(), text, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80', owner: userIdentifier }, ...prev]);
     } else if (!options.skipTask) {
-        setTasks(prev => [{ id: Date.now().toString(), title: text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY', created_at: ts, owner: userEmail }, ...prev]);
+        setTasks(prev => [{ id: Date.now().toString(), title: text, priority: 'MED', status: 'TODO', source: 'WORKING_MEMORY', created_at: ts, owner: userIdentifier }, ...prev]);
     }
 
     // Auto-trigger push after major change
@@ -255,13 +255,15 @@ function AppShell() {
 
   const submitWish = (text: string) => {
     if (!text.trim()) return;
-    const wish = { id: Date.now().toString(), text, status: 'PENDING', created_at: new Date().toISOString(), user: session?.user?.email };
+    const wish = { id: Date.now().toString(), text, status: 'PENDING', created_at: new Date().toISOString(), user: session?.user?.name || session?.user?.email };
     setWishes(prev => [wish, ...prev]);
     twinPlusKernel.observe(createEvent('WISH_SUBMITTED', { text }, 'CONFIG'));
     handleCloudSync('PUSH');
   };
 
   if (!hasMounted) return null;
+
+  const userName = session?.user?.name || "User";
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-black text-white p-0 md:p-2 selection:bg-accent/30 font-sans uppercase text-[10px] flex flex-col" onMouseMove={onMicDrag} onMouseUp={stopMicDrag} onTouchMove={onMicDrag} onTouchEnd={stopMicDrag}>
@@ -314,12 +316,12 @@ function AppShell() {
           <main className="flex-grow overflow-hidden relative">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
               {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} onQuickTask={(text) => handleUniversalIngest(text)} onSnooze={handleSnoozeTask} /></div>}
-              {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} initialMessage={initialReadyRoomMessage} onContextConsumed={() => setInitialReadyRoomMessage(null)} /></div>}
+              {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={setMessages} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} userName={userName} initialMessage={initialReadyRoomMessage} onContextConsumed={() => setInitialReadyRoomMessage(null)} /></div>}
               {activeModule === "SIGNAL_BAY" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
               {activeModule === "PROJECTS" && <div className="module-enter h-full"><ProjectBoard externalTasks={tasks} setTasks={setTasks} /></div>}
               {activeModule === "WINBOARD" && <div className="module-enter h-full"><Winboard externalTasks={tasks} setExternalTasks={setTasks} /></div>}
-              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => { setNotes(prev => prev.filter(x => x.id !== id)); twinPlusKernel.observe(createEvent('NOTE_ARCHIVED', { id }, 'CORKBOARD')); }} onBrainstorm={(text) => { handleUniversalIngest(text, { isFromBrainstorm: true, skipTask: true }); }} /></div>}
-              {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} /></div>}
+              {activeModule === "CORKBOARD" && <div className="module-enter h-full"><Corkboard externalNotes={notes} setNotes={setNotes} userName={userName} onPromote={(id) => { const n = notes.find(x => x.id === id); if(n) { setTasks(prev => [...prev, {id: n.id, title: n.text, status: 'TODO', priority: 'HIGH', source: 'CORKBOARD'}]); setNotes(prev => prev.filter(x => x.id !== id)); setActiveModule('PROJECTS'); } }} onArchive={(id) => { setNotes(prev => prev.filter(x => x.id !== id)); twinPlusKernel.observe(createEvent('NOTE_ARCHIVED', { id }, 'CORKBOARD')); }} onBrainstorm={(text) => { handleUniversalIngest(text, { isFromBrainstorm: true, skipTask: true }); }} /></div>}
+              {activeModule === "QUOTES" && <div className="module-enter h-full"><QuoteBoard externalQuotes={quotes} setQuotes={setQuotes} userName={userName} /></div>}
               {activeModule === "CLOCK_TOWER" && <div className="module-enter h-full"><ClockTower onNavigate={(m) => setActiveModule(m as any)} /></div>}
               {activeModule === "MIRROR" && <div className="module-enter h-full"><IdentityMirror /></div>}
               {activeModule === "WISHES" && <div className="module-enter h-full"><WishBoard wishes={wishes} onWish={submitWish} /></div>}
