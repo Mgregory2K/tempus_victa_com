@@ -9,7 +9,7 @@ interface Task {
     id: string;
     title: string;
     priority: 'HIGH' | 'MED' | 'LOW';
-    status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'DONE';
+    status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'DONE' | 'SNOOZED';
     source: string;
     completed_at?: string;
 }
