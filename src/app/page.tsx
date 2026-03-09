@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "2.7.2-SOVEREIGN";
+const VERSION = "2.7.3-SOVEREIGN";
 
 export interface Message {
   id: string;
@@ -119,7 +119,6 @@ function AppShell() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
 
-  const [showDailyBrief, setShowDailyBrief] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [initialReadyRoomMessage, setInitialReadyRoomMessage] = useState<string | null>(null);
@@ -133,8 +132,10 @@ function AppShell() {
   const ADMIN_EMAILS = ["michael.gregory1@gmail.com", "stewart.jared@gmail.com", "michael@tempusvicta.com"];
   const isMichaelAdmin = session?.user?.email ? ADMIN_EMAILS.includes(session.user.email.toLowerCase()) : false;
 
-  // 🧬 SYNC ENGINE v2.5 (ALBANIAN BRIEFCASE)
+  // 🧬 SYNC ENGINE v2.6 (LOOP-RESISTANT)
   const syncDataRef = useRef({ tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName } });
+  const isSyncingRef = useRef(false);
+  const hasPulledRef = useRef(false);
   const lastSyncHash = useRef("");
 
   useEffect(() => {
@@ -158,8 +159,11 @@ function AppShell() {
   };
 
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL') => {
-    if (!session || isSyncing) return;
+    if (!session || isSyncingRef.current) return;
+
+    isSyncingRef.current = true;
     setIsSyncing(true);
+
     try {
         if (direction === 'PUSH') {
             const payload = {
@@ -192,18 +196,23 @@ function AppShell() {
                 }
             }
         }
-    } catch (e) { console.error("Sync Failure", e); } finally { setIsSyncing(false); }
-  }, [session, isSyncing]);
+    } catch (e) { console.error("Sync Failure", e); }
+    finally {
+        isSyncingRef.current = false;
+        setIsSyncing(false);
+    }
+  }, [session]);
 
   useEffect(() => {
     if (status !== 'authenticated') return;
-    const interval = setInterval(() => handleCloudSync('PUSH'), 30000);
+    const interval = setInterval(() => handleCloudSync('PUSH'), 60000);
     return () => clearInterval(interval);
   }, [status, handleCloudSync]);
 
   useEffect(() => {
     setHasMounted(true);
     const storage = status === 'authenticated' ? localStorage : sessionStorage;
+
     setApiKey(storage.getItem("tv_api_key") || "");
     setSearchKey(storage.getItem("tv_search_key") || "");
     setGeminiKey(storage.getItem("tv_gemini_key") || "");
@@ -219,10 +228,12 @@ function AppShell() {
         setWishes(JSON.parse(storage.getItem("tv_wishes") || "[]"));
     } catch (e) {}
 
-    if (status === 'authenticated') handleCloudSync('PULL');
+    if (status === 'authenticated' && !hasPulledRef.current) {
+        hasPulledRef.current = true;
+        handleCloudSync('PULL');
+    }
   }, [status, handleCloudSync]);
 
-  // 🎤 DRAGGABLE MIC HANDLERS
   const onMicDrag = (e: React.MouseEvent | React.TouchEvent) => {
       if (!isDraggingMic.current) return;
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -240,7 +251,7 @@ function AppShell() {
     const wish = { id: Date.now().toString(), text, status: 'PENDING', timestamp: new Date().toISOString(), user: session?.user?.name || session?.user?.email };
     setWishes(prev => [wish, ...prev]);
     twinPlusKernel.observe(createEvent('WISH_SUBMITTED', { text }, 'CONFIG'));
-    setTimeout(() => handleCloudSync('PUSH'), 500);
+    setTimeout(() => handleCloudSync('PUSH'), 1000);
   };
 
   const handleUniversalIngest = (text: string, options: { isFromBrainstorm?: boolean, skipTask?: boolean, targetBoard?: 'PROJECTS' | 'TODO' } = {}) => {
