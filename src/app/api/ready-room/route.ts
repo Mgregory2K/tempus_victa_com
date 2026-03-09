@@ -3,19 +3,22 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 /**
- * J5 INTELLIGENCE DOCTRINE v3.3 - ITALY PROTOCOL EDITION
- * J5 climbs the ladder with strict "Persona Fidelity" and Humane Source Attribution.
+ * J5 INTELLIGENCE DOCTRINE v3.4 - ESCALATION RECOVERY EDITION
+ * Objective: Ensure J5 remains useful even without a Neural Link (API Key).
+ * Logic: Level 0 (Local) -> Level 1 (Public Scout/DDG) -> Level 2 (Neural Strike).
  */
 
 async function getPublicScoutSearch(query: string) {
     try {
+        // Primary: DuckDuckGo Abstract API
         const ddgRes = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
         const ddgData = await ddgRes.json();
 
         if (ddgData.AbstractText) {
-            return { answer: ddgData.AbstractText, source: "Public Airwaves" };
+            return { answer: ddgData.AbstractText, source: "Public Airwaves (DDG)" };
         }
 
+        // Secondary: Google News RSS for current events
         const rssRes = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`);
         const rssText = await rssRes.text();
         const firstMatch = rssText.match(/<item>.*?<title>(.*?)<\/title>.*?<description>(.*?)<\/description>/);
@@ -72,19 +75,22 @@ export async function POST(req: Request) {
     }
 
     // 🪜 LEVEL 1: PUBLIC SCOUT (FREE INTERNET)
-    const factualTriggers = ["who is", "what is", "where is", "when is", "wikipedia", "news", "status", "hobby lobby", "address", "birthday", "location"];
-    const isFactualQuery = factualTriggers.some(t => lowMsg.includes(t));
+    // We broaden the factual triggers to include almost any request for information
+    const searchTriggers = ["who", "what", "where", "when", "why", "how", "wikipedia", "news", "status", "hobby lobby", "address", "birthday", "location", "find", "search"];
+    const isSearchQuery = searchTriggers.some(t => lowMsg.includes(t)) || lowMsg.length > 30; // Longer queries often need intel
 
     let scoutData = null;
-    if (isFactualQuery && !protocolParams) {
+    if (isSearchQuery && !protocolParams) {
         scoutData = await getPublicScoutSearch(message);
-        if (scoutData && !aiEnhanced) {
-            return NextResponse.json({
-                role: 'assistant',
-                content: `${scoutData.answer}\n\n(Source: ${scoutData.source})`,
-                sourceLayer: "Public Scout"
-            });
-        }
+    }
+
+    // If we have scout data AND (no API key OR not enhanced), deliver it immediately.
+    if (scoutData && (!apiKey || !aiEnhanced)) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: `${scoutData.answer}\n\n(Source: ${scoutData.source})`,
+            sourceLayer: "Public Scout"
+        });
     }
 
     // 🪜 LEVEL 2: NEURAL STRIKE (AI OPT-IN / PROTOCOL / DOCTRINE)
@@ -109,7 +115,7 @@ export async function POST(req: Request) {
 # BASELINE DNA: Calm, capable, and playful. Match tone. Not a robotic chatbot.
 # J5_PERSONALITY: You are a stable, inspectable, user-centered intelligence. You help convert information into signal, signal into judgment, and judgment into next moves.
 # CONSTRAINTS: Use user lexicon: ${topWords}. Directness: ${profile.directness}.
-# RESEARCH_INTEL: ${scoutData?.answer || "None."}
+# RESEARCH_INTEL: ${scoutData?.answer || "None found on public airwaves."}
             `;
         }
 
@@ -130,6 +136,7 @@ export async function POST(req: Request) {
                 sourceLayer: protocolParams ? "Simulation Mode" : "Neural Strike"
             });
         } catch (e) {
+            // Internal fallback to scout data if the neural strike fails
             if (scoutData) {
                 return NextResponse.json({
                     role: 'assistant',
@@ -140,7 +147,15 @@ export async function POST(req: Request) {
         }
     }
 
-    // 🪜 FINAL FALLBACK
+    // 🪜 FINAL FALLBACK (If no keys and no scout results found)
+    if (scoutData) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: `${scoutData.answer}\n\n(Source: ${scoutData.source})`,
+            sourceLayer: "Public Scout"
+        });
+    }
+
     return NextResponse.json({
         role: 'assistant',
         content: `I'm tracking that, ${name}. I'm currently running on the local briefcase. For deeper synthesis or real-world access, we should enable the neural link in settings.`,

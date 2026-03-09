@@ -22,7 +22,11 @@ export type TwinEventType =
   | 'WISH_SUBMITTED'
   | 'DAILY_BRIEF_VIEWED'
   | 'DAILY_BRIEF_DISMISSED'
-  | 'TIMELINE_DISMISSED';
+  | 'TIMELINE_DISMISSED'
+  | 'EXERCISE_STARTED'
+  | 'EXERCISE_COMPLETED'
+  | 'MOTOR_CALIBRATION'
+  | 'COGNITIVE_SCORE';
 
 /**
  * Defines the schema for a TwinEvent.

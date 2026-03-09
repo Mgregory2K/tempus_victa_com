@@ -1,42 +1,120 @@
 // src/app/api/admin/council/route.ts
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getToken } from 'next-auth/jwt';
+import { google } from 'googleapis';
 
 /**
- * SHARED SOVEREIGN COUNCIL API v1.1
- * Diagnostics: Added console logging for server-side debugging.
- * Resilience: Moved file to root to bypass directory permission issues.
+ * SOVEREIGN COUNCIL API v3.4
+ * Objective: Manage the high council (admins) and mind-link collaborators.
+ * Storage: tv_shared_registry.json in appDataFolder.
  */
 
-const COUNCIL_FILE = path.join(process.cwd(), 'authorized_council.json');
+async function getRegistry(drive: any) {
+    const list = await drive.files.list({
+        spaces: 'appDataFolder',
+        q: "name = 'tv_shared_registry.json'",
+        fields: 'files(id, name)',
+    });
 
-export async function GET() {
+    const file = list.data.files?.[0];
+    if (!file) return { admins: [], collaborators: [] };
+
+    const content = await drive.files.get({
+        fileId: file.id!,
+        alt: 'media',
+    });
+    return content.data;
+}
+
+async function saveRegistry(drive: any, data: any) {
+    const list = await drive.files.list({
+        spaces: 'appDataFolder',
+        q: "name = 'tv_shared_registry.json'",
+        fields: 'files(id, name)',
+    });
+
+    const file = list.data.files?.[0];
+    const media = {
+        mimeType: 'application/json',
+        body: JSON.stringify(data),
+    };
+
+    if (file) {
+        await drive.files.update({ fileId: file.id!, media: media });
+    } else {
+        await drive.files.create({
+            requestBody: { name: 'tv_shared_registry.json', parents: ['appDataFolder'] },
+            media: media,
+        });
+    }
+}
+
+export async function GET(req: Request) {
+    const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
+    if (!token || !token.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    auth.setCredentials({ access_token: token.accessToken as string });
+    const drive = google.drive({ version: 'v3', auth });
+
     try {
-        if (!fs.existsSync(COUNCIL_FILE)) {
-            console.log("[COUNCIL]: File missing. Initializing empty.");
-            return NextResponse.json([]);
+        const registry = await getRegistry(drive);
+        // Fallback to env admins if registry is empty
+        if (registry.admins.length === 0) {
+            const envAdmins = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+            registry.admins = envAdmins;
         }
-        const data = fs.readFileSync(COUNCIL_FILE, 'utf8');
-        return NextResponse.json(JSON.parse(data));
-    } catch (e: any) {
-        console.error("[COUNCIL ERROR]:", e.message);
-        return NextResponse.json([], { status: 500 });
+        return NextResponse.json(registry);
+    } catch (e) {
+        return NextResponse.json({ error: 'Failed to fetch registry' }, { status: 500 });
     }
 }
 
 export async function POST(req: Request) {
+    const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
+    if (!token || !token.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json();
+    const { action, email, type } = body; // action: ADD|REMOVE, type: ADMIN|COLLABORATOR
+
+    const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    auth.setCredentials({ access_token: token.accessToken as string });
+    const drive = google.drive({ version: 'v3', auth });
+
     try {
-        const body = await req.json();
-        const { emails } = body;
+        const registry = await getRegistry(drive);
 
-        if (!Array.isArray(emails)) return NextResponse.json({ error: 'Invalid format' }, { status: 400 });
+        // Root Authority Fallback
+        if (registry.admins.length === 0) {
+            registry.admins = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+        }
 
-        fs.writeFileSync(COUNCIL_FILE, JSON.stringify(emails.map(e => e.toLowerCase().trim()), null, 2));
-        console.log("[COUNCIL]: Update Successful.");
-        return NextResponse.json({ success: true });
-    } catch (e: any) {
-        console.error("[COUNCIL ERROR]:", e.message);
-        return NextResponse.json({ error: 'Sovereign Write Failure' }, { status: 500 });
+        // Security: Only current admins can modify the council
+        if (!registry.admins.includes(token.email?.toLowerCase())) {
+            return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+        }
+
+        const targetEmail = email.toLowerCase().trim();
+
+        if (type === 'ADMIN') {
+            if (action === 'ADD') {
+                if (!registry.admins.includes(targetEmail)) registry.admins.push(targetEmail);
+            } else {
+                registry.admins = registry.admins.filter((e: string) => e !== targetEmail);
+            }
+        } else if (type === 'COLLABORATOR') {
+            if (action === 'ADD') {
+                if (!registry.collaborators.find((c: any) => c.email === targetEmail)) {
+                    registry.collaborators.push({ email: targetEmail, role: 'EDITOR', addedAt: new Date().toISOString() });
+                }
+            } else {
+                registry.collaborators = registry.collaborators.filter((c: any) => c.email !== targetEmail);
+            }
+        }
+
+        await saveRegistry(drive, registry);
+        return NextResponse.json(registry);
+    } catch (e) {
+        return NextResponse.json({ error: 'Failed to update registry' }, { status: 500 });
     }
 }

@@ -37,7 +37,6 @@ class TwinPlusKernel {
   public async init(): Promise<void> {
     if (this.isInitialized) return;
 
-    // Ordered instantiation
     this.ledger = await TwinEventLedger.open();
     this.prefs = await TwinPreferenceLedger.open();
     this.features = await TwinFeatureStore.open(this.prefs);
@@ -53,31 +52,46 @@ class TwinPlusKernel {
     }
 
     this.observe(createEvent('ENTROPY_REDUCED', { action: 'KERNEL_INIT' }, 'SYSTEM'));
+
+    // Initial Signal Scan
+    this.scanExternalNodes();
   }
 
   /**
-   * High-Fidelity Merge: Combines remote mind state with local substrate.
-   * v3.2.2 - TEMPORAL_INTEGRITY
+   * SCAN_EXTERNAL_NODES v3.4 - GMAIL/SHEETS INGESTION
+   * J5 polls the newly enabled APIs to surface life signals.
    */
+  public async scanExternalNodes() {
+      if (typeof window === 'undefined') return;
+      try {
+          const res = await fetch('/api/signals');
+          if (res.ok) {
+              const data = await res.json();
+              this.observe(createEvent('EXTERNAL_SIGNALS_POLLED', data, 'EXTERNAL_NODE'));
+
+              // If high-value signals exist, notify the Identity Mirror for potential Bridge summary
+              if (data.gmail?.unreadCount > 0) {
+                  console.log(`J5: Tracking ${data.gmail.unreadCount} unread signals in primary inbox.`);
+              }
+          }
+      } catch (e) {
+          console.error("Signal bay handshake failed.");
+      }
+  }
+
   public async hydrate(remoteLedger: any): Promise<void> {
     if (!this.isInitialized) await this.init();
 
-    // 1. Merge the Ledger (Event History)
     if (remoteLedger.eventHistory) {
         this.ledger.merge(remoteLedger.eventHistory);
     }
 
-    // 2. Re-process the Mind (Rebuild Features/Identity from the combined ledger)
     const allEvents = this.ledger.query({});
-    // Reset identity to baseline before re-applying to ensure consistency
-    // Note: In a full implementation, we might want to smart-merge the graph instead of full re-processing
     allEvents.forEach(e => this.features.apply(e));
 
-    // 3. Merge Preferences
     if (remoteLedger.preferences) {
         Object.entries(remoteLedger.preferences).forEach(([k, v]: [string, any]) => {
             const local = this.prefs.getPreference(k);
-            // Bias towards the most recent update
             if (!local || new Date(v.lastUpdated) > new Date((local as any).lastUpdated)) {
                 this.prefs.setPreference(k, v.value, v);
             }

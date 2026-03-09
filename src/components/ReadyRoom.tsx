@@ -13,6 +13,7 @@ interface Message {
   sourceLayer?: string;
   vote?: number | null;
   wrongSource?: boolean;
+  isPageBreak?: boolean;
 }
 
 interface ProtocolConfig {
@@ -130,6 +131,36 @@ export default function ReadyRoom({
         }
     };
 
+    const insertPageBreak = () => {
+        const breakMsg: Message = {
+            id: `break-${Date.now()}`,
+            role: 'system',
+            content: '--- CONVERSATION_LOG_PAGE_BREAK ---',
+            timestamp: new Date().toISOString(),
+            isPageBreak: true
+        };
+        setExternalMessages(prev => [...prev, breakMsg]);
+        twinPlusKernel.observe(createEvent('READY_ROOM_PAGE_BREAK', {}, 'READY_ROOM'));
+    };
+
+    const exportLastSegment = () => {
+        // Find the index of the last page break
+        const lastBreakIndex = [...externalMessages].reverse().findIndex(m => m.isPageBreak);
+        const actualIndex = lastBreakIndex === -1 ? 0 : externalMessages.length - lastBreakIndex;
+
+        const segment = externalMessages.slice(actualIndex);
+        if (segment.length === 0) return;
+
+        const textContent = segment.map(m => `[${new Date(m.timestamp).toLocaleString()}] ${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+        const blob = new Blob([textContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ready_room_export_${new Date().toISOString().split('T')[0]}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     const invokeProtocol = () => {
         setMatrixStage('ENTERING');
         setProtocolConfig({
@@ -146,15 +177,13 @@ export default function ReadyRoom({
     };
 
     const exitProtocol = async () => {
-        // Trigger the Moderator's Summary before closing
         handleSend("[SYSTEM_SIGNAL]: Summarize the key insights of this protocol session and frame the next strategic move.");
-
         setMatrixStage('EXITING');
         setTimeout(() => {
             setIsProtocolActive(false);
             setProtocolConfig(null);
             setMatrixStage('IDLE');
-        }, 4000); // 4 seconds of Matrix Rain transition to allow summary delivery
+        }, 4000);
     };
 
     const renderContent = (content: string) => {
@@ -233,6 +262,8 @@ export default function ReadyRoom({
                     </span>
                 </div>
                 <div className="flex gap-2">
+                    <button onClick={insertPageBreak} className="px-3 py-1.5 border border-white/10 system-text text-[7px] font-black text-white/40 hover:text-accent hover:border-accent transition-all uppercase">Page Break</button>
+                    <button onClick={exportLastSegment} className="px-3 py-1.5 border border-white/10 system-text text-[7px] font-black text-white/40 hover:text-accent hover:border-accent transition-all uppercase">Export</button>
                     <button onClick={() => setForceLocal(!forceLocal)} className={`px-3 py-1.5 border system-text text-[7px] font-black transition-all ${forceLocal ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-white/10 text-white/20'}`}>Local Only</button>
                     <button onClick={isProtocolActive ? exitProtocol : invokeProtocol} className={`px-4 py-1.5 border system-text text-[8px] font-black transition-all ${isProtocolActive ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-accent text-accent bg-accent/5 hover:bg-accent hover:text-black shadow-[0_0_15px_rgba(0,212,255,0.15)]'}`}>
                         {isProtocolActive ? "TERMINATE_PROTOCOL" : "INVOKE_PROTOCOL"}
@@ -243,23 +274,31 @@ export default function ReadyRoom({
             {/* Messages Feed */}
             <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 md:p-8 space-y-8 scrollbar-thin bg-black/20">
                 {externalMessages.map((msg) => (
-                    <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-slide-up`}>
-                        <div className="group relative max-w-[85%] md:max-w-[70%]">
-                            <div className={`p-4 rounded-2xl border ${
-                                msg.role === 'user' ? 'bg-accent/10 border-accent/30 rounded-tr-none' : 'bg-white/[0.03] border-white/10 rounded-tl-none'
-                            } transition-all relative`}>
-                                <div className="flex justify-between items-center mb-2 gap-4">
-                                    <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>
-                                        {msg.role === 'user' ? `${userName || 'User'} // Root` : (msg.sourceLayer || 'Neural_Substrate')}
-                                    </span>
-                                    <span className="text-[6px] text-white/20 font-bold">{new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                                </div>
-                                <div className={`text-[12px] font-medium leading-relaxed tracking-wide text-white/90 whitespace-pre-wrap ${msg.sourceLayer === 'PROTOCOL_SIMULATION' ? 'italic border-l-2 border-accent/20 pl-4 py-2 bg-accent/[0.02]' : ''}`}>
-                                    {renderContent(msg.content)}
+                    msg.isPageBreak ? (
+                        <div key={msg.id} className="flex items-center gap-4 py-4">
+                            <div className="flex-grow h-px bg-white/10" />
+                            <span className="system-text text-[8px] text-white/20 font-black tracking-[0.5em] uppercase">Page Break // Session Segment</span>
+                            <div className="flex-grow h-px bg-white/10" />
+                        </div>
+                    ) : (
+                        <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-slide-up`}>
+                            <div className="group relative max-w-[85%] md:max-w-[70%]">
+                                <div className={`p-4 rounded-2xl border ${
+                                    msg.role === 'user' ? 'bg-accent/10 border-accent/30 rounded-tr-none' : 'bg-white/[0.03] border-white/10 rounded-tl-none'
+                                } transition-all relative`}>
+                                    <div className="flex justify-between items-center mb-2 gap-4">
+                                        <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>
+                                            {msg.role === 'user' ? `${userName || 'User'} // Root` : (msg.sourceLayer || 'Neural_Substrate')}
+                                        </span>
+                                        <span className="text-[6px] text-white/20 font-bold">{new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                    <div className={`text-[12px] font-medium leading-relaxed tracking-wide text-white/90 whitespace-pre-wrap ${msg.sourceLayer === 'PROTOCOL_SIMULATION' ? 'italic border-l-2 border-accent/20 pl-4 py-2 bg-accent/[0.02]' : ''}`}>
+                                        {renderContent(msg.content)}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )
                 ))}
                 {isTyping && <div className="flex items-center gap-2 opacity-40 animate-pulse ml-4"><div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce" /></div>}
             </div>
