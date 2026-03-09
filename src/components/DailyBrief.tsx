@@ -4,6 +4,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
+export interface CalendarEvent {
+    id: string;
+    summary: string;
+    start: { dateTime?: string; date?: string };
+    end: { dateTime?: string; date?: string };
+    htmlLink?: string;
+}
+
 interface DailyBriefProps {
     tasks?: any[];
     apiKey?: string;
