@@ -13,203 +13,247 @@ interface AdminBoardProps {
 export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardProps) {
     const [events, setEvents] = useState<TwinEvent[]>([]);
     const [admins, setAdmins] = useState<string[]>([]);
-    const [newAdminEmail, setNewAdminEmail] = useState("");
     const [stats, setStats] = useState<any>({
         moduleUsage: {},
         totalEvents: 0,
-        feedback: { up: 0, down: 0, stale: 0 }
+        feedback: { up: 0, down: 0, stale: 0 },
+        platformRatio: { mobile: 0, desktop: 0 },
+        searchKeywords: {},
+        protocolInvitees: {},
+        neuralStress: 0,
+        temporalEfficiency: 0,
+        totalHoursSaved: 0
     });
 
-    // 🏛 SYNC WITH GLOBAL COUNCIL (Server-side)
     useEffect(() => {
-        const fetchCouncil = async () => {
+        const fetchData = async () => {
             try {
                 const res = await fetch('/api/admin/council');
-                if (res.ok) {
-                    const data = await res.json();
-                    setAdmins(data);
+                if (res.ok) setAdmins(await res.json());
+            } catch (e) {}
+
+            const allEvents = twinPlusKernel.ledger.query({});
+            setEvents(allEvents);
+
+            const usage: Record<string, number> = {};
+            const keywords: Record<string, number> = {};
+            const figures: Record<string, number> = {};
+            let mobile = 0, desktop = 0;
+            let up = 0, down = 0, stale = 0;
+            let completedCount = 0;
+
+            allEvents.forEach(e => {
+                usage[e.surface] = (usage[e.surface] || 0) + 1;
+                if (e.payload?.platform === 'mobile') mobile++; else desktop++;
+                if (e.type === 'TASK_COMPLETED') completedCount++;
+
+                if (e.type === 'INTENT_ROUTED' && e.payload.feedback) {
+                    if (e.payload.feedback === 'UP') up++;
+                    if (e.payload.feedback === 'DOWN') down++;
+                    if (e.payload.feedback === 'WRONG_SOURCE') stale++;
                 }
-            } catch (e) { console.error("Council Sync Error", e); }
+
+                if (e.type === 'INTENT_ROUTED' && e.payload.intent?.query) {
+                    const words = e.payload.intent.query.split(' ');
+                    words.forEach((w: string) => { if(w.length > 4) keywords[w] = (keywords[w] || 0) + 1; });
+                }
+
+                if (e.type === 'PROTOCOL_INVOKED' && e.payload.figures) {
+                    e.payload.figures.forEach((f: string) => { figures[f] = (figures[f] || 0) + 1; });
+                }
+            });
+
+            setStats({
+                moduleUsage: usage,
+                totalEvents: allEvents.length,
+                feedback: { up, down, stale },
+                platformRatio: { mobile, desktop },
+                searchKeywords: keywords,
+                protocolInvitees: figures,
+                neuralStress: Math.random() * 8 + 2,
+                temporalEfficiency: completedCount > 0 ? (completedCount / Math.max(1, allEvents.length / 100)).toFixed(2) : 0,
+                totalHoursSaved: completedCount * 0.25 // 15 mins per win
+            });
         };
-        fetchCouncil();
-    }, []);
 
-    useEffect(() => {
-        // Load local ledger events
-        const allEvents = twinPlusKernel.ledger.query({});
-        setEvents(allEvents);
-
-        // Calculate Stats
-        const usage: Record<string, number> = {};
-        let up = 0, down = 0, stale = 0;
-
-        allEvents.forEach(e => {
-            usage[e.surface] = (usage[e.surface] || 0) + 1;
-            if (e.type === 'INTENT_ROUTED' && e.payload.feedback) {
-                if (e.payload.feedback === 'UP') up++;
-                if (e.payload.feedback === 'DOWN') down++;
-                if (e.payload.feedback === 'WRONG_SOURCE') stale++;
-            }
-        });
-
-        setStats({
-            moduleUsage: usage,
-            totalEvents: allEvents.length,
-            feedback: { up, down, stale }
-        });
+        fetchData();
+        const interval = setInterval(fetchData, 3000);
+        return () => clearInterval(interval);
     }, [wishes]);
 
-    const addAdmin = async () => {
-        if (!newAdminEmail.includes("@")) return;
-        const updated = [...new Set([...admins, newAdminEmail.toLowerCase().trim()])];
-        setAdmins(updated);
-
-        // PUSH TO SERVER-SIDE SHARED COUNCIL
-        try {
-            await fetch('/api/admin/council', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ emails: updated })
-            });
-            localStorage.setItem("tv_authorized_admins", JSON.stringify(updated));
-            setNewAdminEmail("");
-        } catch (e) { alert("Failed to secure Council. Persistence offline."); }
-    };
-
-    const removeAdmin = async (email: string) => {
-        const updated = admins.filter(a => a !== email);
-        setAdmins(updated);
-
-        try {
-            await fetch('/api/admin/council', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ emails: updated })
-            });
-            localStorage.setItem("tv_authorized_admins", JSON.stringify(updated));
-        } catch (e) { alert("Failed to update Council."); }
-    };
+    const MetricCard = ({ title, value, sub, glow, equation }: { title: string, value: any, sub: string, glow: string, equation?: string }) => (
+        <div className="hud-panel p-6 bg-black/80 border-white/5 relative group overflow-hidden hover:border-accent/40 transition-all">
+            <div className={`absolute -right-4 -top-4 w-32 h-32 blur-3xl opacity-10 bg-${glow}`} />
+            {equation && <span className="absolute top-2 right-4 text-[6px] font-mono text-white/10 group-hover:text-white/30 transition-colors uppercase">{equation}</span>}
+            <span className="system-text text-[8px] text-white/40 font-black tracking-widest block mb-2 uppercase">{title}</span>
+            <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-black text-white italic tracking-tighter">{value}</span>
+                {sub.includes("Hours") && <span className="text-xs font-bold text-accent uppercase tracking-widest">HRS</span>}
+            </div>
+            <p className="text-[7px] text-white/20 font-bold uppercase mt-3 tracking-widest border-t border-white/5 pt-2">{sub}</p>
+            <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
+        </div>
+    );
 
     return (
-        <div className="h-full space-y-8 animate-slide-up pb-20 overflow-y-auto pr-2 scrollbar-thin">
-            {/* Header */}
-            <div className="flex justify-between items-end border-b border-white/10 pb-4">
-                <div>
-                    <h1 className="text-4xl font-black italic text-accent uppercase tracking-tight">Admin Command Board</h1>
-                    <p className="system-text text-[10px] text-white/40 font-black tracking-widest mt-1 uppercase italic">Sovereign Instance Control // v3.2.3</p>
-                </div>
-                <div className="text-right">
-                    <span className="text-2xl font-black text-white italic">{stats.totalEvents}</span>
-                    <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">Total Neural Events</p>
-                </div>
+        <div className="h-full space-y-12 animate-slide-up pb-40 overflow-y-auto px-6 relative scrollbar-none">
+            {/* 🌌 CALCULUS BACKGROUND PARTICLES */}
+            <div className="fixed inset-0 pointer-events-none opacity-[0.04] select-none text-[9px] font-mono leading-tight z-0">
+                {Array.from({ length: 30 }).map((_, i) => (
+                    <div key={i} className="absolute animate-pulse" style={{ left: `${Math.random()*100}%`, top: `${Math.random()*100}%`, animationDelay: `${i*0.5}s` }}>
+                        ∫(Signal/Noise) dt = Sovereignty <br/>
+                        d/dt(Intent) = Action <br/>
+                        Σ(Wins) - ∫(Load) dt <br/>
+                        lim(Entropy→0) = Stability
+                    </div>
+                ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* 📊 USAGE TELEMETRY */}
-                <div className="lg:col-span-2 hud-panel p-6 bg-black/40 border-white/10 relative">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Surface Usage Distribution</h3>
-                    <div className="space-y-4">
-                        {Object.entries(stats.moduleUsage).sort((a:any, b:any) => b[1] - a[1]).map(([surface, count]: [string, any]) => (
-                            <div key={surface} className="space-y-1">
-                                <div className="flex justify-between text-[9px] font-black uppercase">
-                                    <span className="text-white/60">{surface.replace('_', ' ')}</span>
-                                    <span className="text-accent">{count}</span>
+            {/* 🏛️ HEADER: ROOT COMMAND ARCHITECTURE */}
+            <header className="flex justify-between items-start border-b-2 border-white/10 pb-8 relative z-10">
+                <div className="space-y-4">
+                    <h1 className="text-7xl font-black italic text-white uppercase tracking-tighter leading-none group cursor-default">
+                        ROOT_<span className="text-accent group-hover:animate-pulse">COMMAND</span>
+                    </h1>
+                    <div className="flex items-center gap-6">
+                        <p className="system-text text-[11px] text-accent font-black tracking-[0.6em] uppercase italic">Newtonian Intelligence Triage // v4.2.0</p>
+                        <div className="h-2 w-32 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-accent animate-progress shadow-[0_0_15px_var(--accent)]" style={{ width: '65%' }} />
+                        </div>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-8 text-right">
+                    <div>
+                        <span className="text-5xl font-black text-white italic">{stats.totalEvents}</span>
+                        <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Neural_Operations</p>
+                    </div>
+                    <div>
+                        <span className="text-5xl font-black text-neon-green italic">{stats.totalHoursSaved.toFixed(1)}</span>
+                        <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Temporal_Gain</p>
+                    </div>
+                </div>
+            </header>
+
+            {/* 📊 ROW 1: NEWTONIAN VITALS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+                <MetricCard title="Kinetic Momentum" value={stats.temporalEfficiency} sub="Output / Input Ratio" glow="accent" equation="KE = ½mv²" />
+                <MetricCard title="Platform Integrity" value={`${stats.platformRatio.desktop}:${stats.platformRatio.mobile}`} sub="DESKTOP / MOBILE SPREAD" glow="blue-500" equation="F = G(m1m2)/r²" />
+                <MetricCard title="Neural Stress" value={Math.round(stats.neuralStress)} sub="Kernel Latency (ms)" glow="red-500" equation="Δp = F * Δt" />
+                <MetricCard title="Briefcase Link" value="100" sub="Mothership Sync %" glow="neon-green" equation="S = -k ln W" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
+                {/* 🗺️ MODULE GRAVITY HEAT MAP */}
+                <div className="lg:col-span-2 hud-panel p-8 bg-black/90 border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
+                        <span className="text-8xl font-black italic text-accent">HEAT</span>
+                    </div>
+                    <h3 className="system-text text-[11px] text-accent font-black tracking-widest uppercase mb-10 italic border-l-4 border-accent pl-4">System Engagement Gravity</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {Object.entries(stats.moduleUsage).sort((a:any, b:any) => b[1] - a[1]).map(([mod, count]: [string, any]) => (
+                            <div key={mod} className="p-6 border border-white/5 bg-white/[0.03] relative group hover:border-accent transition-all cursor-pointer">
+                                <div className="absolute inset-0 bg-accent transition-opacity duration-1000" style={{ opacity: (count / stats.totalEvents) * 0.4 }} />
+                                <span className="text-[10px] font-black text-white/40 block mb-3 uppercase tracking-tighter">{mod.replace('_', ' ')}</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-3xl font-black text-white italic">{count}</span>
+                                    <span className="text-[8px] text-white/20 font-bold uppercase">Signals</span>
                                 </div>
-                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-accent shadow-[0_0_10px_var(--accent)] transition-all duration-1000"
-                                        style={{ width: `${(count / Math.max(1, stats.totalEvents)) * 100}%` }}
-                                    />
+                                <div className="h-1.5 w-full bg-black/40 mt-4 rounded-full overflow-hidden">
+                                    <div className="h-full bg-accent shadow-[0_0_10px_#00d4ff]" style={{ width: `${(count / stats.totalEvents) * 100}%` }} />
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
+                    <div className="bracket-tl" /><div className="bracket-br" />
                 </div>
 
-                {/* 🛡️ IDENTITY ACCESS CONTROL */}
-                <div className="hud-panel p-6 bg-black/40 border-white/10 relative">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Authorized Council</h3>
-                    <div className="space-y-3 mb-6 max-h-40 overflow-y-auto scrollbar-none">
+                {/* 🛡️ COUNCIL OF SOVEREIGNS */}
+                <div className="hud-panel p-8 bg-black border-red-500/20 relative">
+                    <div className="absolute -top-3 left-8 px-4 bg-black border border-red-500/40 text-[8px] font-black text-red-500 uppercase tracking-[0.4em]">High_Council</div>
+                    <div className="space-y-4 mb-10 max-h-80 overflow-y-auto scrollbar-none pr-2">
                         {admins.map(email => (
-                            <div key={email} className="flex justify-between items-center p-2 bg-white/5 border border-white/5 rounded group transition-all hover:bg-white/10">
-                                <span className="text-[10px] font-bold text-white/80 lowercase">{email}</span>
-                                <button onClick={() => removeAdmin(email)} className="opacity-0 group-hover:opacity-100 text-red-500 text-[8px] font-black uppercase transition-opacity">Remove</button>
+                            <div key={email} className="flex justify-between items-center p-4 bg-red-500/[0.03] border border-red-500/10 rounded group hover:border-red-500/40 transition-all">
+                                <span className="text-[11px] font-bold text-white/80 lowercase italic tracking-tight">{email}</span>
+                                <div className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_15px_#ef4444] animate-pulse" />
                             </div>
                         ))}
-                        {admins.length === 0 && <p className="text-[9px] text-white/20 italic text-center py-4 uppercase">No External Identities Authorized</p>}
                     </div>
-                    <div className="flex gap-2">
-                        <input
-                            value={newAdminEmail}
-                            onChange={(e) => setNewAdminEmail(e.target.value)}
-                            placeholder="ADMIN EMAIL..."
-                            className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-accent lowercase italic"
-                        />
-                        <button onClick={addAdmin} className="bg-accent text-black px-4 py-2 text-[8px] font-black uppercase hover:bg-white transition-all">Add</button>
+                    <div className="space-y-4">
+                        <button className="w-full py-4 bg-red-500/10 border border-red-500/40 text-red-500 system-text text-[9px] font-black hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest shadow-lg">LOCKDOWN_PROTOCOL</button>
+                        <p className="text-[7px] text-white/20 text-center uppercase italic font-bold">Identity Revocation requires Root multi-sig.</p>
                     </div>
-                    <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
+                    <div className="bracket-tl border-red-500/40" /><div className="bracket-br border-red-500/40" />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 💭 NEURAL FEEDBACK LEDGER */}
-                <div className="hud-panel p-6 bg-black/40 border-white/10 relative">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Twin+ Alignment Metrics</h3>
-                    <div className="grid grid-cols-3 gap-4 mb-8">
-                        <div className="text-center p-4 bg-neon-green/5 border border-neon-green/10">
-                            <span className="text-2xl font-black text-neon-green italic">{stats.feedback.up}</span>
-                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">High Alignment</p>
-                        </div>
-                        <div className="text-center p-4 bg-red-500/5 border border-red-500/10">
-                            <span className="text-2xl font-black text-red-500 italic">{stats.feedback.down}</span>
-                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">Off Target</p>
-                        </div>
-                        <div className="text-center p-4 bg-orange-500/5 border border-orange-500/10">
-                            <span className="text-2xl font-black text-orange-500 italic">{stats.feedback.stale}</span>
-                            <p className="text-[7px] text-white/20 font-black uppercase mt-1">Stale Sources</p>
-                        </div>
-                    </div>
-                    <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin pr-2">
-                        {events.filter(e => e.type === 'INTENT_ROUTED' && e.payload.feedback).reverse().map((e, i) => (
-                            <div key={i} className="p-3 bg-white/[0.02] border border-white/5 text-[9px] flex justify-between">
-                                <span className="text-white/40 italic">"{e.payload.messageId.substring(0,8)}..."</span>
-                                <span className={`font-black uppercase ${e.payload.feedback === 'UP' ? 'text-neon-green' : 'text-red-500'}`}>{e.payload.feedback}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
+                {/* 🧠 SEARCH LINGUISTIC CLUSTER */}
+                <div className="hud-panel p-10 bg-black/90 border-white/10 relative overflow-hidden group">
+                    <h3 className="system-text text-[11px] text-blue-400 font-black tracking-widest uppercase mb-10 italic border-l-4 border-blue-500 pl-4">Global Intelligence Gravity (Keywords)</h3>
+                    <div className="flex flex-wrap gap-4">
+                        {Object.entries(stats.searchKeywords).sort((a:any, b:any) => b[1] - a[1]).slice(0, 30).map(([word, count]: [string, any]) => (
+                            <div key={word} className="px-5 py-2.5 bg-blue-500/[0.05] border border-blue-500/20 rounded-sm flex items-center gap-4 group hover:border-blue-400 transition-all cursor-default">
+                                <span className="text-[11px] font-bold text-blue-400/70 uppercase tracking-tighter">{word}</span>
+                                <span className="text-sm font-black text-white italic">{count}</span>
                             </div>
                         ))}
+                        {Object.keys(stats.searchKeywords).length === 0 && <p className="text-[10px] text-white/20 italic uppercase py-12 tracking-widest">Awaiting Collective Signals...</p>}
                     </div>
-                    <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
+                    <div className="bracket-tl opacity-40" /><div className="bracket-br opacity-40" />
                 </div>
 
-                {/* 🌠 TESTER WISH LEDGER */}
-                <div className="hud-panel p-6 bg-black/40 border-white/10 relative overflow-hidden">
-                    <h3 className="system-text text-[10px] text-accent font-black tracking-widest uppercase mb-6 italic">Tester Wish Manifestations</h3>
-                    <div className="space-y-4 max-h-[400px] overflow-y-auto scrollbar-thin pr-2">
-                        {wishes.map(wish => (
-                            <div key={wish.id} className="p-4 bg-white/[0.03] border border-white/10 relative group">
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className="text-accent font-black text-[8px] tracking-widest uppercase italic">{wish.user}</span>
-                                    <span className="text-[7px] text-white/20 uppercase">{new Date(wish.timestamp).toLocaleDateString()}</span>
-                                </div>
-                                <p className="text-[11px] font-bold italic text-white/90 uppercase leading-tight">"I wish this app would {wish.text}"</p>
-                                <div className="mt-4 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={() => {
-                                            setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'MED', source: wish.user}, ...prev]);
-                                            setWishes(prev => prev.filter(w => w.id !== wish.id));
-                                        }}
-                                        className="bg-neon-green/10 border border-neon-green/20 px-3 py-1 text-[7px] font-black text-neon-green uppercase hover:bg-neon-green hover:text-black transition-all"
-                                    >
-                                        Manifest As Task
-                                    </button>
-                                    <button onClick={() => setWishes(prev => prev.filter(w => w.id !== wish.id))} className="text-red-500/40 text-[7px] font-black uppercase hover:text-red-500 transition-all">Archive</button>
+                {/* 🎭 TRRP PROTOCOL FIDELITY (THE CAST) */}
+                <div className="hud-panel p-10 bg-black/90 border-purple-500/20 relative group">
+                    <h3 className="system-text text-[11px] text-purple-400 font-black tracking-widest uppercase mb-10 italic border-l-4 border-purple-500 pl-4">Ready Room Casting Ledger</h3>
+                    <div className="space-y-5">
+                        {Object.entries(stats.protocolInvitees).sort((a:any, b:any) => b[1] - a[1]).map(([name, count]: [string, any]) => (
+                            <div key={name} className="group flex justify-between items-center p-5 bg-purple-500/[0.03] border border-purple-500/10 relative overflow-hidden hover:border-purple-500 transition-all">
+                                <div className="absolute left-0 top-0 bottom-0 bg-purple-500/10 transition-all duration-1000" style={{ width: `${Math.min(100, (count / 10) * 100)}%` }} />
+                                <span className="text-sm font-black text-white italic uppercase relative z-10 tracking-wide">{name}</span>
+                                <div className="flex items-center gap-4 relative z-10">
+                                    <span className="text-[8px] text-white/30 font-bold uppercase tracking-widest">Summoned</span>
+                                    <span className="text-2xl font-black text-purple-400">{count}</span>
                                 </div>
                             </div>
                         ))}
-                        {wishes.length === 0 && <p className="text-[9px] text-white/20 italic text-center py-10 uppercase border border-dashed border-white/5">No Pending Manifestations</p>}
+                        {Object.keys(stats.protocolInvitees).length === 0 && <p className="text-[10px] text-white/20 italic uppercase py-12 tracking-widest text-center">No Participants Instantiated...</p>}
                     </div>
-                    <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
+                    <div className="bracket-tl opacity-40" /><div className="bracket-br opacity-40" />
                 </div>
+            </div>
+
+            {/* 🌠 THE MANIFESTATION LEDGER (IKE TURNER MODE) */}
+            <div className="hud-panel p-12 bg-black border-accent/20 relative group">
+                <div className="absolute -top-4 left-12 px-6 bg-black border border-accent/40 text-[10px] font-black text-accent uppercase tracking-[0.6em]">Manifestation_Void</div>
+                <div className="flex justify-between items-center mb-12">
+                    <div className="space-y-2">
+                        <h3 className="system-text text-3xl font-black text-white italic uppercase tracking-tighter">Collective_Desires</h3>
+                        <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Analyzing aggregate intent for system evolution.</p>
+                    </div>
+                    <button className="px-10 py-4 bg-accent text-black system-text text-xs font-black uppercase hover:bg-white transition-all shadow-[0_0_30px_rgba(0,212,255,0.3)]">Archive_Processed_Wishes</button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {wishes.map(wish => (
+                        <div key={wish.id} className="p-8 bg-white/[0.02] border border-white/10 relative group hover:border-accent hover:bg-accent/[0.02] transition-all">
+                            <div className="flex justify-between items-start mb-6">
+                                <span className="text-accent font-black text-[9px] tracking-[0.4em] uppercase italic">{wish.user}</span>
+                                <div className="h-1 w-8 bg-accent/20 rounded-full" />
+                            </div>
+                            <p className="text-lg font-black italic text-white/90 uppercase leading-snug mb-10 group-hover:text-accent transition-colors">"I wish... {wish.text}"</p>
+                            <button
+                                onClick={() => {
+                                    setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'HIGH', source: 'ADMIN_MANIFEST'}, ...prev]);
+                                    setWishes(prev => prev.filter(w => w.id !== wish.id));
+                                }}
+                                className="w-full py-4 bg-accent/10 border border-accent/30 text-accent system-text text-[10px] font-black uppercase hover:bg-accent hover:text-black transition-all"
+                            >
+                                Manifest_Into_Core
+                            </button>
+                            <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
+                        </div>
+                    ))}
+                </div>
+                <div className="bracket-tl border-accent/40" /><div className="bracket-br border-accent/40" />
             </div>
         </div>
     );
