@@ -92,17 +92,17 @@ export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, on
     );
 
     return (
-        <div className="relative bg-[#fdfdfb] p-8 md:p-12 shadow-[20px_20px_60px_rgba(0,0,0,0.5)] border-l-[12px] border-accent/20 rotate-[-0.5deg] min-h-[80vh] flex flex-col text-black max-w-2xl mx-auto border border-black/10 rounded-sm overflow-hidden group">
+        <div className="relative bg-[#fdfdfb] p-6 md:p-12 shadow-[20px_20px_60px_rgba(0,0,0,0.5)] border-l-[8px] md:border-l-[12px] border-accent/20 rotate-[-0.5deg] max-h-[90dvh] w-full flex flex-col text-black max-w-2xl mx-auto border border-black/10 rounded-sm overflow-y-auto group scrollbar-thin scrollbar-thumb-black/10">
             {/* Paper Texture Overlay */}
             <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')]" />
 
-            <header className="flex justify-between items-start mb-12 border-b-2 border-black/10 pb-8 relative z-10">
+            <header className="flex justify-between items-start mb-12 border-b-2 border-black/10 pb-8 relative z-10 shrink-0">
                 <div className="space-y-3">
                     <div className="flex items-center gap-3">
                         <div className="h-6 w-6 bg-black flex items-center justify-center text-white text-[10px] font-black">TV</div>
-                        <h1 className="font-serif text-3xl font-black italic tracking-tight text-black/90">Daily Intelligence</h1>
+                        <h1 className="font-serif text-2xl md:text-3xl font-black italic tracking-tight text-black/90">Daily Intelligence</h1>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
                         <p className="font-mono text-[9px] text-black/40 uppercase tracking-widest">
                             SECTOR_{currentZip} // STATUS: {loading ? "SYNCING" : "LOCKED"}
                         </p>
@@ -114,30 +114,28 @@ export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, on
                         ) : (
                             <button onClick={() => setIsEditingZip(true)} className="text-[8px] font-black text-accent/40 hover:text-accent uppercase transition-colors">[ CHANGE ]</button>
                         )}
+                        <button onClick={() => fetchIntel()} className="text-[8px] font-black text-black/40 hover:text-accent border border-black/10 px-3 py-1 uppercase tracking-widest transition-all">[ REFRESH ]</button>
                     </div>
                 </div>
-                <div className="text-right flex flex-col items-end">
-                    <p className="font-mono text-3xl font-black text-black/80 leading-none mb-4">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
-                    <div className="flex gap-2">
-                        <button onClick={() => fetchIntel()} className="text-[8px] font-black text-black/40 hover:text-accent border border-black/10 px-3 py-1 uppercase tracking-widest transition-all">REFRESH</button>
-                        <button onClick={onDismiss} className="text-[9px] font-black text-white bg-black hover:bg-red-700 px-4 py-1 uppercase tracking-[0.2em] transition-all rounded-sm shadow-lg">MINIMIZE</button>
-                    </div>
+                <div className="text-right flex flex-col items-end shrink-0">
+                    <p className="font-mono text-2xl md:text-3xl font-black text-black/80 leading-none mb-4">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
+                    <button onClick={onDismiss} className="text-[9px] font-black text-white bg-black hover:bg-red-700 px-4 py-1.5 uppercase tracking-[0.2em] transition-all rounded-sm shadow-lg">MINIMIZE</button>
                 </div>
             </header>
 
             <main className="flex-grow space-y-10 relative z-10">
                 {loading && !intel ? (
-                    <div className="py-32 text-center">
+                    <div className="py-24 text-center">
                         <div className="inline-block w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
                         <p className="font-mono text-[9px] text-black/40 uppercase mt-6 tracking-[0.5em] animate-pulse">Synchronizing Sector Intel...</p>
                     </div>
                 ) : (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
                         {/* THE J5 LEAD SUMMARY */}
-                        <div className="mb-12 bg-black/[0.03] p-8 border-l-4 border-black shadow-sm relative overflow-hidden">
+                        <div className="mb-12 bg-black/[0.03] p-6 md:p-8 border-l-4 border-black shadow-sm relative overflow-hidden">
                              <div className="absolute top-0 right-0 p-2 font-mono text-[7px] text-black/10 font-bold">CONFIDENTIAL // J5-CHIEF</div>
                             <h3 className="font-mono text-[10px] font-black text-black/60 uppercase mb-4 italic tracking-widest">Executive Briefing</h3>
-                            <p className="text-[16px] font-serif italic leading-relaxed text-black/90 first-letter:text-4xl first-letter:font-black first-letter:mr-1 first-letter:float-left first-letter:leading-none">
+                            <p className="text-[15px] md:text-[16px] font-serif italic leading-relaxed text-black/90 first-letter:text-4xl first-letter:font-black first-letter:mr-1 first-letter:float-left first-letter:leading-none">
                                 {timeContext === 'Morning' ?
                                     `${name}, I've mapped the board for today. ${intel?.weather?.answer || "Conditions in Sector " + currentZip + " are holding."} You have ${pendingTargets} active signals. I've optimized your logistical path—see below for synergy wins near ${currentZip}. Operational window is green.` :
                                     `${name}, afternoon audit complete. You've secured ${completedToday} Triumphs. Sector ${currentZip} remains stable. Tomorrow's window looks ${intel?.weather?.tomorrow || "favorable"} for high-velocity execution.`
@@ -145,7 +143,7 @@ export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, on
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 md:gap-x-16 gap-y-6">
                             <DossierSection title="Atmosphere" data={intel?.weather} icon="🌤" color="text-blue-900" />
                             <DossierSection title="Logistical Synergy" data={intel?.synergy} icon="🛰" color="text-accent/90" />
                             <DossierSection title="Local Signals" data={intel?.news} icon="📰" color="text-black/60" />
@@ -173,7 +171,7 @@ export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, on
                 )}
             </main>
 
-            <footer className="mt-12 pt-8 border-t border-black/10 flex justify-between items-end italic text-[9px] font-serif text-black/30 uppercase tracking-[0.3em] relative z-10">
+            <footer className="mt-12 pt-8 border-t border-black/10 flex justify-between items-end italic text-[9px] font-serif text-black/30 uppercase tracking-[0.3em] relative z-10 shrink-0">
                 <div>Observed via Twin+ Substrate // J5</div>
                 <div className="text-right">DOCTRINE_VERIFIED // {new Date().toLocaleDateString()}</div>
             </footer>
