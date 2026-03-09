@@ -1,16 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
-
-export interface CalendarEvent {
-    id: string;
-    summary: string;
-    start: { dateTime?: string; date?: string };
-    end: { dateTime?: string; date?: string };
-    htmlLink?: string;
-}
 
 interface DailyBriefProps {
     tasks?: any[];
@@ -23,28 +15,32 @@ interface DailyBriefProps {
 export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, onDismiss }: DailyBriefProps) {
     const [loading, setLoading] = useState(true);
     const [intel, setIntel] = useState<any>(null);
-    const [timeContext, setTimeContext] = useState<'MORNING' | 'AFTERNOON' | 'EVENING'>('MORNING');
+    const [timeContext, setTimeContext] = useState<'Morning' | 'Afternoon' | 'Evening'>('Morning');
+    const [currentZip, setCurrentZip] = useState(localStorage.getItem("tv_zip") || "45202");
+    const [isEditingZip, setIsEditingZip] = useState(false);
+
     const name = userName?.split(' ')[0] || "User";
 
     useEffect(() => {
         const hour = new Date().getHours();
-        if (hour < 11) setTimeContext('MORNING');
-        else if (hour < 17) setTimeContext('AFTERNOON');
-        else setTimeContext('EVENING');
+        if (hour < 11) setTimeContext('Morning');
+        else if (hour < 17) setTimeContext('Afternoon');
+        else setTimeContext('Evening');
     }, []);
 
-    const fetchIntel = async () => {
-        const zipCode = localStorage.getItem("tv_zip") || "45202";
+    const fetchIntel = useCallback(async (zip = currentZip) => {
+        const keywords = tasks.filter(t => t.status !== 'DONE').map(t => t.title.toLowerCase());
         setLoading(true);
         try {
             const response = await fetch('/api/intel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    zipCode,
+                    zipCode: zip,
                     searchKey: searchKey || localStorage.getItem("tv_search_key"),
-                    context: timeContext,
-                    userName: name
+                    context: timeContext.toUpperCase(),
+                    userName: name,
+                    contextWords: keywords.slice(0, 15)
                 })
             });
             if (response.ok) {
@@ -52,34 +48,42 @@ export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, on
                 setIntel(data);
             }
         } catch (error) {
-            console.error("Intel fetch failed", error);
+            setIntel({ isOffline: true });
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentZip, name, searchKey, tasks, timeContext]);
 
+    // Refresh data every time the brief is opened
     useEffect(() => {
         fetchIntel();
-        twinPlusKernel.observe(createEvent('DAILY_BRIEF_VIEWED', { context: timeContext }, 'BRIDGE'));
-    }, [timeContext]);
+        twinPlusKernel.observe(createEvent('DAILY_BRIEF_VIEWED', { context: timeContext, sector: currentZip }, 'BRIDGE'));
+    }, [fetchIntel, timeContext, currentZip]);
+
+    const handleZipUpdate = (e: React.FormEvent) => {
+        e.preventDefault();
+        localStorage.setItem("tv_zip", currentZip);
+        setIsEditingZip(false);
+        fetchIntel(currentZip);
+    };
 
     const completedToday = tasks.filter(t => t.status === 'DONE').length;
-    const timeSavedMinutes = completedToday * 15;
+    const pendingTargets = tasks.filter(t => t.status !== 'DONE').length;
 
-    const DossierSection = ({ title, data }: { title: string, data?: any }) => (
-        <div className="mb-6 border-b border-black/10 pb-4 relative group">
-            <h3 className="font-mono text-[9px] font-black text-red-900 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 bg-red-900 rounded-full" />
-                Section: {title.toUpperCase()}
+    const DossierSection = ({ title, data, icon, color = "text-red-900" }: { title: string, data?: any, icon?: string, color?: string }) => (
+        <div className="mb-6 border-b border-black/5 pb-4 relative group">
+            <h3 className={`font-mono text-[9px] font-black ${color} uppercase tracking-[0.2em] mb-2 flex items-center gap-2`}>
+                <span className={`h-1.5 w-1.5 ${color.replace('text-', 'bg-')} rounded-full`} />
+                {icon} {title}
             </h3>
             <p className="text-black font-serif italic text-[13px] leading-relaxed pr-8">
-                {data?.answer || "SIGNAL_EMPTY // NO RELEVANT DATA DETECTED IN SECTOR."}
+                {data?.answer || "Scanning sector signals..."}
             </p>
             {data?.results?.length > 0 && (
                 <div className="mt-2 flex flex-col gap-1">
                     {data.results.slice(0, 2).map((item: any, i: number) => (
-                        <a key={i} href={item.url} target="_blank" className="text-[9px] text-blue-800 underline uppercase font-mono truncate max-w-full">
-                            {">"} Ref: {item.title}
+                        <a key={i} href={item.url} target="_blank" className="text-[9px] text-blue-800 underline uppercase font-mono truncate max-w-full hover:text-accent transition-colors">
+                            {">"} REF: {item.title}
                         </a>
                     ))}
                 </div>
@@ -88,63 +92,90 @@ export default function DailyBrief({ tasks = [], apiKey, searchKey, userName, on
     );
 
     return (
-        <div className="relative bg-[#fafaf7] p-8 md:p-10 shadow-xl border-l-8 border-accent/20 rotate-[-0.5deg] min-h-[60vh] flex flex-col text-black max-w-2xl mx-auto border border-black/5 rounded-sm overflow-hidden group">
-            {/* Header */}
-            <div className="flex justify-between items-start mb-8 border-b border-black/10 pb-4">
-                <div>
-                    <h1 className="font-serif text-2xl font-black italic tracking-tight text-black/80">Daily Intelligence Brief</h1>
-                    <p className="font-mono text-[9px] text-black/40 uppercase tracking-widest mt-1">Ref: {timeContext}_OPS_{new Date().toISOString().slice(0,10)}</p>
-                </div>
-                <div className="text-right">
-                    <p className="font-mono text-xl font-black text-black/80 leading-none">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
-                    <button
-                        onClick={() => {
-                            twinPlusKernel.observe(createEvent('DAILY_BRIEF_DISMISSED', {}, 'BRIDGE'));
-                            onDismiss?.();
-                        }}
-                        className="text-[9px] font-black text-black/20 hover:text-accent uppercase mt-2 tracking-widest transition-colors"
-                    >
-                        [ Dismiss ]
-                    </button>
-                </div>
-            </div>
+        <div className="relative bg-[#fdfdfb] p-8 md:p-12 shadow-[20px_20px_60px_rgba(0,0,0,0.5)] border-l-[12px] border-accent/20 rotate-[-0.5deg] min-h-[80vh] flex flex-col text-black max-w-2xl mx-auto border border-black/10 rounded-sm overflow-hidden group">
+            {/* Paper Texture Overlay */}
+            <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')]" />
 
-            <div className="flex-grow space-y-6">
+            <header className="flex justify-between items-start mb-12 border-b-2 border-black/10 pb-8 relative z-10">
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="h-6 w-6 bg-black flex items-center justify-center text-white text-[10px] font-black">TV</div>
+                        <h1 className="font-serif text-3xl font-black italic tracking-tight text-black/90">Daily Intelligence</h1>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <p className="font-mono text-[9px] text-black/40 uppercase tracking-widest">
+                            SECTOR_{currentZip} // STATUS: {loading ? "SYNCING" : "LOCKED"}
+                        </p>
+                        {isEditingZip ? (
+                            <form onSubmit={handleZipUpdate} className="flex gap-2">
+                                <input autoFocus className="bg-white border border-black/10 px-2 py-0.5 text-[10px] font-mono outline-none focus:border-accent" value={currentZip} onChange={(e) => setCurrentZip(e.target.value)} />
+                                <button type="submit" className="text-[8px] font-black text-accent uppercase">[ SET ]</button>
+                            </form>
+                        ) : (
+                            <button onClick={() => setIsEditingZip(true)} className="text-[8px] font-black text-accent/40 hover:text-accent uppercase transition-colors">[ CHANGE ]</button>
+                        )}
+                    </div>
+                </div>
+                <div className="text-right flex flex-col items-end">
+                    <p className="font-mono text-3xl font-black text-black/80 leading-none mb-4">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
+                    <div className="flex gap-2">
+                        <button onClick={() => fetchIntel()} className="text-[8px] font-black text-black/40 hover:text-accent border border-black/10 px-3 py-1 uppercase tracking-widest transition-all">REFRESH</button>
+                        <button onClick={onDismiss} className="text-[9px] font-black text-white bg-black hover:bg-red-700 px-4 py-1 uppercase tracking-[0.2em] transition-all rounded-sm shadow-lg">MINIMIZE</button>
+                    </div>
+                </div>
+            </header>
+
+            <main className="flex-grow space-y-10 relative z-10">
                 {loading && !intel ? (
-                    <div className="py-20 text-center">
-                        <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    <div className="py-32 text-center">
+                        <div className="inline-block w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        <p className="font-mono text-[9px] text-black/40 uppercase mt-6 tracking-[0.5em] animate-pulse">Synchronizing Sector Intel...</p>
                     </div>
                 ) : (
-                    <div className="animate-in fade-in duration-500">
-                        {/* THE LEAD SUMMARY */}
-                        <div className="mb-6 bg-black/[0.03] p-4 border-l-2 border-accent/40">
-                            <h3 className="font-mono text-[9px] font-black text-black/60 uppercase mb-2">Executive Summary: {timeContext}</h3>
-                            <p className="text-[14px] font-serif italic leading-relaxed text-black/90">
-                                {timeContext === 'MORNING' ?
-                                    `Operational conditions are favorable. ${intel?.weather?.answer || "The sky is clear for deployment."} Your tactical objectives for today are locked. Bundle your transit to save 20 minutes.` :
-                                    `${name}, mid-day audit complete. You've secured ${completedToday} Triumphs. Tomorrow's preview suggests a ${intel?.weather?.tomorrow || "stable"} window for high-value execution.`
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                        {/* THE J5 LEAD SUMMARY */}
+                        <div className="mb-12 bg-black/[0.03] p-8 border-l-4 border-black shadow-sm relative overflow-hidden">
+                             <div className="absolute top-0 right-0 p-2 font-mono text-[7px] text-black/10 font-bold">CONFIDENTIAL // J5-CHIEF</div>
+                            <h3 className="font-mono text-[10px] font-black text-black/60 uppercase mb-4 italic tracking-widest">Executive Briefing</h3>
+                            <p className="text-[16px] font-serif italic leading-relaxed text-black/90 first-letter:text-4xl first-letter:font-black first-letter:mr-1 first-letter:float-left first-letter:leading-none">
+                                {timeContext === 'Morning' ?
+                                    `${name}, I've mapped the board for today. ${intel?.weather?.answer || "Conditions in Sector " + currentZip + " are holding."} You have ${pendingTargets} active signals. I've optimized your logistical path—see below for synergy wins near ${currentZip}. Operational window is green.` :
+                                    `${name}, afternoon audit complete. You've secured ${completedToday} Triumphs. Sector ${currentZip} remains stable. Tomorrow's window looks ${intel?.weather?.tomorrow || "favorable"} for high-velocity execution.`
                                 }
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                            <DossierSection title="Atmospheric" data={intel?.weather} />
-                            <DossierSection title="Logistics" data={intel?.traffic} />
-                            <DossierSection title="Local Intel" data={intel?.news} />
-                            <DossierSection title="Tactical Events" data={intel?.events} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4">
+                            <DossierSection title="Atmosphere" data={intel?.weather} icon="🌤" color="text-blue-900" />
+                            <DossierSection title="Logistical Synergy" data={intel?.synergy} icon="🛰" color="text-accent/90" />
+                            <DossierSection title="Local Signals" data={intel?.news} icon="📰" color="text-black/60" />
+                            <DossierSection title="Sector Events" data={intel?.events} icon="📅" color="text-red-900/60" />
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-black/5">
-                            <h4 className="font-mono text-[8px] font-black text-black/30 uppercase mb-1">Momentum Tracking</h4>
-                            <p className="text-[12px] font-serif text-black/80 italic">{completedToday} Wins logged today. +{timeSavedMinutes}m Cognitive Gain.</p>
+                        {/* Momentum Footer */}
+                        <div className="mt-12 pt-8 border-t border-black/10 flex flex-col gap-4">
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <h4 className="font-mono text-[9px] font-black text-black/30 uppercase mb-1 tracking-widest">Momentum Chain</h4>
+                                    <p className="text-[13px] font-serif text-black/80 italic">
+                                        {completedToday} Strategic Triumphs logged. {pendingTargets} pending signals in the queue.
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                     <span className="text-[10px] font-mono font-black text-black/20">94% AFFINITY</span>
+                                </div>
+                            </div>
+                            <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
+                                <div className="h-full bg-black transition-all duration-1000" style={{ width: `${(completedToday / Math.max(1, (completedToday + pendingTargets))) * 100}%` }} />
+                            </div>
                         </div>
                     </div>
                 )}
-            </div>
+            </main>
 
-            <footer className="mt-8 pt-4 border-t border-black/5 flex justify-between items-end italic text-[9px] font-serif text-black/40">
-                <div>Observed via Twin+ // J5 Chief of Staff</div>
-                <div className="text-right">Generated: {new Date().toLocaleDateString()}</div>
+            <footer className="mt-12 pt-8 border-t border-black/10 flex justify-between items-end italic text-[9px] font-serif text-black/30 uppercase tracking-[0.3em] relative z-10">
+                <div>Observed via Twin+ Substrate // J5</div>
+                <div className="text-right">DOCTRINE_VERIFIED // {new Date().toLocaleDateString()}</div>
             </footer>
         </div>
     );

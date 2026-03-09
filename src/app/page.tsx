@@ -24,7 +24,7 @@ import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "2.7.3-SOVEREIGN";
+const VERSION = "3.3.1-COMMAND";
 
 export interface Message {
   id: string;
@@ -119,6 +119,7 @@ function AppShell() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
 
+  const [showDailyBrief, setShowDailyBrief] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [initialReadyRoomMessage, setInitialReadyRoomMessage] = useState<string | null>(null);
@@ -132,23 +133,31 @@ function AppShell() {
   const ADMIN_EMAILS = ["michael.gregory1@gmail.com", "stewart.jared@gmail.com", "michael@tempusvicta.com"];
   const isMichaelAdmin = session?.user?.email ? ADMIN_EMAILS.includes(session.user.email.toLowerCase()) : false;
 
-  // 🧬 SYNC ENGINE v2.6 (LOOP-RESISTANT)
+  // 🧬 SYNC ENGINE v3.0 (SACRED SYNC LOCK)
   const syncDataRef = useRef({ tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName } });
   const isSyncingRef = useRef(false);
   const hasPulledRef = useRef(false);
   const lastSyncHash = useRef("");
 
+  // 🛡️ LOCAL PERSISTENCE SHIELD: Execute immediately on state change
   useEffect(() => {
     syncDataRef.current = { tasks, quotes, notes, messages, wishes, config: { apiKey, searchKey, geminiKey, notionKey, assistantName } };
 
-    // 🛡️ LOCAL PERSISTENCE SHIELD
-    const storage = status === 'authenticated' ? localStorage : sessionStorage;
-    storage.setItem("tv_tasks", JSON.stringify(tasks));
-    storage.setItem("tv_messages", JSON.stringify(messages));
-    storage.setItem("tv_notes", JSON.stringify(notes));
-    storage.setItem("tv_quotes", JSON.stringify(quotes));
-    storage.setItem("tv_wishes", JSON.stringify(wishes));
-  }, [tasks, quotes, notes, messages, wishes, apiKey, searchKey, geminiKey, notionKey, assistantName, status]);
+    // Write to Local Storage instantly to preserve Sovereignty
+    localStorage.setItem("tv_tasks", JSON.stringify(tasks));
+    localStorage.setItem("tv_messages", JSON.stringify(messages));
+    localStorage.setItem("tv_notes", JSON.stringify(notes));
+    localStorage.setItem("tv_quotes", JSON.stringify(quotes));
+    localStorage.setItem("tv_wishes", JSON.stringify(wishes));
+
+    // Update keys in localStorage as well
+    if (apiKey) localStorage.setItem("tv_api_key", apiKey);
+    if (searchKey) localStorage.setItem("tv_search_key", searchKey);
+    if (geminiKey) localStorage.setItem("tv_gemini_key", geminiKey);
+    if (notionKey) localStorage.setItem("tv_notion_key", notionKey);
+    if (assistantName) localStorage.setItem("tv_assistant_name", assistantName);
+
+  }, [tasks, quotes, notes, messages, wishes, apiKey, searchKey, geminiKey, notionKey, assistantName]);
 
   const mergeNeuralData = (local: any[], remote: any[]) => {
       const map = new Map();
@@ -161,6 +170,7 @@ function AppShell() {
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL') => {
     if (!session || isSyncingRef.current) return;
 
+    // 🔒 SYNC LOCK ENGAGED
     isSyncingRef.current = true;
     setIsSyncing(true);
 
@@ -171,21 +181,36 @@ function AppShell() {
                 mind: twinPlusKernel.snapshot(),
                 lastSync: new Date().toISOString()
             };
-            const hash = JSON.stringify(payload).length.toString();
-            if (hash === lastSyncHash.current) return;
+            const currentHash = JSON.stringify({
+                t: tasks.length,
+                m: messages.length,
+                n: notes.length,
+                q: quotes.length,
+                w: wishes.length,
+                c: { apiKey, searchKey, geminiKey, notionKey, assistantName }
+            });
+
+            if (currentHash === lastSyncHash.current) {
+                isSyncingRef.current = false;
+                setIsSyncing(false);
+                return;
+            }
 
             await fetch('/api/sync', { method: 'POST', body: JSON.stringify(payload) });
-            lastSyncHash.current = hash;
+            lastSyncHash.current = currentHash;
         } else {
             const res = await fetch('/api/sync');
             if (res.ok) {
                 const data = await res.json();
                 if (data.mind) await twinPlusKernel.hydrate(data.mind);
+
+                // Functional updates to avoid stale closures
                 setTasks(prev => mergeNeuralData(prev, data.tasks));
                 setQuotes(prev => mergeNeuralData(prev, data.quotes));
                 setNotes(prev => mergeNeuralData(prev, data.notes));
                 setMessages(prev => mergeNeuralData(prev, data.messages));
                 setWishes(prev => mergeNeuralData(prev, data.wishes));
+
                 if (data.config) {
                     const c = data.config;
                     if (c.apiKey?.length > 10) setApiKey(c.apiKey);
@@ -196,12 +221,12 @@ function AppShell() {
                 }
             }
         }
-    } catch (e) { console.error("Sync Failure", e); }
+    } catch (e) { console.error("Neural Sync Interrupted", e); }
     finally {
         isSyncingRef.current = false;
         setIsSyncing(false);
     }
-  }, [session]);
+  }, [session, tasks.length, messages.length, notes.length, quotes.length, wishes.length, apiKey, searchKey, geminiKey, notionKey, assistantName]);
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -228,9 +253,18 @@ function AppShell() {
         setWishes(JSON.parse(storage.getItem("tv_wishes") || "[]"));
     } catch (e) {}
 
+    // 🛡️ BRIEFCASE PULL GUARD: Only once per session lifecycle
     if (status === 'authenticated' && !hasPulledRef.current) {
         hasPulledRef.current = true;
         handleCloudSync('PULL');
+    }
+
+    // 🌤 DAILY BRIEF AUTO-TRIGGER (FIRST LOGIN OF DAY)
+    const today = new Date().toDateString();
+    const lastBrief = localStorage.getItem("tv_last_brief_date");
+    if (lastBrief !== today) {
+        setShowDailyBrief(true);
+        localStorage.setItem("tv_last_brief_date", today);
     }
   }, [status, handleCloudSync]);
 
@@ -242,13 +276,12 @@ function AppShell() {
   };
   const stopMicDrag = () => {
       isDraggingMic.current = false;
-      const storage = status === 'authenticated' ? localStorage : sessionStorage;
-      storage.setItem("tv_mic_pos", JSON.stringify(micPos));
+      localStorage.setItem("tv_mic_pos", JSON.stringify(micPos));
   };
 
   const submitWish = (text: string) => {
     if (!text.trim()) return;
-    const wish = { id: Date.now().toString(), text, status: 'PENDING', timestamp: new Date().toISOString(), user: session?.user?.name || session?.user?.email };
+    const wish = { id: Date.now().toString(), text, status: 'PENDING', timestamp: new Date().toISOString(), user: session?.user?.name || session?.user?.email || "Guest" };
     setWishes(prev => [wish, ...prev]);
     twinPlusKernel.observe(createEvent('WISH_SUBMITTED', { text }, 'CONFIG'));
     setTimeout(() => handleCloudSync('PUSH'), 1000);
@@ -256,7 +289,7 @@ function AppShell() {
 
   const handleUniversalIngest = (text: string, options: { isFromBrainstorm?: boolean, skipTask?: boolean, targetBoard?: 'PROJECTS' | 'TODO' } = {}) => {
     const ts = new Date().toISOString();
-    const userIdentifier = session?.user?.name || session?.user?.email || "User";
+    const userIdentifier = session?.user?.name || session?.user?.email || "Guest";
 
     twinPlusKernel.observe(createEvent('UNIVERSAL_INGEST', { text, options }, 'INGEST_SURFACE'));
 
@@ -304,7 +337,17 @@ function AppShell() {
              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}><div className="h-10 w-10 md:h-12 border-2 border-accent/40 bg-black flex items-center justify-center relative shadow-[0_0_15px_rgba(0,212,255,0.2)]"><span className="system-text text-xl font-black text-accent">T</span><div className="bracket-tl" /><div className="bracket-br" /></div><div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[10px] tracking-widest leading-none">The Bridge</span><span className="text-[6px] text-accent/60 font-black italic mt-1 leading-none uppercase tracking-widest">v{VERSION}</span></div></div>
           </div>
           <div className="flex gap-2 items-center">
-            {isSyncing && <div className="system-text text-[8px] text-accent animate-pulse mr-2 tracking-widest">SYNC_ACTIVE</div>}
+            {isSyncing && <div className="system-text text-[8px] text-accent animate-pulse mr-2 tracking-widest italic">Synchronizing...</div>}
+
+            {/* 🌤 DAILY BRIEF TRIGGER */}
+            <button
+                onClick={() => setShowDailyBrief(true)}
+                className="flex items-center gap-2 px-3 py-1 md:py-2 border-2 border-accent/40 bg-accent/5 hover:bg-accent hover:text-black transition-all group mr-2 shadow-[0_0_10px_rgba(0,212,255,0.1)] active:scale-95"
+            >
+                <span className="text-[12px] animate-pulse">🌤</span>
+                <span className="system-text text-[7px] md:text-[8px] font-black tracking-widest">BRIEF</span>
+            </button>
+
             <div onClick={() => status === 'authenticated' ? setShowLogoutConfirm(true) : signIn('google')} className={`flex items-center gap-3 px-3 md:px-4 py-1 md:py-2 border-2 cursor-pointer transition-all ${status === 'authenticated' ? 'border-accent shadow-[0_0_15px_#00d4ff]' : 'border-red-500 bg-red-500/10'}`}>
                 <div className={`h-2.5 w-2.5 rounded-full ${status === 'authenticated' ? 'bg-accent animate-pulse' : 'bg-red-500'}`} /><div className="flex flex-col text-left uppercase text-white font-bold"><span className="system-text text-[7px] md:text-[8px] leading-none">{status === 'authenticated' ? 'Briefcase Linked' : 'Identity Unlinked'}</span></div>
             </div>
@@ -318,8 +361,8 @@ function AppShell() {
               twinPlusKernel.observe(createEvent('MODULE_SWITCH', { module: m }, 'SIDE_NAV'));
           }} activeModule={activeModule} isAdmin={isMichaelAdmin} /></div>
           {isMobileNavOpen && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[1400] lg:hidden" onClick={() => setIsMobileNavOpen(false)} />}
-          <main className="flex-grow overflow-hidden relative">
-             <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
+          <main className="flex-grow overflow-hidden relative bg-black/20">
+             <div className="absolute inset-0 p-2 md:p-8 overflow-y-auto scrollbar-thin overflow-x-hidden">
               {activeModule === "BRIDGE" && <div className="module-enter h-full text-white"><Bridge tasks={tasks} notes={notes} messages={messages} onNavigate={(m) => setActiveModule(m as any)} onQuickTask={(text) => handleUniversalIngest(text)} onSnooze={(id, time) => { twinPlusKernel.observe(createEvent('TASK_SNOOZED', { id, time }, 'BRIDGE')); setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'SNOOZED', snooze_until: time } : t)); }} /></div>}
               {activeModule === "READY_ROOM" && <div className="module-enter h-full"><ReadyRoom messages={messages} setMessages={(newMessages) => { setMessages(newMessages); setTimeout(() => handleCloudSync('PUSH'), 500); }} apiKey={apiKey} searchKey={searchKey} geminiKey={geminiKey} assistantName={assistantName} userName={userName} initialMessage={initialReadyRoomMessage} onContextConsumed={() => setInitialReadyRoomMessage(null)} /></div>}
               {activeModule === "SIGNAL_BAY" && <div className="module-enter h-full"><SignalBay onRouteToCorkboard={(s) => setNotes(prev => [...prev, {id: s.id, text: s.content, x: 100, y: 100, rotation: 0, color: 'bg-yellow-200/80'}])} onRouteToTask={(s) => setTasks(prev => [...prev, {id: s.id, title: s.content, priority: 'MED', status: 'TODO', source: 'SIGNAL_BAY'}])} /></div>}
@@ -348,6 +391,20 @@ function AppShell() {
             </div>
           </main>
         </div>
+
+        {/* 🌤 DAILY BRIEF POPUP (PAPER ON DESK) */}
+        {showDailyBrief && (
+            <div className="fixed inset-0 z-[6000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-500">
+                <div className="relative w-full max-w-2xl transform transition-transform duration-700 animate-slide-up">
+                    <DailyBrief
+                        tasks={tasks}
+                        searchKey={searchKey}
+                        userName={userName}
+                        onDismiss={() => setShowDailyBrief(false)}
+                    />
+                </div>
+            </div>
+        )}
 
         <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-start px-2 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50 text-white font-bold md:justify-center">
               {[

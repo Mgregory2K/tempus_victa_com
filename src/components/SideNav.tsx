@@ -42,9 +42,9 @@ const NavItem = ({ name, isLinked, isActive, onClick, subtext, description }: { 
                 </span>
             </div>
 
-            {/* Delayed Pop-up Tooltip */}
+            {/* Delayed Pop-up Tooltip (Hidden on touch devices) */}
             {showTooltip && (
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 w-64 bg-black/95 border-2 border-accent/30 p-4 rounded-lg shadow-2xl z-20 animate-slide-up">
+                <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-4 w-64 bg-black/95 border-2 border-accent/30 p-4 rounded-lg shadow-2xl z-20 animate-slide-up">
                     <div className="absolute -left-[9px] top-1/2 -translate-y-1/2 w-4 h-4 bg-black/95 border-l-2 border-b-2 border-accent/30 rotate-45" />
                     <p className="text-sm font-bold text-accent tracking-widest uppercase mb-2 italic">{name}</p>
                     <p className="text-[10px] font-light text-white/80 normal-case leading-snug tracking-wide">{description}</p>
@@ -66,7 +66,6 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
 
     useEffect(() => {
         const checkKeys = () => {
-            // Respect Sovereignty: Check localStorage for Members, sessionStorage for Guests
             const storage = session ? localStorage : sessionStorage;
             setStatus({
                 notion: !!storage.getItem("tv_notion_key"),
@@ -76,12 +75,12 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
             });
         };
         checkKeys();
-        const interval = setInterval(checkKeys, 2000);
+        const interval = setInterval(checkKeys, 5000); // Throttled to 5s for mobile battery
         return () => clearInterval(interval);
     }, [session]);
 
     return (
-        <nav className="w-64 p-6 border-r border-white/10 bg-black/60 hidden lg:flex flex-col relative shrink-0 h-full overflow-hidden">
+        <nav className="w-64 p-6 border-r border-white/10 bg-black/95 flex flex-col relative shrink-0 h-full overflow-hidden shadow-2xl backdrop-blur-xl">
             <div className="mb-6">
                 <h2 className="system-text text-[10px] text-accent font-black tracking-[0.3em] mb-1 uppercase">Cognitive Surfaces</h2>
                 <div className="h-px w-full bg-gradient-to-r from-accent to-transparent" />
@@ -90,18 +89,19 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
             <div className="flex-grow space-y-1 overflow-y-auto scrollbar-none pr-1">
                 <NavItem name="The Bridge" isActive={activeModule === 'BRIDGE'} onClick={() => onModuleChange?.('BRIDGE')} subtext="Strategic Cockpit" description="The expression layer of your Twin+. High-level synthesis of all cognitive data." />
                 <NavItem name="Signal Bay" isActive={activeModule === 'SIGNAL_BAY'} onClick={() => onModuleChange?.('SIGNAL_BAY')} subtext="Triage Engine" description="Filter and route all incoming life signals—emails, notifications, and thoughts." />
-                <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Objectives" description="Manage multi-stage strategic objectives and tactical tasks." />
+                <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Strategic Objectives" description="Manage multi-stage strategic objectives and heavy artillery tasks." />
+                <NavItem name="Sovereign To-Do" isActive={activeModule === 'TODO'} onClick={() => onModuleChange?.('TODO')} subtext="Tactical Infantry" description="Quick-action checklist for micro-signals and the tire store principle." />
                 <NavItem name="Win Board" isActive={activeModule === 'WINBOARD'} onClick={() => onModuleChange?.('WINBOARD')} subtext="Daily Triumphs" description="A visual ledger of every completed action today." />
-                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns and Twin+ focus model." />
+                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns and Twin+ affinity model." />
                 <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Immutable Ledger" description="Audit every signal and neural decision in real-time." />
-                <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured intel." />
+                <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured tactical intel." />
                 <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Review high-fidelity linguistic patterns." />
                 <NavItem name="Wishes" isActive={activeModule === 'WISHES'} onClick={() => onModuleChange?.('WISHES')} subtext="Future Development" description="Log requests for system expansion." />
             </div>
 
             {isAdmin && (
                 <div className="shrink-0 mt-4 border-t border-accent/20 pt-4 animate-pulse">
-                    <NavItem name="Command" isActive={activeModule === 'ADMIN'} onClick={() => onModuleChange?.('ADMIN')} subtext="High Council" description="Restricted module for scaling telemetry and user wish review." />
+                    <NavItem name="Command" isActive={activeModule === 'ADMIN'} onClick={() => onModuleChange?.('ADMIN')} subtext="Root Authority" description="Newtonian Command Board for aggregate telemetry and wish manifestation." />
                 </div>
             )}
 
@@ -112,7 +112,7 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
                 </div>
 
                 <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-none">
-                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : undefined} subtext={session ? "Identity Stable" : "Auth Required"} description="Identity confirmed. Cross-device sync active via Google Drive vault." />
+                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : undefined} subtext={session ? "Briefcase Stable" : "Auth Required"} description="Identity confirmed. Cross-device sync active via Google Drive vault." />
                     <NavItem name="Gemini" isLinked={status.gemini} subtext="Sovereign Search" description="Google Search grounding pipeline is active." />
                     <NavItem name="OpenAI" isLinked={status.openai} subtext="Neural Synthesis" description="GPT-4o Reasoning Engine is stable." />
                     <NavItem name="Notion" isLinked={status.notion} subtext="Knowledge Base" description="Persistent bridge to Notion workspace is active." />
@@ -123,10 +123,10 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
                     <div className="flex flex-col gap-1 text-white">
                         <div className="flex justify-between items-center text-white">
                             <span className="system-text text-[7px] text-white/20 font-black uppercase tracking-widest text-white">Twin+ Confidence</span>
-                            <span className="text-[7px] text-accent font-black text-white">82%</span>
+                            <span className="text-[7px] text-accent font-black text-white">94%</span>
                         </div>
                         <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                            <div className="h-full bg-accent w-[82%] opacity-80 shadow-[0_0_10px_var(--accent)]" />
+                            <div className="h-full bg-accent w-[94%] opacity-80 shadow-[0_0_10px_var(--accent)]" style={{ width: '94%' }} />
                         </div>
                     </div>
                 </div>
