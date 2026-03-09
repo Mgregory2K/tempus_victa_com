@@ -26,7 +26,8 @@ export type TwinEventType =
   | 'EXERCISE_STARTED'
   | 'EXERCISE_COMPLETED'
   | 'MOTOR_CALIBRATION'
-  | 'COGNITIVE_SCORE';
+  | 'COGNITIVE_SCORE'
+  | 'READY_ROOM_PAGE_BREAK';
 
 /**
  * Defines the schema for a TwinEvent.
