@@ -18,13 +18,14 @@ import DailyBrief from "@/components/DailyBrief";
 import ReadyRoom from "@/components/ReadyRoom";
 import AdminBoard from "@/components/AdminBoard";
 import WishBoard from "@/components/WishBoard";
+import ExerciseHub from "@/components/ExerciseHub";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "3.3.1-COMMAND";
+const VERSION = "3.4.0-EVOLUTION";
 
 export interface Message {
   id: string;
@@ -34,6 +35,7 @@ export interface Message {
   sourceLayer?: string;
   vote?: number | null;
   wrongSource?: boolean;
+  isPageBreak?: boolean;
 }
 
 interface Note {
@@ -120,6 +122,7 @@ function AppShell() {
   const [wishes, setWishes] = useState<any[]>([]);
 
   const [showDailyBrief, setShowDailyBrief] = useState(false);
+  const [showExercises, setShowExercises] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [initialReadyRoomMessage, setInitialReadyRoomMessage] = useState<string | null>(null);
@@ -359,7 +362,7 @@ function AppShell() {
               setActiveModule(m);
               setIsMobileNavOpen(false);
               twinPlusKernel.observe(createEvent('MODULE_SWITCH', { module: m }, 'SIDE_NAV'));
-          }} activeModule={activeModule} isAdmin={isMichaelAdmin} /></div>
+          }} activeModule={activeModule} isAdmin={isMichaelAdmin} onToggleExercises={() => setShowExercises(true)} /></div>
           {isMobileNavOpen && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[1400] lg:hidden" onClick={() => setIsMobileNavOpen(false)} />}
           <main className="flex-grow overflow-hidden relative bg-black/20">
              <div className="absolute inset-0 p-2 md:p-8 overflow-y-auto scrollbar-thin overflow-x-hidden">
@@ -403,6 +406,13 @@ function AppShell() {
                         onDismiss={() => setShowDailyBrief(false)}
                     />
                 </div>
+            </div>
+        )}
+
+        {/* 🎮 EXERCISE HUB POPUP */}
+        {showExercises && (
+            <div className="fixed inset-0 z-[7000] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+                <ExerciseHub onDismiss={() => setShowExercises(false)} />
             </div>
         )}
 

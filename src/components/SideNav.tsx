@@ -58,9 +58,10 @@ interface SideNavProps {
     activeModule?: string;
     onModuleChange?: (module: any) => void;
     isAdmin?: boolean;
+    onToggleExercises?: () => void;
 }
 
-export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideNavProps) {
+export default function SideNav({ activeModule, onModuleChange, isAdmin, onToggleExercises }: SideNavProps) {
     const { data: session } = useSession();
     const [status, setStatus] = useState({ notion: false, gemini: false, openai: false, tavily: false });
 
@@ -97,6 +98,15 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin }: SideN
                 <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured tactical intel." />
                 <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Review high-fidelity linguistic patterns." />
                 <NavItem name="Wishes" isActive={activeModule === 'WISHES'} onClick={() => onModuleChange?.('WISHES')} subtext="Future Development" description="Log requests for system expansion." />
+
+                <div className="pt-2">
+                    <NavItem
+                        name="Neural Exercises"
+                        onClick={onToggleExercises}
+                        subtext="Cognitive Calibration"
+                        description="Fun, direct learning games designed to calibrate your Twin+ identity and motor flow."
+                    />
+                </div>
             </div>
 
             {isAdmin && (
