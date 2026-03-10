@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 /**
- * J5 TWIN+ KERNEL v7.1 - "THE SOVEREIGN ARBITRATOR"
+ * J5 TWIN+ KERNEL v7.3 - "THE SOVEREIGN ARBITRATOR"
  *
  * DOCTRINE (From J5 Baseline Personality Textbook):
  * 1. SOURCE AUTHORITY: Signal Layer (Scout) > Context Layer (Life) > Reasoning (Model Memory).
@@ -56,7 +56,7 @@ async function getTavilyIntel(query: string, searchKey: string): Promise<ScoutSi
 }
 
 async function getPublicScout(query: string): Promise<ScoutSignal | null> {
-    const wikiQuery = query.replace(/^(who is|what is|where is|search|lookup) /gi, '').trim();
+    const wikiQuery = query.replace(/^(who[' ]?s|what[' ]?s|where[' ]?s|who is|what is|where is|search|lookup) /gi, '').trim();
     const wikiRes = await secureFetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`);
     if (wikiRes) {
         try {
@@ -93,14 +93,15 @@ export async function POST(req: Request) {
     const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     // 1. CLASSIFICATION
+    // isAction: Intent to create/route data
     const actionRegex = /^(create|add|task|todo|note|remind|cork|push|manifest)/i;
     const isAction = actionRegex.test(lowMsg);
 
-    // isLocal: Queries about the user's operational state
-    const isLocalQuery = /^(do i|what('| )s my|my|have i|i have|calendar|schedule|list|plan)/i.test(lowMsg);
+    // isLocal: Intent to query Michael's operational state
+    const isLocalQuery = /^(do i|what('| )?s my|my|have i|i have|calendar|schedule|list|plan)/i.test(lowMsg);
 
-    // isVolatile: Queries that require fresh external signal
-    const isVolatileWorldQuery = /(president|potus|weather|price|stock|news|today|tomorrow|current|who is|what is|where is)/i.test(lowMsg);
+    // isVolatile: Intent to query external facts (grounding required)
+    const isVolatileWorldQuery = /(president|potus|weather|price|stock|news|current|who[' ]?s|what[' ]?s|where[' ]?s|who is|what is|where is)/i.test(lowMsg);
 
     // 2. ACTION LAYER
     if (isAction) {
@@ -113,17 +114,20 @@ export async function POST(req: Request) {
     const calEvents = Array.isArray(calendar) ? calendar.map((e: any) => e.summary).join(", ") || "Nothing scheduled" : "Nothing scheduled";
 
     let scout: ScoutSignal | null = null;
+    // Ground volatile world facts even if query sounds local
     if (!isLocalQuery || isVolatileWorldQuery) {
         scout = await getTavilyIntel(message, searchKey) || await getPublicScout(message);
     }
 
-    // 4. BRAIN LAYER (Neural Strike w/ Authority Arbitration)
+    // 4. BRAIN LAYER (Neural Strike w/ Mode Separation)
     if (apiKey) {
         const openai = new OpenAI({ apiKey });
         let systemPrompt = "";
+        let temperature = 0.7;
 
         if (isVolatileWorldQuery && scout) {
-            // AUTHORITATIVE SIGNAL TRANSLATION MODE
+            // MODE A: AUTHORITATIVE SIGNAL TRANSLATION
+            temperature = 0.1; // Reduce creativity for fact presentation
             systemPrompt = `
 # IDENTITY: You are ${j5Name}, Michael Gregory's Twin+ (Digital Counterpart).
 # DOCTRINE: Convert information into signal. Signal into judgment.
@@ -138,10 +142,11 @@ export async function POST(req: Request) {
 2. The signal provided above is the absolute reality for this request.
 3. DO NOT use your internal training data to contradict, override, or "correct" this signal.
 4. If the signal says "X is the current president", then X IS the current president.
-5. Provide a clean, operational briefing in Michael's voice (Calm, steady, capable).
+5. Provide a clean, operational briefing in Michael's voice. Restate only the provided signal; do not add external claims not supported by the signal.
+6. Keep the response concise and grounded.
             `;
         } else {
-            // STANDARD TWIN+ OPERATIONAL MODE
+            // MODE B: STANDARD TWIN+ OPERATIONAL MODE
             systemPrompt = `
 # IDENTITY: You are ${j5Name}, Michael Gregory's Twin+ (Digital Counterpart).
 # DOCTRINE: J5 helps move from input → interpretation → structure → decision → execution.
@@ -161,7 +166,7 @@ export async function POST(req: Request) {
 
 # OPERATIONAL_GUIDELINES:
 - Treat EXTERNAL_SIGNAL as the definitive source for world facts.
-- If signal is missing for volatile world queries, state uncertainty.
+- If signal is missing for volatile queries, state uncertainty. Do not guess.
 - Avoid generic uplifts. Provide grounded clarity and next moves.
             `;
         }
@@ -174,7 +179,7 @@ export async function POST(req: Request) {
                     ...(Array.isArray(history) ? history : []).slice(-10).map((h: any) => ({ role: h.role, content: h.content })),
                     { role: "user", content: message }
                 ],
-                temperature: 0.7
+                temperature: temperature
             });
 
             return NextResponse.json({
