@@ -49,6 +49,7 @@ export default function ReadyRoom({
     const [isProtocolActive, setIsProtocolActive] = useState(false);
     const [protocolConfig, setProtocolConfig] = useState<ProtocolConfig | null>(null);
     const [forceLocal, setForceLocal] = useState(false);
+
     const scrollRef = useRef<HTMLDivElement>(null);
     const hasConsumedInitial = useRef(false);
 
@@ -82,6 +83,7 @@ export default function ReadyRoom({
             timestamp: new Date().toISOString()
         };
 
+        // Update state and persistence
         setExternalMessages(prev => [...prev, userMsg]);
         if (!overrideInput) setInput("");
         setIsTyping(true);
@@ -95,10 +97,10 @@ export default function ReadyRoom({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    history: externalMessages.slice(-20),
+                    history: externalMessages.slice(-15), // Keep context manageable
                     assistantName,
                     userName,
-                    aiEnhanced: isProtocolActive || isBrainstorm || isSystemSignal,
+                    aiEnhanced: isProtocolActive || isBrainstorm || isSystemSignal || !!apiKey,
                     apiKey,
                     searchKey,
                     geminiKey,
@@ -108,6 +110,9 @@ export default function ReadyRoom({
                     forceLocal: forceLocal
                 }),
             });
+
+            if (!response.ok) throw new Error("Link severed.");
+
             const data = await response.json();
 
             const aiMsg: Message = {
@@ -120,11 +125,13 @@ export default function ReadyRoom({
 
             setExternalMessages(prev => [...prev, aiMsg]);
         } catch (error) {
+            console.error("Neural drop detected:", error);
             setExternalMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "Link's a bit fuzzy. Give me a second to re-establish.",
-                timestamp: new Date().toISOString()
+                content: "Link's a bit fuzzy, Michael. I'm keeping the local briefcase open while we re-establish the neural strike.",
+                timestamp: new Date().toISOString(),
+                sourceLayer: "Local Partner"
             }]);
         } finally {
             setIsTyping(false);
@@ -144,7 +151,6 @@ export default function ReadyRoom({
     };
 
     const exportLastSegment = () => {
-        // Find the index of the last page break
         const lastBreakIndex = [...externalMessages].reverse().findIndex(m => m.isPageBreak);
         const actualIndex = lastBreakIndex === -1 ? 0 : externalMessages.length - lastBreakIndex;
 
@@ -193,13 +199,14 @@ export default function ReadyRoom({
         const segments = content.split(/(\[[^\]]+\]\(https?:\/\/[^\s]+\)|https?:\/\/[^\s]+)/g);
 
         segments.forEach((seg, i) => {
+            if (!seg) return;
             if (seg.match(markdownLinkRegex)) {
                 const match = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/.exec(seg);
                 if (match) {
                     elements.push(<a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-white transition-colors">{match[1]}</a>);
                 }
             } else if (seg.match(urlRegex)) {
-                elements.push(<a key={i} href={seg} target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-white transition-colors">{seg}</a>);
+                elements.push(<a key={i} href={seg} target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-white transition-colors">Source 🔗</a>);
             } else {
                 elements.push(<span key={i}>{seg}</span>);
             }
@@ -273,6 +280,14 @@ export default function ReadyRoom({
 
             {/* Messages Feed */}
             <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 md:p-8 space-y-8 scrollbar-thin bg-black/20">
+                {externalMessages.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center opacity-20 space-y-4">
+                        <div className="h-12 w-12 border border-white/10 rounded-full flex items-center justify-center animate-pulse">
+                            <span className="system-text text-xl font-black text-white">J5</span>
+                        </div>
+                        <p className="system-text text-[8px] font-black uppercase tracking-[0.5em]">Awaiting Neural Signal...</p>
+                    </div>
+                )}
                 {externalMessages.map((msg) => (
                     msg.isPageBreak ? (
                         <div key={msg.id} className="flex items-center gap-4 py-4">

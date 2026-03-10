@@ -23,44 +23,64 @@ export interface RoutePlan {
   reasonCodes: string[];
 }
 
+/**
+ * TWIN_ROUTER v4.2 - SEMANTIC INTENT EDITION
+ * No more 90s keyword matching. We analyze the "Shape" and "Domain" of the request.
+ */
 export class TwinRouter {
   constructor(private prefs: TwinPreferenceLedger, private features: TwinFeatureStore) {}
 
   public route(intent: QueryIntent): RoutePlan {
-    const text = intent.queryText.toLowerCase();
+    const text = intent.queryText.toLowerCase().trim();
     const aiOptIn = typeof window !== 'undefined' ? !!localStorage.getItem('tv_api_key') : false;
     const hasInternet = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
     let strategy: RoutePlan['strategy'] = 'LOCAL';
-    const reasons: string[] = ['DOCTRINE_INITIAL_CHECK'];
+    const reasons: string[] = ['SEMANTIC_INTENT_ANALYSIS'];
 
-    // 1. HARDCORE LOCAL-FIRST DOCTRINE
-    // If we're offline or the user didn't opt-in, we MUST stay local.
+    // 1. OFFLINE ENFORCEMENT
     if (!hasInternet) {
+        return this.finalize('LOCAL', aiOptIn, ['SENSORS_OFFLINE']);
+    }
+
+    // 2. DOMAIN DETECTION (Personal vs External)
+    // Personal: "My", "I have", "Calendar", "Tasks", "Schedule"
+    // External: "Who is", "Capital of", "News", "Weather"
+    const isPersonalDomain = /^(do i|what('| )s my|my|have i|i have|calendar|schedule|task|todo|list|plan)/i.test(text);
+    const isExplicitCommand = /^(task:|todo:|note:|cork:|add |remind )/i.test(text);
+
+    // 3. DOCTRINE: LOCAL-SENSORS FIRST
+    // If the user is asking about their own life, J5 checks the "Local Briefcase" first.
+    if (isPersonalDomain && !isExplicitCommand) {
         strategy = 'LOCAL';
-        reasons.push('OFFLINE_MODE_ENFORCED');
+        reasons.push('LOCAL_SENSOR_PRIORITY');
         return this.finalize(strategy, aiOptIn, reasons);
     }
 
-    // 2. Check for Local Action Commands (No Internet/AI needed)
-    if (text.includes("remind") || text.includes("todo") || text.includes("grocery") || text.includes("buy") || text.includes("cork it")) {
+    // 4. ACTION COMMANDS (Manifestation)
+    if (isExplicitCommand) {
         strategy = 'LOCAL';
-        reasons.push('ACTION_COMMAND_DETECTED');
+        reasons.push('MANIFESTATION_INTENT');
+        return this.finalize(strategy, aiOptIn, reasons);
     }
-    // 3. Check for Internal App Knowledge (Blunt Local)
-    else if (text.includes("how do i") || text.includes("what is") || text.includes("status")) {
-        strategy = 'LOCAL';
-        reasons.push('INTERNAL_DOC_QUERY');
-    }
-    // 4. Escalate to Internet only if local fails or facts are required
-    else if (text.includes("who is") || text.includes("where is") || text.includes("current") || text.includes("news")) {
+
+    // 5. EXTERNAL SCOUT (The Magic Layer)
+    // Simple inquiries that don't need "Neural Strike" complexity.
+    const isSimpleInquiry = text.split(' ').length < 10 && !isPersonalDomain;
+    if (isSimpleInquiry || intent.taskType === 'WEB_SEARCH') {
         strategy = 'INTERNET';
-        reasons.push('EXTERNAL_FACT_REQ');
+        reasons.push('SCOUT_SUFFICIENT');
+        return this.finalize(strategy, aiOptIn, reasons);
     }
-    // 5. AI Synthesis if complex and opted-in
-    else if (aiOptIn && (text.length > 50 || text.includes("think") || text.includes("plan"))) {
+
+    // 6. NEURAL STRIKE (Escalation)
+    if (aiOptIn && (text.length > 50 || text.includes("think") || text.includes("analyze") || intent.taskType === 'PROTOCOL_SIM')) {
         strategy = 'AI';
-        reasons.push('COMPLEX_SYNTHESIS_REQ');
+        reasons.push('NEURAL_STRIKE_REQUIRED');
+    } else {
+        // Default to Scout if internet is available and it's not a heavy lift.
+        strategy = 'INTERNET';
+        reasons.push('SCOUT_PREFERENCE');
     }
 
     return this.finalize(strategy, aiOptIn, reasons);
