@@ -31,17 +31,21 @@ export default function ReadyRoom({
     assistantName,
     userName,
     initialMessage,
-    onContextConsumed
+    onContextConsumed,
+    tasks = [],
+    calendar = []
 }: {
     messages: Message[],
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
     apiKey: string,
     searchKey: string,
-    geminiKey: string,
+    geminiKey?: string,
     assistantName: string,
     userName?: string,
     initialMessage?: string | null,
-    onContextConsumed?: () => void
+    onContextConsumed?: () => void,
+    tasks?: any[],
+    calendar?: any[]
 }) {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -100,14 +104,15 @@ export default function ReadyRoom({
                     history: externalMessages.slice(-15), // Keep context manageable
                     assistantName,
                     userName,
-                    aiEnhanced: isProtocolActive || isBrainstorm || isSystemSignal || !!apiKey,
                     apiKey,
                     searchKey,
                     geminiKey,
                     isBrainstorm,
                     protocolParams: isProtocolActive ? protocolConfig : null,
                     identityProfile: twinPlusKernel.snapshot().features?.identity,
-                    forceLocal: forceLocal
+                    forceLocal: forceLocal,
+                    tasks,
+                    calendar
                 }),
             });
 
@@ -129,7 +134,7 @@ export default function ReadyRoom({
             setExternalMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "Link's a bit fuzzy, Michael. I'm keeping the local briefcase open while we re-establish the neural strike.",
+                content: "I'm looking at your sensors, Michael, but the neural strike is a bit fuzzy. Let's stick to the local briefcase for a second.",
                 timestamp: new Date().toISOString(),
                 sourceLayer: "Local Partner"
             }]);
