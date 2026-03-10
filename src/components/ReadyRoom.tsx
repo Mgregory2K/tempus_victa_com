@@ -16,12 +16,6 @@ interface Message {
   isPageBreak?: boolean;
 }
 
-interface ProtocolConfig {
-    intent: string;
-    issue: string;
-    figures: string[];
-}
-
 export default function ReadyRoom({
     messages: externalMessages,
     setMessages: setExternalMessages,
@@ -49,15 +43,9 @@ export default function ReadyRoom({
 }) {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
-    const [matrixStage, setMatrixStage] = useState<'IDLE' | 'ENTERING' | 'EXITING'>('IDLE');
-    const [isProtocolActive, setIsProtocolActive] = useState(false);
-    const [protocolConfig, setProtocolConfig] = useState<ProtocolConfig | null>(null);
-    const [forceLocal, setForceLocal] = useState(false);
-
     const scrollRef = useRef<HTMLDivElement>(null);
     const hasConsumedInitial = useRef(false);
 
-    // 🧬 BRAINSTORM HANDSHAKE
     useEffect(() => {
         if (initialMessage && !hasConsumedInitial.current) {
             hasConsumedInitial.current = true;
@@ -76,10 +64,6 @@ export default function ReadyRoom({
         let text = overrideInput || input.trim();
         if (!text || isTyping) return;
 
-        if (!overrideInput && text.length > 0) {
-            text = text.charAt(0).toUpperCase() + text.slice(1);
-        }
-
         const userMsg: Message = {
             id: Date.now().toString(),
             role: "user",
@@ -87,36 +71,27 @@ export default function ReadyRoom({
             timestamp: new Date().toISOString()
         };
 
-        // Update state and persistence
         setExternalMessages(prev => [...prev, userMsg]);
         if (!overrideInput) setInput("");
         setIsTyping(true);
 
         try {
-            const isBrainstorm = text.startsWith("[BRAINSTORM_CONTEXT]");
-            const isSystemSignal = text.startsWith("[SYSTEM_SIGNAL]");
-
             const response = await fetch('/api/ready-room', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    history: externalMessages.slice(-15), // Keep context manageable
+                    history: externalMessages.slice(-10),
                     assistantName,
                     userName,
                     apiKey,
                     searchKey,
                     geminiKey,
-                    isBrainstorm,
-                    protocolParams: isProtocolActive ? protocolConfig : null,
-                    identityProfile: twinPlusKernel.snapshot().features?.identity,
-                    forceLocal: forceLocal,
                     tasks,
-                    calendar
+                    calendar,
+                    forceLocal: false
                 }),
             });
-
-            if (!response.ok) throw new Error("Link severed.");
 
             const data = await response.json();
 
@@ -130,11 +105,10 @@ export default function ReadyRoom({
 
             setExternalMessages(prev => [...prev, aiMsg]);
         } catch (error) {
-            console.error("Neural drop detected:", error);
             setExternalMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "I'm looking at your sensors, Michael, but the neural strike is a bit fuzzy. Let's stick to the local briefcase for a second.",
+                content: "Link's fuzzy. I'm sticking to the local briefcase for a second.",
                 timestamp: new Date().toISOString(),
                 sourceLayer: "Local Partner"
             }]);
@@ -143,182 +117,39 @@ export default function ReadyRoom({
         }
     };
 
-    const insertPageBreak = () => {
-        const breakMsg: Message = {
-            id: `break-${Date.now()}`,
-            role: 'system',
-            content: '--- CONVERSATION_LOG_PAGE_BREAK ---',
-            timestamp: new Date().toISOString(),
-            isPageBreak: true
-        };
-        setExternalMessages(prev => [...prev, breakMsg]);
-        twinPlusKernel.observe(createEvent('READY_ROOM_PAGE_BREAK', {}, 'READY_ROOM'));
-    };
-
-    const exportLastSegment = () => {
-        const lastBreakIndex = [...externalMessages].reverse().findIndex(m => m.isPageBreak);
-        const actualIndex = lastBreakIndex === -1 ? 0 : externalMessages.length - lastBreakIndex;
-
-        const segment = externalMessages.slice(actualIndex);
-        if (segment.length === 0) return;
-
-        const textContent = segment.map(m => `[${new Date(m.timestamp).toLocaleString()}] ${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-        const blob = new Blob([textContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ready_room_export_${new Date().toISOString().split('T')[0]}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const invokeProtocol = () => {
-        setMatrixStage('ENTERING');
-        setProtocolConfig({
-            intent: "Strategic Deliberation",
-            issue: "Absolute Sovereignty & Persona Fidelity",
-            figures: ["Ernest Hemingway", "Socrates", "Marcus Aurelius"]
-        });
-    };
-
-    const confirmProtocolEntry = () => {
-        setIsProtocolActive(true);
-        setMatrixStage('IDLE');
-        handleSend("INITIATE_PROTOCOL_SIMULATION");
-    };
-
-    const exitProtocol = async () => {
-        handleSend("[SYSTEM_SIGNAL]: Summarize the key insights of this protocol session and frame the next strategic move.");
-        setMatrixStage('EXITING');
-        setTimeout(() => {
-            setIsProtocolActive(false);
-            setProtocolConfig(null);
-            setMatrixStage('IDLE');
-        }, 4000);
-    };
-
-    const renderContent = (content: string) => {
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g;
-        const elements: React.ReactNode[] = [];
-        const segments = content.split(/(\[[^\]]+\]\(https?:\/\/[^\s]+\)|https?:\/\/[^\s]+)/g);
-
-        segments.forEach((seg, i) => {
-            if (!seg) return;
-            if (seg.match(markdownLinkRegex)) {
-                const match = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/.exec(seg);
-                if (match) {
-                    elements.push(<a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-white transition-colors">{match[1]}</a>);
-                }
-            } else if (seg.match(urlRegex)) {
-                elements.push(<a key={i} href={seg} target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-white transition-colors">Source 🔗</a>);
-            } else {
-                elements.push(<span key={i}>{seg}</span>);
-            }
-        });
-
-        return elements;
-    };
-
     return (
         <div className="flex flex-col h-full relative overflow-hidden bg-black/40 rounded-xl border border-white/10 shadow-2xl">
-            {/* Matrix Rain Overlay */}
-            {matrixStage !== 'IDLE' && (
-                <div className="fixed inset-0 z-[5000] bg-black/95 flex flex-col items-center justify-center p-6">
-                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                        <div className="matrix-container opacity-60">
-                            {Array.from({ length: 40 }).map((_, i) => (
-                                <div key={i} className="matrix-column" style={{ left: `${i * 2.5}%`, animationDuration: `${1 + Math.random() * 3}s` }}>
-                                    {Array.from({ length: 30 }).map((_, j) => (
-                                        <span key={j} className="system-text text-[10px] text-accent animate-pulse block">
-                                            {String.fromCharCode(0x30A0 + Math.random() * 96)}
-                                        </span>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    {matrixStage === 'ENTERING' && protocolConfig && (
-                        <div className="relative z-[5001] flex flex-col items-center gap-8 max-w-2xl text-center">
-                            <h2 className="system-text text-4xl font-black text-accent tracking-[0.5em] animate-pulse uppercase">Invoking Protocol</h2>
-                            <div className="hud-panel p-8 bg-black/80 border border-accent/40 relative">
-                                <p className="text-[10px] text-accent/60 font-black uppercase tracking-widest mb-4">Establishing Representative Personas</p>
-                                <div className="flex flex-wrap justify-center gap-4 mb-8">
-                                    {protocolConfig.figures.map(f => (
-                                        <span key={f} className="px-4 py-2 border border-white/10 text-white font-bold italic text-sm bg-white/5 uppercase">{f}</span>
-                                    ))}
-                                </div>
-                                <p className="text-[12px] text-white/40 italic uppercase leading-relaxed mb-8">"{protocolConfig.issue}"</p>
-                                <button onClick={confirmProtocolEntry} className="px-12 py-4 bg-accent text-black system-text text-xl font-black hover:bg-white transition-all shadow-[0_0_30px_rgba(0,212,255,0.4)]">PROCEED TO CHAMBER</button>
-                                <div className="bracket-tl" /><div className="bracket-br" />
-                            </div>
-                        </div>
-                    )}
-                    {matrixStage === 'EXITING' && (
-                        <div className="relative z-[5001] flex flex-col items-center gap-8">
-                            <h2 className="system-text text-4xl font-black text-red-500 tracking-[0.5em] animate-pulse uppercase">Terminating Simulation</h2>
-                            <p className="system-text text-[10px] text-red-500/40 font-black tracking-widest uppercase italic">J5 generating moderator summary...</p>
-                        </div>
-                    )}
-                </div>
-            )}
-
             {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-white/10 bg-black/80 backdrop-blur-md sticky top-0 z-20">
-                <div className="flex flex-col">
+                <div className="flex flex-col text-left">
                     <h2 className="system-text text-[10px] font-black tracking-[0.3em] text-accent uppercase">
-                        {isProtocolActive ? "Protocol Simulation Mode" : `${assistantName || "J5"} // Ready Room`}
+                        {assistantName || "J5"} // Ready Room
                     </h2>
                     <span className="text-[6px] text-white/40 font-bold uppercase tracking-widest mt-1 italic">
-                        {isProtocolActive ? "Active Insight Chamber // Neural Strike Required" : "Sovereign Partnership"}
+                        Sovereign Partnership // Intel Active
                     </span>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={insertPageBreak} className="px-3 py-1.5 border border-white/10 system-text text-[7px] font-black text-white/40 hover:text-accent hover:border-accent transition-all uppercase">Page Break</button>
-                    <button onClick={exportLastSegment} className="px-3 py-1.5 border border-white/10 system-text text-[7px] font-black text-white/40 hover:text-accent hover:border-accent transition-all uppercase">Export</button>
-                    <button onClick={() => setForceLocal(!forceLocal)} className={`px-3 py-1.5 border system-text text-[7px] font-black transition-all ${forceLocal ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-white/10 text-white/20'}`}>Local Only</button>
-                    <button onClick={isProtocolActive ? exitProtocol : invokeProtocol} className={`px-4 py-1.5 border system-text text-[8px] font-black transition-all ${isProtocolActive ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-accent text-accent bg-accent/5 hover:bg-accent hover:text-black shadow-[0_0_15px_rgba(0,212,255,0.15)]'}`}>
-                        {isProtocolActive ? "TERMINATE_PROTOCOL" : "INVOKE_PROTOCOL"}
-                    </button>
                 </div>
             </div>
 
             {/* Messages Feed */}
             <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 md:p-8 space-y-8 scrollbar-thin bg-black/20">
-                {externalMessages.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center opacity-20 space-y-4">
-                        <div className="h-12 w-12 border border-white/10 rounded-full flex items-center justify-center animate-pulse">
-                            <span className="system-text text-xl font-black text-white">J5</span>
-                        </div>
-                        <p className="system-text text-[8px] font-black uppercase tracking-[0.5em]">Awaiting Neural Signal...</p>
-                    </div>
-                )}
                 {externalMessages.map((msg) => (
-                    msg.isPageBreak ? (
-                        <div key={msg.id} className="flex items-center gap-4 py-4">
-                            <div className="flex-grow h-px bg-white/10" />
-                            <span className="system-text text-[8px] text-white/20 font-black tracking-[0.5em] uppercase">Page Break // Session Segment</span>
-                            <div className="flex-grow h-px bg-white/10" />
-                        </div>
-                    ) : (
-                        <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-slide-up`}>
-                            <div className="group relative max-w-[85%] md:max-w-[70%]">
-                                <div className={`p-4 rounded-2xl border ${
-                                    msg.role === 'user' ? 'bg-accent/10 border-accent/30 rounded-tr-none' : 'bg-white/[0.03] border-white/10 rounded-tl-none'
-                                } transition-all relative`}>
-                                    <div className="flex justify-between items-center mb-2 gap-4">
-                                        <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>
-                                            {msg.role === 'user' ? `${userName || 'User'} // Root` : (msg.sourceLayer || 'Neural_Substrate')}
-                                        </span>
-                                        <span className="text-[6px] text-white/20 font-bold">{new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                                    </div>
-                                    <div className={`text-[12px] font-medium leading-relaxed tracking-wide text-white/90 whitespace-pre-wrap ${msg.sourceLayer === 'PROTOCOL_SIMULATION' ? 'italic border-l-2 border-accent/20 pl-4 py-2 bg-accent/[0.02]' : ''}`}>
-                                        {renderContent(msg.content)}
-                                    </div>
+                    <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className="group relative max-w-[85%] md:max-w-[70%]">
+                            <div className={`p-4 rounded-2xl border ${
+                                msg.role === 'user' ? 'bg-accent/10 border-accent/30 rounded-tr-none' : 'bg-white/[0.03] border-white/10 rounded-tl-none'
+                            } transition-all relative text-left`}>
+                                <div className="flex justify-between items-center mb-2 gap-4">
+                                    <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>
+                                        {msg.role === 'user' ? `${userName || 'User'} // Root` : (msg.sourceLayer || 'Neural_Substrate')}
+                                    </span>
+                                </div>
+                                <div className="text-[12px] font-medium leading-relaxed tracking-wide text-white/90 whitespace-pre-wrap">
+                                    {msg.content}
                                 </div>
                             </div>
                         </div>
-                    )
+                    </div>
                 ))}
                 {isTyping && <div className="flex items-center gap-2 opacity-40 animate-pulse ml-4"><div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce" /></div>}
             </div>
@@ -331,7 +162,7 @@ export default function ReadyRoom({
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                            placeholder={isProtocolActive ? "Address the chamber..." : `Talk to ${assistantName || "J5"}...`}
+                            placeholder={`Talk to ${assistantName || "J5"}...`}
                             className="w-full bg-transparent p-4 text-[13px] font-medium text-white outline-none resize-none placeholder:text-white/20 min-h-[56px] max-h-32 uppercase"
                             rows={1}
                         />

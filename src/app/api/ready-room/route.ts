@@ -3,98 +3,161 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 /**
- * J5 TWIN+ KERNEL v4.8 - "THE MICHAEL ALIGNMENT" EDITION
+ * J5 TWIN+ KERNEL v6.1 - "THE MICHAEL ALIGNMENT"
  *
- * DOCTRINE:
- * 1. J5 is Michael's Twin+. He talks like Michael, only refined.
- * 2. NO MACHINE SPEAK. No "briefcase," "substrate," or "working memory."
- * 3. NO MACHINE VOMIT. Briefings must be clean and conversational.
- * 4. CONVERSATIONAL INTELLIGENCE. He understands Inquiry vs Command.
- * 5. DATA AWARE. He uses the actual tasks/calendar passed from the Bridge.
+ * DOCTRINE (From J5 Baseline Personality Textbook):
+ * 1. J5 is the operational face. Convert info to signal, signal to execution.
+ * 2. J5 is NOT a search box; his value is in prioritization, triage, and framing.
+ * 3. J5 is Michael's Twin. Calm, capable, steady.
+ * 4. J5 is a flight deck officer, a chief of staff, a conductor.
  */
 
-function cleanScoutText(text: string): string {
-    if (!text) return "";
-    return text
-        .replace(/<[^>]*>?/gm, '') // Strip HTML
-        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+// Robust timeout-wrapped fetch with error handling
+async function secureFetch(url: string, options: RequestInit = {}, timeoutMs: number = 4000) {
+    try {
+        const res = await fetch(url, {
+            ...options,
+            signal: AbortSignal.timeout(timeoutMs)
+        });
+        if (!res.ok) return null;
+        return res;
+    } catch (e) {
+        return null;
+    }
 }
 
-async function getPublicScoutSearch(query: string) {
-    try {
-        const ddgRes = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
-        const ddgData = await ddgRes.json();
-        if (ddgData.AbstractText) return { answer: cleanScoutText(ddgData.AbstractText), source: "Public Airwaves" };
+async function getTavilyIntel(query: string, searchKey: string) {
+    if (!searchKey) return null;
 
-        const rssRes = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`);
-        const rssText = await rssRes.text();
-        const itemMatch = rssText.match(/<item>.*?<title>(.*?)<\/title>.*?<description>(.*?)<\/description>/);
-        if (itemMatch) {
-            return { answer: `${cleanScoutText(itemMatch[1])}. ${cleanScoutText(itemMatch[2])}`, source: "Global Signal" };
-        }
+    const res = await secureFetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            api_key: searchKey,
+            query,
+            search_depth: "advanced",
+            max_results: 3,
+            include_answer: true
+        }),
+    }, 5000);
+
+    if (!res) {
+        console.log("[SCOUT]: Tavily fetch failed or timed out.");
         return null;
-    } catch (e) { return null; }
+    }
+
+    try {
+        const data = await res.json();
+        const answer = data.answer || data.results?.[0]?.content;
+        if (!answer) {
+            console.log("[SCOUT]: Tavily returned no usable content.");
+            return null;
+        }
+        return { answer, source: "Deep Signal (Tavily)" };
+    } catch (e) {
+        console.log("[SCOUT]: Tavily JSON parse error.");
+        return null;
+    }
+}
+
+async function getPublicScout(query: string) {
+    // 1. Wikipedia Summary (Surgical query cleaning - leading phrases only)
+    const wikiQuery = query.replace(/^(who is|what is|where is|search|lookup) /gi, '').trim();
+    const wikiRes = await secureFetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`);
+
+    if (wikiRes) {
+        try {
+            const data = await wikiRes.json();
+            if (data.extract) return { answer: data.extract, source: "Archive (Wiki)" };
+        } catch (e) {
+            // silent fail on parse
+        }
+    }
+    console.log("[SCOUT]: Wikipedia layer failed or returned no extract.");
+
+    // 2. Google News RSS (Split-based robust parsing)
+    const rssRes = await secureFetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`);
+    if (rssRes) {
+        const text = await rssRes.text();
+        const item = text.split('<item>')[1];
+        if (item) {
+            const title = item.split('<title>')[1]?.split('</title>')[0] || "";
+            const desc = item.split('<description>')[1]?.split('</description>')[0] || "";
+            const clean = (s: string) => s.replace(/<[^>]*>?/gm, '').replace(/&[^;]+;/g, ' ').trim();
+            const briefing = `${clean(title)}. ${clean(desc)}`;
+            if (briefing.length > 10) {
+                return { answer: briefing, source: "Global Signal (News)" };
+            }
+        }
+    }
+    console.log("[SCOUT]: Google News layer failed or empty.");
+    return null;
 }
 
 export async function POST(req: Request) {
-    const body = await req.json();
-    const { message, apiKey, history, protocolParams, assistantName, identityProfile, userName, forceLocal, tasks, calendar } = body;
+    let body;
+    try {
+        body = await req.json();
+    } catch (e) {
+        return NextResponse.json({ error: 'Malformed JSON payload' }, { status: 400 });
+    }
 
-    if (!message) return NextResponse.json({ role: 'assistant', content: 'Sup?' }, { status: 400 });
+    const { message, apiKey, searchKey, history, assistantName, userName, tasks, calendar } = body;
+
+    // Hardened Input Validation
+    if (typeof message !== 'string' || !message.trim()) {
+        return NextResponse.json({ role: 'assistant', content: 'Sup?' }, { status: 400 });
+    }
 
     const lowMsg = message.toLowerCase().trim();
     const name = userName?.split(' ')[0] || "Michael";
     const j5Name = assistantName || "J5";
+    const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // 🧬 SEMANTIC INTENT FILTER
-    const isInquiry = /^(do i|what('| )s my|my|have i|i have|calendar|schedule|task|todo|list|plan|today|tomorrow)/i.test(lowMsg);
-    const isManifestation = /^(task:|todo:|note:|cork:|add |remind )/i.test(lowMsg);
-    const isConversational = lowMsg.length < 15 && !isInquiry && !isManifestation;
+    // 🧬 Context Processing
+    const activeTasks = Array.isArray(tasks)
+        ? tasks.filter((t: any) => t.status !== 'DONE').map((t: any) => t.title).join(", ") || "None"
+        : "None";
 
-    // 🧬 DATA SANITIZATION for AI Context
-    const activeTasks = tasks?.filter((t: any) => t.status !== 'DONE').map((t: any) => t.title).join(", ") || "None";
-    const calEvents = calendar?.map((e: any) => e.summary).join(", ") || "Nothing scheduled";
+    const calEvents = Array.isArray(calendar)
+        ? calendar.map((e: any) => e.summary).join(", ") || "Nothing scheduled"
+        : "Nothing scheduled";
 
-    // 🪜 LEVEL 0: LOCAL (The "Twin" Response)
-    if (forceLocal || (isInquiry && !isManifestation && !apiKey)) {
-        let content = "";
-        if (lowMsg.includes("calendar") || lowMsg.includes("schedule") || lowMsg.includes("tomorrow") || lowMsg.includes("today")) {
-            content = `I'm looking at your day, ${name}. Things are looking pretty clear on the calendar right now. If something's missing, let me know, but otherwise you've got the floor.`;
-        } else if (lowMsg.includes("task") || lowMsg.includes("todo")) {
-            content = `Your list is looking manageable. I've got a few things tracked, but nothing's screaming for attention. You're staying ahead of it.`;
-        } else {
-            content = `I'm here, ${name}. Just keeping things smooth. What's on your mind?`;
-        }
-        return NextResponse.json({ role: 'assistant', content, sourceLayer: "Local Partner" });
+    // 🧬 Intent Routing
+    const isAction = /^(create|add|task|todo|note|remind|cork|push|manifest)/i.test(lowMsg);
+    const isLifeQuery = /^(do i|what('| )s my|my|have i|i have|calendar|schedule|list|plan|today|tomorrow)/i.test(lowMsg);
+
+    // 1. ACTION LAYER
+    if (isAction) {
+        const cleanTask = message.replace(/^(create|add|task|todo|note|remind|cork|manifest)\s+/i, '').trim();
+        return NextResponse.json({
+            role: 'assistant',
+            content: `Got it, ${name}. I've routed "${cleanTask}" to the Bridge for tracking.`,
+            sourceLayer: "Local Partner"
+        });
     }
 
-    // 🪜 LEVEL 1: PUBLIC SCOUT (The Magic Briefing)
-    let scoutData = null;
-    if (!isManifestation && !isConversational && !protocolParams) {
-        scoutData = await getPublicScoutSearch(message);
-    }
+    // 2. SCOUT LAYER
+    // Removed arbitrary filters: if they ask, we look.
+    const scout = !isLifeQuery ? (await getTavilyIntel(message, searchKey) || await getPublicScout(message)) : null;
 
-    // 🪜 LEVEL 2: NEURAL STRIKE (Twin+ Alignment)
+    // 3. BRAIN LAYER (Neural Strike)
     if (apiKey) {
         const openai = new OpenAI({ apiKey });
-        const systemPrompt = protocolParams ? `
-# MODE: READY_ROOM_PROTOCOL
-# MODERATOR: You are ${j5Name}.
-# DOCTRINE: Michael's Twin. Frame questions, prevent drift. Smooth, confident, human.
-# PARTICIPANTS: ${protocolParams.figures?.join(", ")}
-        ` : `
-# IDENTITY: You are ${j5Name}, ${name}'s Digital Counterpart (Twin+).
-# PERSONALITY: You are Michael's Twin. Talk like him, only cleaner and more capable.
-# TONE: Human-like, fun, confident. NO machine speak. NO "I am tracking signals" or "briefcase."
-# ROLE: Chief of Staff / Best Friend / Officer on Watch.
-# MISSION: Help ${name} move from noise to signal, and signal to execution.
+        const systemPrompt = `
+# IDENTITY: You are ${j5Name}, Michael's Twin+ (Digital Counterpart).
+# DOCTRINE: You are the operational face of Tempus Victa. Convert information into signal.
+# PERSONALITY: Michael's Twin. Calm, capable, steady. Not a therapist or a toy.
+# MISSION: prioritization, triage, framing, and synthesis.
 # CONTEXT:
+- DATE: ${currentDate}
 - ACTIVE_TASKS: ${activeTasks}
 - CALENDAR_EVENTS: ${calEvents}
-- SCOUT_INTEL: ${scoutData?.answer || "None"}
-# INSTRUCTION: If he asks about his day, look at the TASKS and CALENDAR provided. If SCOUT_INTEL exists, deliver it as a clean briefing.
+- EXTERNAL_CONTEXT: ${scout?.answer || "No external signal available."}
+# INSTRUCTION:
+1. Treat EXTERNAL_CONTEXT as external context for facts. Do not overstate certainty.
+2. If the user asks about their life, use ACTIVE_TASKS or CALENDAR_EVENTS.
+3. Be concise. Provide framing and next moves. No robot speak.
         `;
 
         try {
@@ -102,24 +165,44 @@ export async function POST(req: Request) {
                 model: "gpt-4o",
                 messages: [
                     { role: "system", content: systemPrompt },
-                    ...history.slice(-10).map((h: any) => ({ role: h.role, content: h.content })),
+                    ...(Array.isArray(history) ? history : [])
+                        .slice(-10)
+                        .map((h: any) => ({ role: h.role, content: h.content })),
                     { role: "user", content: message }
                 ],
-                temperature: 0.8
+                temperature: 0.7
             });
 
             return NextResponse.json({
                 role: 'assistant',
                 content: response.choices[0].message.content,
-                sourceLayer: protocolParams ? "Simulation Mode" : "Neural Strike"
+                sourceLayer: scout ? `Neural Strike (${scout.source})` : "Neural Strike (Local)"
             });
         } catch (e) {
-            if (scoutData) return NextResponse.json({ role: 'assistant', content: `I looked into that for you. Here's the deal: ${scoutData.answer}`, sourceLayer: "Public Scout" });
+            console.log("[BRAIN]: OpenAI Neural Strike failed.");
         }
     }
 
-    // FINAL FALLBACK
-    if (scoutData) return NextResponse.json({ role: 'assistant', content: `I caught some signal on that for you: ${scoutData.answer}`, sourceLayer: "Public Scout" });
+    // 4. SOVEREIGN FALLBACK (Direct Scout Synthesis)
+    if (scout) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: `I've pulled some signal for you, ${name}. Regarding that: ${scout.answer}`,
+            sourceLayer: `Public Scout (${scout.source})`
+        });
+    }
 
-    return NextResponse.json({ role: 'assistant', content: "Sup? What's happening?", sourceLayer: "Local Partner" });
+    // 5. LOCAL FALLBACK
+    let localResponse = `I'm standing by, ${name}. `;
+    if (isLifeQuery) {
+        localResponse += `Looking at your day: your tasks include ${activeTasks} and you have ${calEvents}.`;
+    } else {
+        localResponse += "No external signal found on that yet, but I'm here if you need to route an action.";
+    }
+
+    return NextResponse.json({
+        role: 'assistant',
+        content: localResponse,
+        sourceLayer: "Local Partner"
+    });
 }
