@@ -25,14 +25,13 @@ export default function ExerciseHub({ onDismiss }: ExerciseHubProps) {
 
     return (
         <div className="fixed inset-0 z-[8000] bg-black/98 flex flex-col overflow-hidden animate-in fade-in duration-300">
-            {/* Unified Header */}
             <div className="flex justify-between items-center p-4 border-b border-white/10 bg-black/80 backdrop-blur-md shrink-0">
                 <div className="flex flex-col">
                     <h2 className="system-text text-[10px] font-black tracking-[0.3em] text-accent uppercase">
                         {activeGame === 'HUB' ? "Cognitive Calibration Hub" : `Calibration // ${activeGame}`}
                     </h2>
                     <span className="text-[6px] text-white/40 font-bold uppercase tracking-widest mt-1 italic">
-                        Twin+ Substrate // v3.5.5_STABLE
+                        Twin+ Substrate // v3.5.6_STABLE
                     </span>
                 </div>
                 <div className="flex gap-2">
@@ -43,13 +42,12 @@ export default function ExerciseHub({ onDismiss }: ExerciseHubProps) {
                 </div>
             </div>
 
-            {/* Content Area */}
             <div className="flex-grow overflow-y-auto relative bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.05),transparent_70%)]">
                 {activeGame === 'HUB' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6 max-w-4xl mx-auto mt-10">
-                        <GameCard title="Triage Blackjack" desc="High-stakes probability and risk calibration. Measures strategic alignment and decision confidence." type="BLACKJACK" icon="🃏" color="purple-500" onClick={() => setActiveGame('BLACKJACK')} />
-                        <GameCard title="Mindsweeper" desc="Spatial logic and entropy clearing. Tracks logical gap analysis and risk-weighted guessing." type="MINESWEEPER" icon="💣" color="red-500" onClick={() => setActiveGame('MINESWEEPER')} />
-                        <GameCard title="Sovereign Snake" desc="Motor calibration and focus state stability. Measures latency and touch precision." type="SNAKE" icon="🐍" color="accent" onClick={() => setActiveGame('SNAKE')} />
+                        <GameCard title="Triage Blackjack" desc="Strategic risk calibration. Dealer stands on 17. Measures deviation from optimal triage strategy." type="BLACKJACK" icon="🃏" color="purple-500" onClick={() => setActiveGame('BLACKJACK')} />
+                        <GameCard title="Mindsweeper" desc="Spatial logic and entropy clearing. Tracks logical gap analysis vs probability guessing." type="MINESWEEPER" icon="💣" color="red-500" onClick={() => setActiveGame('MINESWEEPER')} />
+                        <GameCard title="Sovereign Snake" desc="Motor flow and focus state stability. Full-screen swipe gestures for precise neural navigation." type="SNAKE" icon="🐍" color="accent" onClick={() => setActiveGame('SNAKE')} />
                         <GameCard title="Direct Calibration" desc="Moderated decision scenarios. J5 observes your reasoning patterns directly." type="CALIBRATION" icon="🧠" color="neon-green" onClick={() => setActiveGame('CALIBRATION')} />
                     </div>
                 )}
@@ -75,8 +73,6 @@ function GameCard({ title, desc, icon, color, onClick }: any) {
         </div>
     );
 }
-
-// --- 🃏 TRIAGE BLACKJACK (STRATEGIC CALIBRATION) ---
 
 function BlackjackGame() {
     const [deck, setDeck] = useState<Card[]>([]);
@@ -141,7 +137,7 @@ function BlackjackGame() {
 
     const settleHand = (result: string) => {
         setGameState('SETTLED'); setMessage(result);
-        twinPlusKernel.observe(createEvent('COGNITIVE_CALIBRATION', { game: 'BLACKJACK', result }, 'EXERCISE_HUB'));
+        twinPlusKernel.observe(createEvent('STRATEGIC_CALIBRATION', { game: 'BLACKJACK', result }, 'EXERCISE_HUB'));
     };
 
     const CardComponent = ({ card }: { card: Card }) => (
@@ -187,8 +183,6 @@ function BlackjackGame() {
     );
 }
 
-// --- 💣 MINESWEEPER (SPATIAL LOGIC) ---
-
 function MinesweeperGame() {
     const SIZE = 8; const MINES = 10;
     const [grid, setGrid] = useState<any[][]>([]);
@@ -227,8 +221,8 @@ function MinesweeperGame() {
     return (
         <div className="flex flex-col items-center gap-8 py-10 h-full">
             <div className="flex justify-between w-full max-w-[320px] px-4 shrink-0">
-                <div className="flex flex-col"><span className="text-[8px] text-white/40 font-black uppercase">Sector Integrity</span><span className={`text-xl font-black italic uppercase ${status === 'WON' ? 'text-neon-green' : status === 'LOST' ? 'text-red-500' : 'text-white'}`}>{status === 'IDLE' ? 'PLAYING' : status}</span></div>
-                <button onClick={() => setMode(mode === 'REVEAL' ? 'FLAG' : 'REVEAL')} className={`px-6 py-2 border-2 ${mode === 'FLAG' ? 'bg-red-500 border-red-500 text-white' : 'border-white/20 text-white/40'} system-text text-[10px] font-black uppercase transition-all`}>{mode === 'FLAG' ? 'MODE: FLAG' : 'MODE: REVEAL'}</button>
+                <div className="flex flex-col"><span className="text-[8px] text-white/40 font-black uppercase tracking-widest">Sector Integrity</span><span className={`text-xl font-black italic uppercase ${status === 'WON' ? 'text-neon-green' : status === 'LOST' ? 'text-red-500' : 'text-white'}`}>{status === 'IDLE' ? 'PLAYING' : status}</span></div>
+                <button onClick={() => setMode(mode === 'REVEAL' ? 'FLAG' : 'REVEAL')} className={`px-6 py-2 border-2 ${mode === 'FLAG' ? 'bg-red-500 border-red-500 text-white shadow-[0_0_15px_#ef4444]' : 'border-white/20 text-white/40'} system-text text-[10px] font-black uppercase transition-all`}>{mode === 'FLAG' ? 'MODE: FLAG' : 'MODE: REVEAL'}</button>
             </div>
             <div className="grid gap-1 p-2 bg-white/5 border border-white/10 rounded-lg touch-none" style={{ gridTemplateColumns: `repeat(${SIZE}, 1fr)` }}>
                 {grid.map((row, y) => row.map((cell, x) => (
@@ -241,8 +235,6 @@ function MinesweeperGame() {
         </div>
     );
 }
-
-// --- 🐍 SOVEREIGN SNAKE (GESTURE ENGINE) ---
 
 function SnakeGame() {
     const SIZE = 15;
