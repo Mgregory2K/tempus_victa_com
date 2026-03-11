@@ -5,12 +5,30 @@ import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
 import Winboard from './Winboard';
 import QuoteBoard from './QuoteBoard';
 
+interface Quote {
+    id: string;
+    text: string;
+    author: string;
+    timestamp: string;
+    context?: string;
+    isSynced?: boolean;
+}
+
 interface IdentityMirrorProps {
     externalTasks?: any[];
     setExternalTasks?: React.Dispatch<React.SetStateAction<any[]>>;
+    externalQuotes?: Quote[];
+    setQuotes?: React.Dispatch<React.SetStateAction<Quote[]>>;
+    userName?: string;
 }
 
-export default function IdentityMirror({ externalTasks = [], setExternalTasks }: IdentityMirrorProps) {
+export default function IdentityMirror({
+    externalTasks = [],
+    setExternalTasks,
+    externalQuotes = [],
+    setQuotes,
+    userName
+}: IdentityMirrorProps) {
     const [snapshot, setSnapshot] = useState<any>(null);
 
     useEffect(() => {
@@ -175,7 +193,11 @@ export default function IdentityMirror({ externalTasks = [], setExternalTasks }:
                             <h3 className="system-text text-[10px] text-white/40 font-black uppercase tracking-[0.3em]">Linguistic Patterns</h3>
                         </div>
                         <div className="scale-90 origin-top">
-                            <QuoteBoard externalQuotes={[]} setQuotes={() => {}} />
+                            <QuoteBoard
+                                externalQuotes={externalQuotes}
+                                setQuotes={setQuotes}
+                                userName={userName}
+                            />
                         </div>
                     </div>
                 </div>
