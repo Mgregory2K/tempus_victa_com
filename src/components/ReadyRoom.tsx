@@ -18,11 +18,13 @@ interface ReadyRoomProps {
     tasks?: any[];
     calendar?: any[];
     onMemoryUpdate?: (candidates: any[], lastUserMessage?: string) => void;
+    twinProjection?: any; // Sovereign Identity Projection
 }
 
 export default function ReadyRoom({
     chats = [], setChats, activeChatId, setActiveChatId, projects = [],
-    identityMemory, situationalState, apiKey, searchKey, assistantName, userName, tasks, calendar, onMemoryUpdate
+    identityMemory, situationalState, apiKey, searchKey, assistantName, userName, tasks, calendar, onMemoryUpdate,
+    twinProjection
 }: ReadyRoomProps) {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -85,6 +87,7 @@ export default function ReadyRoom({
                     message: text,
                     history: currentSegment?.messages.slice(-10) || [],
                     assistantName, userName, apiKey, searchKey, tasks, calendar, identityMemory, situationalState,
+                    twinProjection, // SOVEREIGN IDENTITY INJECTION
                     protocolParams: activeScope === "READY_ROOM_PROTOCOL" ? { mode: "MODERATED" } : null
                 }),
             });

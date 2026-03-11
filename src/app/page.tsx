@@ -27,7 +27,7 @@ import {
 
 export type Module = "BRIDGE" | "READY_ROOM" | "IO_BAY" | "PROJECTS" | "TODO" | "CORKBOARD" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "16.0.0-SYNC-HARDENED";
+const VERSION = "17.0.0-TWIN-PLUS-SOVEREIGN";
 
 export interface Message {
   id: string;
@@ -150,6 +150,11 @@ function AppShell() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [wishes, setWishes] = useState<Wish[]>([]);
 
+  // Twin+ Sovereign Identity Pack State
+  const [twinManifest, setTwinManifest] = useState<any>(null);
+  const [committedMemory, setCommittedMemory] = useState<any>(null);
+  const [geminiProjection, setGeminiProjection] = useState<any>(null);
+
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [identityMemory, setIdentityMemory] = useState<TwinMemory[]>([]);
   const [situationalState, setSituationalState] = useState<SituationalState[]>([]);
@@ -180,6 +185,11 @@ function AppShell() {
         setNotes(JSON.parse(localStorage.getItem("tv_notes") || "[]"));
         setQuotes(JSON.parse(localStorage.getItem("tv_quotes") || "[]"));
         setWishes(JSON.parse(localStorage.getItem("tv_wishes") || "[]"));
+
+        // Twin+ Hydration
+        setTwinManifest(JSON.parse(localStorage.getItem("twin_manifest") || "null"));
+        setCommittedMemory(JSON.parse(localStorage.getItem("committed_memory") || "null"));
+        setGeminiProjection(JSON.parse(localStorage.getItem("gemini_projection") || "null"));
     } catch (e) { console.error("Hydration Error", e); }
     setIsHydrated(true);
   }, []);
@@ -198,17 +208,23 @@ function AppShell() {
                 fetch('/api/sync?file=quotes.json', { method: 'POST', body: JSON.stringify(quotes) }),
                 fetch('/api/sync?file=wishes.json', { method: 'POST', body: JSON.stringify(wishes) }),
                 fetch('/api/sync?file=pattern_signals.json', { method: 'POST', body: JSON.stringify(patternSignals) }),
-                fetch('/api/sync?file=session_state.json', { method: 'POST', body: JSON.stringify(situationalState) })
-            ]);
+                fetch('/api/sync?file=session_state.json', { method: 'POST', body: JSON.stringify(situationalState) }),
+
+                // Twin+ Sovereign Push
+                twinManifest && fetch('/api/sync?file=twin_manifest.json', { method: 'POST', body: JSON.stringify(twinManifest) }),
+                committedMemory && fetch('/api/sync?file=committed_memory.json', { method: 'POST', body: JSON.stringify(committedMemory) }),
+                geminiProjection && fetch('/api/sync?file=gemini_projection.json', { method: 'POST', body: JSON.stringify(geminiProjection) })
+            ].filter(Boolean) as Promise<any>[]);
         } else {
             const fetchFile = async (name: string) => {
                 const res = await fetch(`/api/sync?file=${name}`);
                 return res.ok ? res.json() : null;
             };
-            const [id, c, t, n, q, w, p, s] = await Promise.all([
+            const [id, c, t, n, q, w, p, s, tm, cm, gp] = await Promise.all([
                 fetchFile('identity_memory.json'), fetchFile('chats.json'), fetchFile('tasks.json'),
                 fetchFile('notes.json'), fetchFile('quotes.json'), fetchFile('wishes.json'),
-                fetchFile('pattern_signals.json'), fetchFile('session_state.json')
+                fetchFile('pattern_signals.json'), fetchFile('session_state.json'),
+                fetchFile('twin_manifest.json'), fetchFile('committed_memory.json'), fetchFile('gemini_projection.json')
             ]);
             if (id) setIdentityMemory(id);
             if (c) setChats(c);
@@ -218,9 +234,14 @@ function AppShell() {
             if (w) setWishes(w);
             if (p) setPatternSignals(p);
             if (s) setSituationalState(s);
+
+            // Twin+ Pull rehydration
+            if (tm) setTwinManifest(tm);
+            if (cm) setCommittedMemory(cm);
+            if (gp) setGeminiProjection(gp);
         }
     } catch (e) { console.error("Sync Error", e); } finally { setIsSyncing(false); }
-  }, [session, isSyncing, identityMemory, chats, tasks, notes, quotes, wishes, patternSignals, situationalState]);
+  }, [session, isSyncing, identityMemory, chats, tasks, notes, quotes, wishes, patternSignals, situationalState, twinManifest, committedMemory, geminiProjection]);
 
   // 3. PERSISTENCE TRIGGER (Local + Immediate Cloud Push)
   useEffect(() => {
@@ -234,10 +255,15 @@ function AppShell() {
     localStorage.setItem("tv_quotes", JSON.stringify(quotes));
     localStorage.setItem("tv_wishes", JSON.stringify(wishes));
 
+    // Twin+ Persistence
+    if (twinManifest) localStorage.setItem("twin_manifest", JSON.stringify(twinManifest));
+    if (committedMemory) localStorage.setItem("committed_memory", JSON.stringify(committedMemory));
+    if (geminiProjection) localStorage.setItem("gemini_projection", JSON.stringify(geminiProjection));
+
     // Auto-sync on significant changes (debounced by React state cycle)
     const timer = setTimeout(() => handleCloudSync('PUSH'), 5000);
     return () => clearTimeout(timer);
-  }, [identityMemory, situationalState, patternSignals, tasks, chats, notes, quotes, wishes, hasMounted, isHydrated, handleCloudSync]);
+  }, [identityMemory, situationalState, patternSignals, tasks, chats, notes, quotes, wishes, twinManifest, committedMemory, geminiProjection, hasMounted, isHydrated, handleCloudSync]);
 
   useEffect(() => {
     if (status === 'authenticated' && !hasPulledRef.current && isHydrated) {
@@ -313,6 +339,7 @@ function AppShell() {
                     apiKey={apiKey} searchKey={searchKey} assistantName={assistantName} userName={session?.user?.name || "User"}
                     tasks={tasks} calendar={calendar}
                     onMemoryUpdate={mergeGovernedMemory}
+                    twinProjection={geminiProjection}
                 />
               )}
               {activeModule === "IO_BAY" && <IOBay onNavigate={setActiveModule as any} onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}

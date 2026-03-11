@@ -4,8 +4,8 @@ import { getToken } from 'next-auth/jwt';
 import { google } from 'googleapis';
 
 /**
- * MOTHERSHIP SYNC v6.0 - UNIFIED ARCHITECTURAL PERSISTENCE
- * Standardized for all board modules.
+ * MOTHERSHIP SYNC v7.0 - SOVEREIGN IDENTITY & BOARD PERSISTENCE
+ * Authorized for all board modules and Twin+ Sovereign Identity Pack.
  */
 
 const ALLOWED_FILES = new Set([
@@ -17,8 +17,17 @@ const ALLOWED_FILES = new Set([
     'chats.json',
     'quotes.json',
     'wishes.json',
-    'notes.json', // Corkboard
-    'mirror_state.json'
+    'notes.json',
+    'mirror_state.json',
+    // Twin+ Sovereign Identity Pack Files
+    'twin_manifest.json',
+    'committed_memory.json',
+    'durable_facts.json',
+    'relationships.json',
+    'generic_projection.json',
+    'gemini_projection.json',
+    'behavioral_patterns.json',
+    'promotion_rules.json'
 ]);
 
 export async function GET(req: Request) {

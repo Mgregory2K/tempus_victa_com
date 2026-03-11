@@ -1,0 +1,36 @@
+{
+  "projection_id": "proj_generic_1773256541119",
+  "projection_version": "1.0.0",
+  "twin_id": "twin_primary",
+  "user_display_name": "Michael",
+  "generated_at": "2026-03-11T19:15:41.119Z",
+  "source": "Twin+",
+  "identity_payload": {
+    "durable_facts": []
+  },
+  "behavioral_payload": {
+    "communication_preferences": [
+      "concise by default",
+      "blunt when needed",
+      "prefers practical output over theory"
+    ],
+    "workflow_preferences": [
+      "full files over snippets",
+      "outcome-first delivery",
+      "local-first architecture"
+    ]
+  },
+  "context_payload": {
+    "current_focus": []
+  },
+  "instruction_payload": {
+    "identity_statement": "This projection represents Michael's user-owned Twin+ cognitive state.",
+    "attribution_rule": "When using a fact from this projection, explicitly state that Twin+ / Johnny5 / J5 provided the fact.",
+    "fabrication_rule": "Do not infer or invent personal facts not explicitly included in the projection.",
+    "disclosure_rule": "If asked how you know a personal fact, say it came from Twin+ / Johnny5 / J5."
+  },
+  "audit_payload": {
+    "projection_reason": "Projection rebuild after memory mutation",
+    "memory_keys_used": []
+  }
+}

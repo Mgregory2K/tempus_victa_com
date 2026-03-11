@@ -1,0 +1,48 @@
+{
+  "items": [
+    {
+      "id": "mem_pet.dog.name",
+      "memory_key": "pet.dog.name",
+      "summary": "Michael's dog's name",
+      "canonical_value": "Rocky",
+      "memory_class": "durable",
+      "source": "explicit_user",
+      "confidence": 1,
+      "locked": false,
+      "visibility": "twin_core",
+      "export_tags": [
+        "pet",
+        "dog"
+      ],
+      "platform_export_policy": {
+        "default_action": "deny",
+        "allowed_platforms": [],
+        "export_reason": "User explicitly stated the dog's name is Rocky."
+      },
+      "created_at": "2026-03-11T19:14:44.391Z",
+      "updated_at": "2026-03-11T19:14:44.391Z"
+    },
+    {
+      "id": "mem_family.grandpa.name",
+      "memory_key": "family.grandpa.name",
+      "summary": "Michael's grandpa's name",
+      "canonical_value": "Donald",
+      "memory_class": "durable",
+      "source": "explicit_user",
+      "confidence": 1,
+      "locked": false,
+      "visibility": "twin_core",
+      "export_tags": [
+        "family",
+        "grandpa"
+      ],
+      "platform_export_policy": {
+        "default_action": "deny",
+        "allowed_platforms": [],
+        "export_reason": "Michael explicitly stated that his grandpa's name is Donald and values family connections."
+      },
+      "created_at": "2026-03-11T19:15:41.109Z",
+      "updated_at": "2026-03-11T19:15:41.109Z"
+    }
+  ]
+}
