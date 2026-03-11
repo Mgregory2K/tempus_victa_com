@@ -26,97 +26,75 @@ export interface PatternSignal {
 /**
  * STABILITY SCORING
  * Determines if a memory has earned its place in the durable identity.
- * Rule: stabilityScore >= 3 required for active prompt injection.
  */
 export function calculateStability(memory: TwinMemory): number {
     let score = memory.reinforcementCount;
     if (memory.source === 'user_confirmed') score += 3;
-
     const daysSinceCreation = (Date.now() - new Date(memory.createdAt).getTime()) / 86400000;
     if (daysSinceCreation > 7) score += 1;
-
     return score;
 }
 
 /**
- * IDENTITY GOVERNANCE ENGINE
- * Handles reinforcement, deduplication, and pruning.
- */
-export function governIdentity(existing: TwinMemory[], incoming: Partial<TwinMemory>[]): TwinMemory[] {
-    const updated = [...existing];
-
-    for (const signal of incoming) {
-        if (!signal.key || !signal.value) continue;
-
-        const existingIndex = updated.findIndex(m => m.key.toLowerCase() === signal.key!.toLowerCase());
-
-        if (existingIndex === -1) {
-            // New Candidate
-            updated.push({
-                id: signal.id || Math.random().toString(36).substring(2, 11),
-                kind: signal.kind || 'preference',
-                key: signal.key,
-                value: signal.value,
-                confidence: signal.source === 'user_confirmed' ? 0.9 : 0.4,
-                reinforcementCount: 1,
-                source: signal.source || 'assistant_inferred',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            });
-        } else {
-            // Reinforce Existing
-            const m = updated[existingIndex];
-            m.reinforcementCount += 1;
-            m.confidence = Math.min(1, m.confidence + 0.1);
-            m.value = signal.value; // Update with latest phrasing
-            m.updatedAt = new Date().toISOString();
-            if (signal.source === 'user_confirmed') m.source = 'user_confirmed';
-        }
-    }
-
-    return updated;
-}
-
-/**
- * COMPRESSION ENGINE (Periodic Run)
- * Prunes weak signals and prepares archiving candidates.
+ * IDENTITY GOVERNANCE & COMPRESSION
  */
 export function runMemoryCompression(memories: TwinMemory[]) {
-    // 1. Prune weak assistant inferences that never reinforced
-    const active = memories.filter(m => {
-        if (m.source === 'user_confirmed') return true;
-        if (m.kind === 'relationship') return true;
-        if (calculateStability(m) >= 3) return true;
-        if (m.confidence > 0.6) return true;
-        return false;
-    });
+  const map = new Map<string, TwinMemory>();
+  const safeMemories = Array.isArray(memories) ? memories : [];
 
-    // 2. Identify stale items for archive (Not referenced in 120 days)
-    const archived = memories.filter(m => {
-        if (!m.lastReferencedAt) return false;
-        const ageDays = (Date.now() - new Date(m.lastReferencedAt).getTime()) / 86400000;
-        return ageDays > 120 && !active.find(a => a.id === m.id);
-    });
+  for (const m of safeMemories) {
+    const uniqueKey = `${m.kind}:${m.key.toLowerCase()}`;
+    if (!map.has(uniqueKey)) {
+      map.set(uniqueKey, { ...m });
+      continue;
+    }
+    const existing = map.get(uniqueKey)!;
+    if (m.source === 'user_confirmed' || m.kind === 'relationship') {
+        existing.value = m.value;
+        existing.source = 'user_confirmed';
+    }
+    existing.reinforcementCount += m.reinforcementCount;
+    existing.confidence = Math.min(1, (existing.confidence + m.confidence) / 2 + 0.05);
+    existing.updatedAt = new Date().toISOString();
+  }
 
-    return { active, archived };
+  const merged = Array.from(map.values());
+
+  const active = merged.filter(m => {
+    if (m.source === "user_confirmed" || m.kind === "relationship") return true;
+    if (calculateStability(m) >= 3 || m.confidence > 0.6) return true;
+    return false;
+  });
+
+  const archived = merged.filter(m => {
+      if (!m.lastReferencedAt) return false;
+      const ageDays = (Date.now() - new Date(m.lastReferencedAt).getTime()) / 86400000;
+      return ageDays > 120 && !active.find(a => a.id === m.id);
+  });
+
+  return { active, archived };
 }
 
 /**
- * PATTERN ENGINE
- * Behavioral observation reinforcement and decay.
+ * PATTERN DETECTION
  */
-export function governPatterns(existing: PatternSignal[], incomingIds: string[]): PatternSignal[] {
-    const updated = [...existing];
-    const now = new Date().toISOString();
+export function detectPatterns(message: string, currentSignals: PatternSignal[]): PatternSignal[] {
+  const msg = message.toLowerCase();
+  const updated = [...(Array.isArray(currentSignals) ? currentSignals : [])];
 
-    for (const id of incomingIds) {
-        let pattern = updated.find(p => p.id === id);
-        if (!pattern) continue; // Only reinforce known detectors
-
-        pattern.evidenceCount += 1;
-        pattern.confidence = Math.min(1, pattern.confidence + 0.05);
-        pattern.lastObserved = now;
+  const updatePattern = (id: string, category: PatternSignal['category'], pattern: string) => {
+    let sig = updated.find(p => p.id === id);
+    if (!sig) {
+      updated.push({ id, category, pattern, evidenceCount: 1, confidence: 0.3, lastObserved: new Date().toISOString() });
+    } else {
+      sig.evidenceCount += 1;
+      sig.confidence = Math.min(1, sig.confidence + 0.05);
+      sig.lastObserved = new Date().toISOString();
     }
+  };
 
-    return updated;
+  if (msg.includes("tempus") && msg.includes("late")) updatePattern("late_night_work", "behavior", "User frequently works late on Tempus Victa");
+  if (msg.includes("concise") || msg.includes("short")) updatePattern("brevity_preference", "communication", "User values operational brevity");
+
+  return updated;
 }

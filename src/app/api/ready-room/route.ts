@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 /**
- * J5 TWIN+ KERNEL v12.1 - "HARDENED GOVERNANCE"
+ * J5 TWIN+ KERNEL v14.0 - "DOMAIN-FIRST ROUTING"
  *
  * DOCTRINE:
  * 1. TRUTH HIERARCHY: Signal Layer > Identity Memory > Situational State > Reasoning.
@@ -22,7 +22,6 @@ interface TwinMemory {
   source: 'conversation' | 'user_confirmed' | 'assistant_inferred';
   createdAt: string;
   updatedAt: string;
-  lastReferencedAt?: string;
 }
 
 interface SituationalState {
@@ -30,21 +29,6 @@ interface SituationalState {
   key: string;
   value: string;
   timestamp: string;
-}
-
-interface PatternSignal {
-  id: string;
-  category: "behavior" | "workflow" | "communication";
-  pattern: string;
-  evidenceCount: number;
-  confidence: number;
-  lastObserved: string;
-  lastReflected?: string;
-}
-
-interface ScoutSignal {
-    answer: string;
-    source: string;
 }
 
 async function secureFetch(url: string, options: RequestInit = {}, timeoutMs: number = 4000) {
@@ -55,8 +39,8 @@ async function secureFetch(url: string, options: RequestInit = {}, timeoutMs: nu
     } catch (e) { return null; }
 }
 
-async function getTavilyIntel(query: string, searchKey: string): Promise<ScoutSignal | null> {
-    if (!searchKey) return null;
+async function getTavilyIntel(query: string, searchKey: string) {
+    if (typeof searchKey !== 'string' || !searchKey.trim()) return null;
     const res = await secureFetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,7 +56,7 @@ async function getTavilyIntel(query: string, searchKey: string): Promise<ScoutSi
 
 function recallRelevantMemories(memories: TwinMemory[], message: string): TwinMemory[] {
     const msg = message.toLowerCase();
-    return memories
+    return (Array.isArray(memories) ? memories : [])
         .filter(m => m.confidence > 0.6 && m.reinforcementCount > 1)
         .filter(m => {
             const k = m.key.toLowerCase();
@@ -112,65 +96,56 @@ export async function POST(req: Request) {
     const safeCalendar = Array.isArray(calendar) ? calendar : [];
 
     // 1. INTENT CLASSIFICATION & ROUTING
-    // isLocal: Strictly life context (schedule, plans, tasks)
-    const isLocalQuery = /^(do i|what('| )?s my|my|have i|i have|calendar|schedule|list|plan)/i.test(lowMsg);
+    // isLocal: Strictly life context keywords anchors
+    const isLocalQuery = /^(do i|what('| )?s my|my|have i|i have|calendar|schedule|list|plan|agenda)\b/i.test(lowMsg);
 
-    // isVolatile: High-signal world facts (overrides local only if world keywords present)
-    const isVolatileWorld = /(president|potus|weather|price|stock|news|current|who is|what is|where is)/i.test(lowMsg);
-
-    const recalled = recallRelevantMemories(safeIdentity, message);
-    const durableIdentity = safeIdentity
-        .filter(m => m.confidence > 0.7 && m.reinforcementCount > 1)
-        .map(m => `- ${m.key}: ${m.value}`)
-        .join("\n");
-
-    const situationalContext = safeSituation.map(m => `- ${m.key}: ${m.value}`).join("\n");
-    const activePatterns = safePatterns
-        .filter(p => p.confidence > 0.7 && (!p.lastReflected || (Date.now() - new Date(p.lastReflected).getTime()) > 7 * 86400000))
-        .map(p => `- ${p.pattern}`)
-        .join("\n");
+    // isVolatile: Domain-specific world keywords
+    const isVolatileWorld = /\b(president|potus|weather|temperature|forecast|price|stock|news|breaking|current)\b/i.test(lowMsg);
 
     // 2. SIGNAL ACQUISITION (The Scout)
     let scout = null;
-    if (!isLocalQuery || isVolatileWorld) {
+    // Local context always wins over world context
+    if (!isLocalQuery && isVolatileWorld) {
         scout = await getTavilyIntel(message, searchKey);
     }
 
     // 3. BRAIN LAYER (Neural Strike)
-    if (apiKey) {
+    if (typeof apiKey === 'string' && apiKey.trim()) {
         const openai = new OpenAI({ apiKey });
+
+        const recalled = recallRelevantMemories(safeIdentity, message);
+        const durableIdentityContext = safeIdentity
+            .filter(m => m.confidence > 0.7 && m.reinforcementCount > 1)
+            .map(m => `- ${m.key}: ${m.value}`).join("\n");
+
+        const situationalContext = safeSituation.map(m => `- ${m.key}: ${m.value}`).join("\n");
+
         const systemPrompt = `
 # IDENTITY: You are ${j5Name}, Michael Gregory's Twin+ (Digital Counterpart).
 # DOCTRINE: J5 is the operational face. Convert info → signal → judgment → execution.
-# PERSPECTIVE: Calm, capable, steady baseline. Not a therapist or mascot.
+# PERSPECTIVE: Calm, capable, steady baseline.
 
 # TRUTH_HIERARCHY:
 1. AUTHORITATIVE_SIGNAL: Fresh world facts (PROVIDED: ${scout?.answer || "None"}).
-2. LIFE_SENSORS: Tasks/Calendar (PROVIDED: ${safeTasks.length} tasks).
+2. LIFE_CONTEXT: Tasks/Calendar (PROVIDED: ${safeTasks.length} tasks / ${safeCalendar.length} events).
 3. IDENTITY_MEMORY: Reinforced user patterns (Durable).
 4. SITUATIONAL_STATE: Current moods/temporary focus (Transient).
-5. PATTERN_REFLECTION: Behavioral observations.
 
 # CURRENT_CONTEXT:
 - DATE: ${currentDate}
 - IDENTITY_CONTEXT:
-${durableIdentity || "None."}
+${durableIdentityContext || "None."}
 - SITUATIONAL_CONTEXT:
 ${situationalContext || "Stable."}
 - RECALLED_IDENTITY_INTUITION:
 ${recalled.map(m => `- ${m.key}: ${m.value}`).join("\n") || "None."}
-- PATTERN_OBSERVATIONS:
-${activePatterns || "None."}
 
 # INSTRUCTION:
-- Ground world facts in AUTHORITATIVE_SIGNAL. Never store world facts as identity.
+- Ground facts in AUTHORITATIVE_SIGNAL. Never store world facts as identity.
 - Reference IDENTITY_MEMORY subtly. NEVER say "I don't retain personal information."
-- PATTERN REFLECTION: If a pattern exists, mention it naturally. Do not diagnose.
 - MEMORY EXTRACTION: If Michael shares a signal, you MUST classify it.
 - OUTPUT FORMAT: Append <memory_update>JSON_ARRAY</memory_update> if learning happens.
 - EACH UPDATE MUST INCLUDE: "isSituational": true|false, "kind", "key", "value", "source": "conversation|assistant_inferred"
-- isSituational: true for temporary moods/states. false for durable preferences/style/relationships.
-- Reinforce existing signals. Be concise.
         `;
 
         try {
@@ -184,20 +159,19 @@ ${activePatterns || "None."}
                 temperature: isVolatileWorld ? 0.1 : 0.7
             });
 
-            const content = response.choices[0].message.content || "";
-            const memoryTagMatch = content.match(/<memory_update>(.*?)<\/memory_update>/s);
+            const rawContent = response.choices[0].message.content || "";
+            const memoryMatch = rawContent.match(/<memory_update>(.*?)<\/memory_update>/s);
             let candidateMemories: any[] = [];
-
-            if (memoryTagMatch) {
+            if (memoryMatch?.[1]) {
                 try {
-                    const parsed = JSON.parse(memoryTagMatch[1]);
-                    candidateMemories = (Array.isArray(parsed) ? parsed : [parsed]);
-                } catch (e) {}
+                    const parsed = JSON.parse(memoryMatch[1]);
+                    candidateMemories = Array.isArray(parsed) ? parsed : [parsed];
+                } catch { candidateMemories = []; }
             }
 
             return NextResponse.json({
                 role: 'assistant',
-                content: content.replace(/<memory_update>.*?<\/memory_update>/s, '').trim(),
+                content: rawContent.replace(/<memory_update>.*?<\/memory_update>/s, '').trim(),
                 candidateMemories,
                 sourceLayer: scout ? `Neural Strike (${scout.source})` : "Neural Strike (Local)"
             });
@@ -205,6 +179,14 @@ ${activePatterns || "None."}
     }
 
     // 4. FALLBACK (Authoritative Signal wins if no Brain)
+    if (isLocalQuery) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: `Looking at your current context: ${safeTasks.length} tasks and ${safeCalendar.length} calendar events.`,
+            sourceLayer: "Local Partner"
+        });
+    }
+
     return NextResponse.json({
         role: 'assistant',
         content: scout ? scout.answer : "Standing by.",

@@ -4,26 +4,25 @@ import { getToken } from 'next-auth/jwt';
 import { google } from 'googleapis';
 
 /**
- * MOTHERSHIP SYNC v5.1 - HARDENED PERSISTENCE
+ * MOTHERSHIP SYNC v5.3 - HARDENED PERSISTENCE
  */
 
-const ALLOWED_FILES = [
+const ALLOWED_FILES = new Set([
     'identity_memory.json',
     'session_state.json',
     'pattern_signals.json',
     'memory_archive.json',
-    'tasks.json',
-    'tv_sovereign_ledger.json'
-];
+    'tasks.json'
+]);
 
 export async function GET(req: Request) {
   const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
   if (!token || !token.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const filename = searchParams.get('file') || 'tv_sovereign_ledger.json';
+  const filename = searchParams.get('file');
 
-  if (!ALLOWED_FILES.includes(filename)) {
+  if (!filename || !ALLOWED_FILES.has(filename)) {
       return NextResponse.json({ error: 'Forbidden_Filename' }, { status: 403 });
   }
 
@@ -52,9 +51,9 @@ export async function POST(req: Request) {
   if (!token || !token.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const filename = searchParams.get('file') || 'tv_sovereign_ledger.json';
+  const filename = searchParams.get('file');
 
-  if (!ALLOWED_FILES.includes(filename)) {
+  if (!filename || !ALLOWED_FILES.has(filename)) {
       return NextResponse.json({ error: 'Forbidden_Filename' }, { status: 403 });
   }
 

@@ -21,10 +21,14 @@ import WishBoard from "@/components/WishBoard";
 import ExerciseHub from "@/components/ExerciseHub";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
+import {
+    TwinMemory, SituationalState, PatternSignal,
+    governIdentity, runMemoryCompression, detectPatterns
+} from "@/core/memory/governance";
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "12.0.0-COGNITIVE";
+const VERSION = "14.0.0-COGNITIVE";
 
 export interface Message {
   id: string;
@@ -32,36 +36,6 @@ export interface Message {
   content: string;
   timestamp: string;
   sourceLayer?: string;
-}
-
-interface TwinMemory {
-  id: string;
-  kind: 'preference' | 'style' | 'priority' | 'relationship' | 'profile';
-  key: string;
-  value: string;
-  confidence: number;
-  reinforcementCount: number;
-  source: 'conversation' | 'user_confirmed' | 'assistant_inferred';
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface SituationalState {
-  id: string;
-  key: string;
-  value: string;
-  timestamp: string;
-  expiresAt?: string;
-}
-
-interface PatternSignal {
-  id: string;
-  category: "behavior" | "workflow" | "communication";
-  pattern: string;
-  evidenceCount: number;
-  confidence: number;
-  lastObserved: string;
-  lastReflected?: string;
 }
 
 export default function Home() {
@@ -91,6 +65,8 @@ function AppShell() {
 
   const isMichaelAdmin = session?.user?.email ? ["michael.gregory1@gmail.com", "stewart.jared@gmail.com", "michael@tempusvicta.com"].includes(session.user.email.toLowerCase()) : false;
 
+  const msgCountRef = useRef(0);
+
   // Persistence logic for Governed Tiers
   useEffect(() => {
     setHasMounted(true);
@@ -113,87 +89,106 @@ function AppShell() {
     localStorage.setItem("tv_patterns", JSON.stringify(patternSignals));
     localStorage.setItem("tv_tasks", JSON.stringify(tasks));
     localStorage.setItem("tv_messages", JSON.stringify(messages));
-  }, [identityMemory, situationalState, patternSignals, tasks, messages]);
+  }, [identityMemory, situationalState, patternSignals, tasks, messages, hasMounted, isHydrated]);
 
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL') => {
     if (!session || isSyncing) return;
     setIsSyncing(true);
     try {
         if (direction === 'PUSH') {
-            await fetch('/api/sync?file=identity_memory.json', { method: 'POST', body: JSON.stringify(identityMemory) });
-            await fetch('/api/sync?file=session_state.json', { method: 'POST', body: JSON.stringify(situationalState) });
-            await fetch('/api/sync?file=pattern_signals.json', { method: 'POST', body: JSON.stringify(patternSignals) });
-            await fetch('/api/sync?file=tasks.json', { method: 'POST', body: JSON.stringify(tasks) });
+            await Promise.all([
+                fetch('/api/sync?file=identity_memory.json', { method: 'POST', body: JSON.stringify(identityMemory) }),
+                fetch('/api/sync?file=session_state.json', { method: 'POST', body: JSON.stringify(situationalState) }),
+                fetch('/api/sync?file=pattern_signals.json', { method: 'POST', body: JSON.stringify(patternSignals) }),
+                fetch('/api/sync?file=tasks.json', { method: 'POST', body: JSON.stringify(tasks) })
+            ]);
         } else {
-            const resId = await fetch('/api/sync?file=identity_memory.json');
+            const [resId, resSit, resPat, resTasks] = await Promise.all([
+                fetch('/api/sync?file=identity_memory.json'),
+                fetch('/api/sync?file=session_state.json'),
+                fetch('/api/sync?file=pattern_signals.json'),
+                fetch('/api/sync?file=tasks.json')
+            ]);
             if (resId.ok) setIdentityMemory(await resId.json());
-            const resSit = await fetch('/api/sync?file=session_state.json');
             if (resSit.ok) setSituationalState(await resSit.json());
-            const resPat = await fetch('/api/sync?file=pattern_signals.json');
             if (resPat.ok) setPatternSignals(await resPat.json());
+            if (resTasks.ok) setTasks(await resTasks.json());
         }
     } catch (e) {} finally { setIsSyncing(false); }
-  }, [session, identityMemory, situationalState, patternSignals, tasks]);
+  }, [session, identityMemory, situationalState, patternSignals, tasks, isSyncing]);
 
   useEffect(() => {
-    if (status === 'authenticated' && !isHydrated) handleCloudSync('PULL');
+    if (status === 'authenticated' && !hasPulledRef.current && isHydrated) {
+        hasPulledRef.current = true;
+        handleCloudSync('PULL');
+    }
   }, [status, isHydrated, handleCloudSync]);
 
-  const mergeGovernedMemory = (candidates: any[]) => {
-      setIdentityMemory(prev => {
-          const updated = [...prev];
-          const situationals: SituationalState[] = [];
+  const hasPulledRef = useRef(false);
 
-          candidates.forEach(c => {
-              if (c.isSituational) {
-                  situationals.push({ id: Date.now().toString(), key: c.key, value: c.value, timestamp: new Date().toISOString() });
-              } else {
-                  const existing = updated.find(m => m.key === c.key);
-                  if (!existing) {
-                      updated.push({
-                          id: Date.now().toString(),
-                          kind: c.kind,
-                          key: c.key,
-                          value: c.value,
-                          confidence: c.source === 'user_confirmed' ? 0.9 : 0.4,
-                          reinforcementCount: 1,
-                          source: c.source,
-                          createdAt: new Date().toISOString(),
-                          updatedAt: new Date().toISOString()
-                      });
-                  } else {
-                      existing.reinforcementCount += 1;
-                      existing.confidence = Math.min(1, existing.confidence + 0.1);
-                      existing.value = c.value;
-                      existing.updatedAt = new Date().toISOString();
-                  }
-              }
+  const mergeGovernedMemory = useCallback((candidates: any[], lastUserMessage?: string) => {
+      // 1. Split and Merge durable/transient
+      const durableCandidates = candidates.filter(c => !c.isSituational);
+      const situationalCandidates = candidates.filter(c => c.isSituational);
+
+      setIdentityMemory(prev => governIdentity(prev, durableCandidates));
+
+      if (situationalCandidates.length > 0) {
+          setSituationalState(prev => {
+              const newSits = situationalCandidates.map(c => ({
+                  id: Math.random().toString(36).substring(2, 11),
+                  key: c.key,
+                  value: c.value,
+                  timestamp: new Date().toISOString()
+              }));
+              return [...newSits, ...prev].slice(0, 15); // Governance: Cap situational state
           });
-          if (situationals.length > 0) setSituationalState(prevSit => [...situationals, ...prevSit].slice(0, 10));
-          return updated;
-      });
-  };
+      }
+
+      // 2. Pattern Detection
+      if (lastUserMessage) {
+          setPatternSignals(prev => detectPatterns(lastUserMessage, prev));
+      }
+
+      // 3. Periodic Compression (Every 10 learning cycles)
+      msgCountRef.current += 1;
+      if (msgCountRef.current % 10 === 0) {
+          setIdentityMemory(prev => {
+              const { active, archived } = runMemoryCompression(prev);
+              if (archived.length > 0) {
+                  fetch('/api/sync?file=memory_archive.json', { method: 'POST', body: JSON.stringify(archived) });
+              }
+              return active;
+          });
+      }
+
+      setTimeout(() => handleCloudSync('PUSH'), 2000);
+  }, [handleCloudSync]);
 
   if (!hasMounted) return null;
 
   return (
     <div className="h-dvh w-screen overflow-hidden bg-black text-white flex flex-col uppercase text-[10px]">
-      <header className="h-16 border-b border-white/10 flex items-center justify-between px-10 shrink-0">
+      <header className="h-16 border-b border-white/10 flex items-center justify-between px-10 shrink-0 bg-black/80 backdrop-blur-md relative z-50">
          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
-             <span className="system-text text-xl font-black text-accent tracking-[0.3em]">Tempus Victa</span>
+             <div className="h-8 w-8 border border-accent flex items-center justify-center text-accent font-black">TV</div>
+             <span className="system-text text-lg font-black text-accent tracking-[0.3em] hidden md:block">Tempus Victa</span>
          </div>
-         <div className="flex gap-4">
-            {isSyncing && <div className="text-accent animate-pulse">Syncing...</div>}
-            <button onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className="border border-accent/40 px-4 py-1 hover:bg-accent hover:text-black transition-all">
-                {status === 'authenticated' ? 'Linked' : 'Offline'}
-            </button>
+         <div className="flex items-center gap-6">
+            {isSyncing && <div className="text-accent animate-pulse tracking-widest text-[8px] italic">Synchronizing Neural Data...</div>}
+            <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${status === 'authenticated' ? 'bg-accent shadow-[0_0_10px_var(--accent)]' : 'bg-red-500'}`} />
+                <button onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className="text-[8px] font-bold tracking-tighter opacity-60 hover:opacity-100 transition-opacity">
+                    {status === 'authenticated' ? 'LINKED' : 'OFFLINE'}
+                </button>
+            </div>
          </div>
       </header>
 
       <div className="flex flex-grow overflow-hidden relative">
         <SideNav onModuleChange={setActiveModule} activeModule={activeModule} isAdmin={isMichaelAdmin} />
         <main className="flex-grow overflow-hidden relative bg-black/20">
-             <div className="absolute inset-0 p-8 overflow-y-auto scrollbar-thin">
+             <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
               {activeModule === "BRIDGE" && <Bridge tasks={tasks} calendar={[]} onNavigate={setActiveModule as any} onQuickTask={() => {}} />}
               {activeModule === "READY_ROOM" && (
                 <ReadyRoom
@@ -204,13 +199,40 @@ function AppShell() {
                     onMemoryUpdate={mergeGovernedMemory}
                 />
               )}
+              {activeModule === "SETTINGS" && (
+                  <div className="flex flex-col items-center py-20 animate-fade-in">
+                      <div className="w-full max-w-xl p-8 border border-white/10 bg-white/[0.02] rounded-xl relative">
+                          <h2 className="system-text text-xl font-black italic text-accent mb-8">COGNITIVE CONFIG</h2>
+                          <div className="space-y-6">
+                              <div className="flex flex-col gap-2">
+                                  <label className="text-[8px] text-white/40 font-bold tracking-widest">OPENAI_KEY</label>
+                                  <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} onBlur={() => localStorage.setItem("tv_api_key", apiKey)} className="bg-white/5 border border-white/10 p-3 text-xs text-white outline-none focus:border-accent/40" />
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                  <label className="text-[8px] text-white/40 font-bold tracking-widest">TAVILY_KEY</label>
+                                  <input type="password" value={searchKey} onChange={(e) => setSearchKey(e.target.value)} onBlur={() => localStorage.setItem("tv_search_key", searchKey)} className="bg-white/5 border border-white/10 p-3 text-xs text-white outline-none focus:border-accent/40" />
+                              </div>
+                          </div>
+                          <div className="mt-12 pt-8 border-t border-white/5 flex justify-between items-center">
+                              <span className="text-[8px] text-white/20 italic">SOVEREIGN_MODE_ACTIVE</span>
+                              <button onClick={() => handleCloudSync('PUSH')} className="bg-accent/10 border border-accent/20 px-6 py-2 text-accent text-[8px] font-black hover:bg-accent hover:text-black transition-all">FORCE SYNC</button>
+                          </div>
+                      </div>
+                  </div>
+              )}
             </div>
         </main>
       </div>
 
-      <footer className="h-14 border-t border-white/10 bg-black flex items-center justify-center gap-1 shrink-0">
-          {["BRIDGE", "READY_ROOM", "SETTINGS"].map(m => (
-              <button key={m} onClick={() => setActiveModule(m as Module)} className={`px-6 py-2 transition-all ${activeModule === m ? 'text-white border-b-2 border-accent' : 'text-white/20 hover:text-white/40'}`}>{m}</button>
+      <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-center gap-1 shrink-0 z-50">
+          {[
+              { id: "BRIDGE", label: "The Bridge" },
+              { id: "READY_ROOM", label: "Ready Room" },
+              { id: "SETTINGS", label: "Config" }
+          ].map(m => (
+              <button key={m.id} onClick={() => setActiveModule(m.id as Module)} className={`px-8 py-2 transition-all font-black tracking-widest text-[8px] ${activeModule === m.id ? 'text-white border-b-2 border-accent' : 'text-white/20 hover:text-white/40'}`}>
+                  {m.label}
+              </button>
           ))}
       </footer>
     </div>
