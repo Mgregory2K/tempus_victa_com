@@ -87,11 +87,10 @@ export async function POST(req: Request) {
     const j5Name = assistantName || "J5";
     const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // 🧬 HARDENED ARRAY GUARDS
+    // 🧬 HARDENED ARRAY NORMALIZATION
     const safeHistory = Array.isArray(history) ? history : [];
     const safeIdentity = Array.isArray(identityMemory) ? identityMemory : [];
     const safeSituation = Array.isArray(situationalState) ? situationalState : [];
-    const safePatterns = Array.isArray(patternSignals) ? patternSignals : [];
     const safeTasks = Array.isArray(tasks) ? tasks : [];
     const safeCalendar = Array.isArray(calendar) ? calendar : [];
 

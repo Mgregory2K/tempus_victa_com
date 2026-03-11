@@ -38,6 +38,56 @@ export interface Message {
   sourceLayer?: string;
 }
 
+// 🎤 SHARED VOICE COMPONENT
+export const VoiceButton = ({ onTranscript, isTyping, size = "md" }: { onTranscript: (text: string) => void, isTyping?: boolean, size?: "sm" | "md" }) => {
+    const [isListening, setIsListening] = useState(false);
+    const [audioData, setAudioData] = useState<Uint8Array>(new Uint8Array(0));
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyzerRef = useRef<AnalyserNode | null>(null);
+    const animationRef = useRef<number | null>(null);
+
+    const startListening = async (e: React.MouseEvent) => {
+        e.preventDefault(); e.stopPropagation();
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) return alert("Neural Voice Ingestion not supported.");
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioContextRef.current = new AudioContext();
+            analyzerRef.current = audioContextRef.current.createAnalyser();
+            const source = audioContextRef.current.createMediaStreamSource(stream);
+            source.connect(analyzerRef.current);
+            analyzerRef.current.fftSize = 64;
+            const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
+            const updateFrequency = () => {
+                if (analyzerRef.current) {
+                    analyzerRef.current.getByteFrequencyData(dataArray);
+                    setAudioData(new Uint8Array(dataArray));
+                    animationRef.current = requestAnimationFrame(updateFrequency);
+                }
+            };
+            updateFrequency();
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => setIsListening(true);
+            recognition.onend = () => {
+                setIsListening(false);
+                if (animationRef.current) cancelAnimationFrame(animationRef.current);
+                if (audioContextRef.current) audioContextRef.current.close();
+                setAudioData(new Uint8Array(0));
+            };
+            recognition.onresult = (event: any) => onTranscript(event.results[0][0].transcript);
+            recognition.start();
+        } catch (err) { console.error(err); }
+    };
+
+    return (
+        <div className="flex items-center gap-3">
+            {isListening && <div className="flex gap-[2px] items-center h-4">{Array.from(audioData).slice(0, 8).map((val, i) => (<div key={i} className="w-[3px] bg-accent shadow-[0_0_8px_var(--accent)] rounded-full transition-all duration-75" style={{ height: `${Math.max(15, (val / 255) * 100)}%` }} />))}</div>}
+            <button type="button" onClick={startListening} disabled={isTyping} className={`rounded-full transition-all flex items-center justify-center ${isListening ? 'bg-red-500 shadow-[0_0_20px_#ef4444]' : 'text-white/20 hover:text-accent'} ${size === "sm" ? "p-1" : "p-2"}`}><svg className={size === "sm" ? "h-4 w-4" : "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg></button>
+        </div>
+    );
+};
+
 export default function Home() {
   const { status } = useSession();
   const [isKernelReady, setIsKernelReady] = useState(false);
