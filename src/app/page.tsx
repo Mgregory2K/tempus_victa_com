@@ -28,7 +28,7 @@ import {
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "14.0.0-COGNITIVE";
+const VERSION = "14.1.2-SOVEREIGN";
 
 export interface Message {
   id: string;
@@ -111,10 +111,12 @@ function AppShell() {
   const [identityMemory, setIdentityMemory] = useState<TwinMemory[]>([]);
   const [situationalState, setSituationalState] = useState<SituationalState[]>([]);
   const [patternSignals, setPatternSignals] = useState<PatternSignal[]>([]);
+  const [calendar, setCalendar] = useState<any[]>([]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   const isMichaelAdmin = session?.user?.email ? ["michael.gregory1@gmail.com", "stewart.jared@gmail.com", "michael@tempusvicta.com"].includes(session.user.email.toLowerCase()) : false;
 
@@ -134,6 +136,20 @@ function AppShell() {
     } catch (e) {}
     setIsHydrated(true);
   }, []);
+
+  // 🧬 FETCH CALENDAR
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const fetchCal = async () => {
+        try {
+            const res = await fetch('/api/calendar');
+            if (res.ok) { const data = await res.json(); setCalendar(data); }
+        } catch (e) {}
+    };
+    fetchCal();
+    const interval = setInterval(fetchCal, 300000);
+    return () => clearInterval(interval);
+  }, [status]);
 
   useEffect(() => {
     if (!hasMounted || !isHydrated) return;
@@ -168,7 +184,7 @@ function AppShell() {
             if (resTasks.ok) setTasks(await resTasks.json());
         }
     } catch (e) {} finally { setIsSyncing(false); }
-  }, [session, identityMemory, situationalState, patternSignals, tasks, isSyncing]);
+  }, [session, identityMemory, situationalState, patternSignals, tasks]);
 
   useEffect(() => {
     if (status === 'authenticated' && !hasPulledRef.current && isHydrated) {
@@ -180,12 +196,9 @@ function AppShell() {
   const hasPulledRef = useRef(false);
 
   const mergeGovernedMemory = useCallback((candidates: any[], lastUserMessage?: string) => {
-      // 1. Split and Merge durable/transient
       const durableCandidates = candidates.filter(c => !c.isSituational);
       const situationalCandidates = candidates.filter(c => c.isSituational);
-
       setIdentityMemory(prev => governIdentity(prev, durableCandidates));
-
       if (situationalCandidates.length > 0) {
           setSituationalState(prev => {
               const newSits = situationalCandidates.map(c => ({
@@ -194,27 +207,18 @@ function AppShell() {
                   value: c.value,
                   timestamp: new Date().toISOString()
               }));
-              return [...newSits, ...prev].slice(0, 15); // Governance: Cap situational state
+              return [...newSits, ...prev].slice(0, 15);
           });
       }
-
-      // 2. Pattern Detection
-      if (lastUserMessage) {
-          setPatternSignals(prev => detectPatterns(lastUserMessage, prev));
-      }
-
-      // 3. Periodic Compression (Every 10 learning cycles)
+      if (lastUserMessage) setPatternSignals(prev => detectPatterns(lastUserMessage, prev));
       msgCountRef.current += 1;
       if (msgCountRef.current % 10 === 0) {
           setIdentityMemory(prev => {
               const { active, archived } = runMemoryCompression(prev);
-              if (archived.length > 0) {
-                  fetch('/api/sync?file=memory_archive.json', { method: 'POST', body: JSON.stringify(archived) });
-              }
+              if (archived.length > 0) fetch('/api/sync?file=memory_archive.json', { method: 'POST', body: JSON.stringify(archived) });
               return active;
           });
       }
-
       setTimeout(() => handleCloudSync('PUSH'), 2000);
   }, [handleCloudSync]);
 
@@ -222,54 +226,52 @@ function AppShell() {
 
   return (
     <div className="h-dvh w-screen overflow-hidden bg-black text-white flex flex-col uppercase text-[10px]">
-      <header className="h-16 border-b border-white/10 flex items-center justify-between px-10 shrink-0 bg-black/80 backdrop-blur-md relative z-50">
-         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
-             <div className="h-8 w-8 border border-accent flex items-center justify-center text-accent font-black">TV</div>
-             <span className="system-text text-lg font-black text-accent tracking-[0.3em] hidden md:block">Tempus Victa</span>
+      <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-4 md:px-10 shrink-0 relative z-50">
+         <div className="flex items-center gap-3">
+             <button onClick={() => setIsMobileNavOpen(!isMobileNavOpen)} className="lg:hidden p-2 border border-white/10 rounded-sm hover:bg-white/5 text-white"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">{isMobileNavOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}</svg></button>
+             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
+                 <div className="h-8 w-8 border border-accent flex items-center justify-center text-accent font-black tracking-tighter">TV</div>
+                 <span className="system-text text-[10px] md:text-lg font-black text-accent tracking-[0.3em] hidden sm:block">Tempus Victa</span>
+             </div>
          </div>
-         <div className="flex items-center gap-6">
-            {isSyncing && <div className="text-accent animate-pulse tracking-widest text-[8px] italic">Synchronizing Neural Data...</div>}
-            <div className="flex items-center gap-2">
-                <div className={`h-2 w-2 rounded-full ${status === 'authenticated' ? 'bg-accent shadow-[0_0_10px_var(--accent)]' : 'bg-red-500'}`} />
-                <button onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className="text-[8px] font-bold tracking-tighter opacity-60 hover:opacity-100 transition-opacity">
-                    {status === 'authenticated' ? 'LINKED' : 'OFFLINE'}
-                </button>
+         <div className="flex items-center gap-4">
+            {isSyncing && <div className="text-accent animate-pulse tracking-widest text-[7px] italic hidden md:block">Neural Sync Active</div>}
+            <div onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className={`flex items-center gap-2 px-3 py-1 border cursor-pointer transition-all ${status === 'authenticated' ? 'border-accent shadow-[0_0_10px_rgba(0,212,255,0.2)]' : 'border-red-500 bg-red-500/10'}`}>
+                <div className={`h-1.5 w-1.5 rounded-full ${status === 'authenticated' ? 'bg-accent animate-pulse' : 'bg-red-500'}`} />
+                <span className="text-[8px] font-black">{status === 'authenticated' ? 'LINKED' : 'OFFLINE'}</span>
             </div>
          </div>
       </header>
 
       <div className="flex flex-grow overflow-hidden relative">
-        <SideNav onModuleChange={setActiveModule} activeModule={activeModule} isAdmin={isMichaelAdmin} />
+        <aside className={`absolute lg:relative z-40 transition-all duration-300 h-full ${isMobileNavOpen ? 'translate-x-0 shadow-[0_0_50px_rgba(0,0,0,0.9)]' : '-translate-x-full lg:translate-x-0'}`}>
+            <SideNav onModuleChange={(m) => { setActiveModule(m); setIsMobileNavOpen(false); }} activeModule={activeModule} isAdmin={isMichaelAdmin} />
+        </aside>
+
         <main className="flex-grow overflow-hidden relative bg-black/20">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
-              {activeModule === "BRIDGE" && <Bridge tasks={tasks} calendar={[]} onNavigate={setActiveModule as any} onQuickTask={() => {}} />}
-              {activeModule === "READY_ROOM" && (
-                <ReadyRoom
-                    messages={messages} setMessages={setMessages}
-                    identityMemory={identityMemory} situationalState={situationalState} patternSignals={patternSignals}
-                    apiKey={apiKey} searchKey={searchKey} assistantName={assistantName} userName={session?.user?.name || "User"}
-                    tasks={tasks} calendar={[]}
-                    onMemoryUpdate={mergeGovernedMemory}
-                />
-              )}
+              {activeModule === "BRIDGE" && <Bridge tasks={tasks} calendar={calendar} onNavigate={setActiveModule as any} onQuickTask={(t) => setTasks(prev => [{id: Date.now().toString(), title: t, status: 'TODO', source: 'WORKING_MEMORY'}, ...prev])} />}
+              {activeModule === "READY_ROOM" && <ReadyRoom messages={messages} setMessages={setMessages} identityMemory={identityMemory} situationalState={situationalState} patternSignals={patternSignals} apiKey={apiKey} searchKey={searchKey} assistantName={assistantName} userName={session?.user?.name || "User"} tasks={tasks} calendar={calendar} onMemoryUpdate={mergeGovernedMemory} />}
+              {activeModule === "SIGNAL_BAY" && <SignalBay onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
+              {activeModule === "PROJECTS" && <ProjectBoard externalTasks={tasks} setTasks={setTasks} />}
+              {activeModule === "TODO" && <SovereignTodo externalTasks={tasks} setTasks={setTasks} />}
+              {activeModule === "WINBOARD" && <Winboard externalTasks={tasks} setExternalTasks={setTasks} />}
+              {activeModule === "CORKBOARD" && <Corkboard externalNotes={[]} setNotes={() => {}} userName={session?.user?.name || "User"} />}
+              {activeModule === "MIRROR" && <IdentityMirror />}
+              {activeModule === "CLOCK_TOWER" && <ClockTower onNavigate={setActiveModule as any} />}
+              {activeModule === "QUOTES" && <QuoteBoard externalQuotes={[]} setQuotes={() => {}} />}
+              {activeModule === "WISHES" && <WishBoard wishes={[]} onWish={() => {}} />}
+              {activeModule === "ADMIN" && <AdminBoard wishes={[]} setWishes={() => {}} setTasks={setTasks} />}
               {activeModule === "SETTINGS" && (
-                  <div className="flex flex-col items-center py-20 animate-fade-in">
+                  <div className="flex flex-col items-center py-12 animate-fade-in">
                       <div className="w-full max-w-xl p-8 border border-white/10 bg-white/[0.02] rounded-xl relative">
                           <h2 className="system-text text-xl font-black italic text-accent mb-8">COGNITIVE CONFIG</h2>
-                          <div className="space-y-6">
-                              <div className="flex flex-col gap-2">
-                                  <label className="text-[8px] text-white/40 font-bold tracking-widest">OPENAI_KEY</label>
-                                  <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} onBlur={() => localStorage.setItem("tv_api_key", apiKey)} className="bg-white/5 border border-white/10 p-3 text-xs text-white outline-none focus:border-accent/40" />
-                              </div>
-                              <div className="flex flex-col gap-2">
-                                  <label className="text-[8px] text-white/40 font-bold tracking-widest">TAVILY_KEY</label>
-                                  <input type="password" value={searchKey} onChange={(e) => setSearchKey(e.target.value)} onBlur={() => localStorage.setItem("tv_search_key", searchKey)} className="bg-white/5 border border-white/10 p-3 text-xs text-white outline-none focus:border-accent/40" />
-                              </div>
+                          <div className="space-y-6 text-left">
+                              {[{ l: "OpenAI Key", v: apiKey, s: setApiKey, k: "tv_api_key" }, { l: "Tavily Key", v: searchKey, s: setSearchKey, k: "tv_search_key" }].map(f => (
+                                <div key={f.l} className="flex flex-col gap-2"><label className="text-[8px] text-white/40 font-bold uppercase">{f.l}</label><input type="password" value={f.v} onChange={(e) => f.s(e.target.value)} onBlur={() => localStorage.setItem(f.k, f.v)} className="bg-white/5 border border-white/10 p-3 text-xs text-white outline-none" /></div>
+                              ))}
                           </div>
-                          <div className="mt-12 pt-8 border-t border-white/5 flex justify-between items-center">
-                              <span className="text-[8px] text-white/20 italic">SOVEREIGN_MODE_ACTIVE</span>
-                              <button onClick={() => handleCloudSync('PUSH')} className="bg-accent/10 border border-accent/20 px-6 py-2 text-accent text-[8px] font-black hover:bg-accent hover:text-black transition-all">FORCE SYNC</button>
-                          </div>
+                          <div className="mt-12 pt-8 border-t border-white/5 flex justify-between items-center"><span className="text-[8px] text-white/20 italic tracking-widest">Sovereign Link Stable</span><button onClick={() => handleCloudSync('PUSH')} className="bg-accent/10 border border-accent/20 px-6 py-2 text-accent text-[8px] font-black hover:bg-accent hover:text-black transition-all">FORCE PERSISTENCE</button></div>
                       </div>
                   </div>
               )}
@@ -277,15 +279,12 @@ function AppShell() {
         </main>
       </div>
 
-      <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-center gap-1 shrink-0 z-50">
+      <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-start px-2 md:px-4 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50 text-white font-bold md:justify-center">
           {[
-              { id: "BRIDGE", label: "The Bridge" },
-              { id: "READY_ROOM", label: "Ready Room" },
-              { id: "SETTINGS", label: "Config" }
-          ].map(m => (
-              <button key={m.id} onClick={() => setActiveModule(m.id as Module)} className={`px-8 py-2 transition-all font-black tracking-widest text-[8px] ${activeModule === m.id ? 'text-white border-b-2 border-accent' : 'text-white/20 hover:text-white/40'}`}>
-                  {m.label}
-              </button>
+            { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SIGNAL_BAY", label: "Signal Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "To-Do" }, { id: "WINBOARD", label: "Win Board" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "QUOTES", label: "Quotes" }, { id: "CLOCK_TOWER", label: "Clock Tower" }, { id: "MIRROR", label: "Mirror" }, { id: "WISHES", label: "Wishes" }, { id: "SETTINGS", label: "Config" },
+            ...(isMichaelAdmin ? [{ id: "ADMIN", label: "Command" }] : [])
+          ].map(item => (
+            <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`nav-parallelogram px-4 md:px-6 py-2 system-text text-[7px] md:text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}><span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span></button>
           ))}
       </footer>
     </div>

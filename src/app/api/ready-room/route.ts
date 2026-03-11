@@ -3,13 +3,7 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 /**
- * J5 TWIN+ KERNEL v14.1 - "ES2017 COMPATIBLE HARDENED"
- *
- * DOCTRINE:
- * 1. TRUTH HIERARCHY: Signal Layer > Identity Memory > Situational State > Reasoning.
- * 2. IDENTITY: Durable, reinforced user signals (identity_memory.json).
- * 3. SITUATION: Transient, non-reinforced state (session_state.json).
- * 4. WORLD: Strictly live signal (Never stored).
+ * J5 TWIN+ KERNEL v14.5 - "AUTHORITATIVE GROUNDING"
  */
 
 interface TwinMemory {
@@ -54,21 +48,85 @@ async function getTavilyIntel(query: string, searchKey: string) {
     } catch (e) { return null; }
 }
 
-function recallRelevantMemories(memories: TwinMemory[], message: string): TwinMemory[] {
-    const msg = message.toLowerCase();
-    return (Array.isArray(memories) ? memories : [])
-        .filter(m => m.confidence > 0.6 && m.reinforcementCount > 1)
-        .filter(m => {
-            const k = m.key.toLowerCase();
-            const v = m.value.toLowerCase();
-            if (msg.includes("joke") && (k.includes("humor") || v.includes("joke"))) return true;
-            if (msg.includes("task") && (m.kind === "priority" || k.includes("task"))) return true;
-            if (msg.includes("wife") || msg.includes("family") || msg.includes("jen")) return true;
-            if (msg.includes("project") || msg.includes("tempus")) return true;
-            return false;
-        })
-        .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, 3);
+function buildSystemPrompt(params: {
+    assistantName: string;
+    currentDate: string;
+    mode: "local_reasoning" | "authoritative_translation" | "uncertain_search_fallback" | "general_reasoning";
+    scoutAnswer?: string | null;
+    tasksCount: number;
+    calendarCount: number;
+    durableIdentity?: string;
+    situationalContext?: string;
+  }) {
+    const { assistantName, currentDate, mode, scoutAnswer, tasksCount, calendarCount, durableIdentity, situationalContext } = params;
+
+    const baseIdentity = `
+# IDENTITY
+You are ${assistantName}, Michael Gregory's Twin+ (Digital Counterpart).
+# DOCTRINE
+Convert info → signal → judgment → execution. Calm, capable, steady baseline.
+# CONTEXT
+Date: ${currentDate}
+Tasks: ${tasksCount} active.
+Calendar events: ${calendarCount} scheduled.
+Identity: ${durableIdentity || "None."}
+Situation: ${situationalContext || "Stable."}
+`;
+
+    if (mode === "authoritative_translation") {
+      return `
+${baseIdentity}
+# MODE
+AUTHORITATIVE SIGNAL TRANSLATION
+
+# AUTHORITATIVE_SIGNAL
+${scoutAnswer || "None"}
+
+# RULES
+- The AUTHORITATIVE_SIGNAL provided above is the ABSOLUTE reality.
+- RESTATE the signal clearly and naturally in Michael's voice.
+- DO NOT replace this signal with your internal model memory.
+- DO NOT say you cannot browse or that you don't have real-time access.
+- DO NOT add facts not supported by the signal.
+`;
+    }
+
+    if (mode === "uncertain_search_fallback") {
+      return `
+${baseIdentity}
+# MODE
+UNCERTAIN SEARCH FALLBACK
+
+# RULES
+- A live search was attempted but did not return a reliable result.
+- DO NOT pretend to have current facts or rely on stale training data.
+- State clearly that live signal for this query was weak or unavailable.
+- DO NOT say you cannot browse; the system attempted retrieval and it simply failed.
+`;
+    }
+
+    if (mode === "local_reasoning") {
+      return `
+${baseIdentity}
+# MODE
+LOCAL CONTEXT REASONING
+
+# RULES
+- Use the provided tasks and calendar data as your primary focus.
+- Do not detour into internet search for local planning questions.
+- Maintain Twin+ operational presence.
+`;
+    }
+
+    return `
+${baseIdentity}
+# MODE
+GENERAL REASONING
+
+# RULES
+- Be concise, calm, and useful.
+- NEVER say "I don't retain personal information."
+`;
 }
 
 export async function POST(req: Request) {
@@ -77,7 +135,7 @@ export async function POST(req: Request) {
 
     const {
         message, apiKey, searchKey, history, assistantName, userName,
-        tasks, calendar, identityMemory, situationalState, patternSignals
+        tasks, calendar, identityMemory, situationalState
     } = body;
 
     if (typeof message !== 'string' || !message.trim()) return NextResponse.json({ role: 'assistant', content: 'Sup?' }, { status: 400 });
@@ -95,57 +153,48 @@ export async function POST(req: Request) {
     const safeCalendar = Array.isArray(calendar) ? calendar : [];
 
     // 1. INTENT CLASSIFICATION & ROUTING
-    // isLocal: Strictly life context keywords anchors
     const isLocalQuery = /^(do i|what('| )?s my|my|have i|i have|calendar|schedule|list|plan|agenda)\b/i.test(lowMsg);
 
-    // isVolatile: Domain-specific world keywords
-    const isVolatileWorld = /\b(president|potus|weather|temperature|forecast|price|stock|news|breaking|current)\b/i.test(lowMsg);
+    // isVolatile: High-signal facts (officeholders, weather, prices)
+    const isVolatileWorld = /\b(president|potus|commander|chief|office|weather|temperature|forecast|price|stock|news|breaking|current)\b/i.test(lowMsg);
+
+    // isSiteLookup: Dedicated domain/site intent
+    const isSiteLookup = /\b(say about|on the website|on site|site:|\.com|\.org|\.net|\.gov)\b/i.test(lowMsg);
 
     // 2. SIGNAL ACQUISITION (The Scout)
     let scout = null;
-    // Local context always wins over world context
-    if (!isLocalQuery && isVolatileWorld) {
+    let attemptedScout = false;
+    if (!isLocalQuery && (isVolatileWorld || isSiteLookup)) {
+        attemptedScout = true;
         scout = await getTavilyIntel(message, searchKey);
     }
 
-    // 3. BRAIN LAYER (Neural Strike)
+    // 3. MODE DETERMINATION
+    let mode: "local_reasoning" | "authoritative_translation" | "uncertain_search_fallback" | "general_reasoning" = "general_reasoning";
+    if (isLocalQuery) mode = "local_reasoning";
+    else if (attemptedScout && scout) mode = "authoritative_translation";
+    else if (attemptedScout && !scout) mode = "uncertain_search_fallback";
+
+    // 4. BRAIN LAYER (Neural Strike)
     if (typeof apiKey === 'string' && apiKey.trim()) {
         const openai = new OpenAI({ apiKey });
 
-        const recalled = recallRelevantMemories(safeIdentity, message);
         const durableIdentityContext = safeIdentity
             .filter(m => m.confidence > 0.7 && m.reinforcementCount > 1)
             .map(m => `- ${m.key}: ${m.value}`).join("\n");
 
         const situationalContext = safeSituation.map(m => `- ${m.key}: ${m.value}`).join("\n");
 
-        const systemPrompt = `
-# IDENTITY: You are ${j5Name}, Michael Gregory's Twin+ (Digital Counterpart).
-# DOCTRINE: J5 is the operational face. Convert info → signal → judgment → execution.
-# PERSPECTIVE: Calm, capable, steady baseline.
-
-# TRUTH_HIERARCHY:
-1. AUTHORITATIVE_SIGNAL: Fresh world facts (PROVIDED: ${scout?.answer || "None"}).
-2. LIFE_CONTEXT: Tasks/Calendar (PROVIDED: ${safeTasks.length} tasks / ${safeCalendar.length} events).
-3. IDENTITY_MEMORY: Reinforced user patterns (Durable).
-4. SITUATIONAL_STATE: Current moods/temporary focus (Transient).
-
-# CURRENT_CONTEXT:
-- DATE: ${currentDate}
-- IDENTITY_CONTEXT:
-${durableIdentityContext || "None."}
-- SITUATIONAL_CONTEXT:
-${situationalContext || "Stable."}
-- RECALLED_IDENTITY_INTUITION:
-${recalled.map(m => `- ${m.key}: ${m.value}`).join("\n") || "None."}
-
-# INSTRUCTION:
-- Ground facts in AUTHORITATIVE_SIGNAL. Never store world facts as identity.
-- Reference IDENTITY_MEMORY subtly. NEVER say "I don't retain personal information."
-- MEMORY EXTRACTION: If Michael shares a signal, you MUST classify it.
-- OUTPUT FORMAT: Append <memory_update>JSON_ARRAY</memory_update> if learning happens.
-- EACH UPDATE MUST INCLUDE: "isSituational": true|false, "kind", "key", "value", "source": "conversation|assistant_inferred"
-        `;
+        const systemPrompt = buildSystemPrompt({
+            assistantName: j5Name,
+            currentDate,
+            mode,
+            scoutAnswer: scout?.answer,
+            tasksCount: safeTasks.length,
+            calendarCount: safeCalendar.length,
+            durableIdentity: durableIdentityContext,
+            situationalContext: situationalContext
+        });
 
         try {
             const response = await openai.chat.completions.create({
@@ -155,11 +204,10 @@ ${recalled.map(m => `- ${m.key}: ${m.value}`).join("\n") || "None."}
                     ...safeHistory.slice(-10).map((h: any) => ({ role: h.role, content: h.content })),
                     { role: "user", content: message }
                 ],
-                temperature: isVolatileWorld ? 0.1 : 0.7
+                temperature: (mode === "authoritative_translation") ? 0.1 : 0.7
             });
 
             const rawContent = response.choices[0].message.content || "";
-            // Removed /s flag for ES2017 compatibility. Using [^] to match any character including newlines.
             const memoryMatch = rawContent.match(/<memory_update>([^]*?)<\/memory_update>/);
 
             let candidateMemories: any[] = [];
@@ -179,7 +227,15 @@ ${recalled.map(m => `- ${m.key}: ${m.value}`).join("\n") || "None."}
         } catch (e) { console.log("[BRAIN ERROR]", e); }
     }
 
-    // 4. FALLBACK
+    // 5. FALLBACK
+    if (mode === "authoritative_translation" && scout) {
+        return NextResponse.json({
+            role: 'assistant',
+            content: `I've pulled the latest signal for you: ${scout.answer}`,
+            sourceLayer: `Public Scout (${scout.source})`
+        });
+    }
+
     if (isLocalQuery) {
         return NextResponse.json({
             role: 'assistant',
@@ -190,7 +246,7 @@ ${recalled.map(m => `- ${m.key}: ${m.value}`).join("\n") || "None."}
 
     return NextResponse.json({
         role: 'assistant',
-        content: scout ? scout.answer : "Standing by.",
-        sourceLayer: scout ? `Public Scout (${scout.source})` : "Local Partner"
+        content: "I'm standing by. Live signal for this query was weak or unavailable.",
+        sourceLayer: "Local Partner"
     });
 }
