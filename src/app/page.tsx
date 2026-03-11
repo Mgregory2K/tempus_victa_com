@@ -29,6 +29,41 @@ export type Module = "BRIDGE" | "READY_ROOM" | "IO_BAY" | "PROJECTS" | "TODO" | 
 
 const VERSION = "17.0.0-TWIN-PLUS-SOVEREIGN";
 
+// --- NATIVE ICON SET ---
+const Icons = {
+    BRIDGE: (className: string) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+    ),
+    READY_ROOM: (className: string) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+    ),
+    IO_BAY: (className: string) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+    ),
+    PROJECTS: (className: string) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+    ),
+    TODO: (className: string) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+    ),
+    CONFIG: (className: string) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+    )
+};
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -296,40 +331,67 @@ function AppShell() {
 
   if (!hasMounted) return null;
 
+  const NavItem = ({ id, label }: { id: Module | "CONFIG", label: string }) => {
+      const isActive = activeModule === id || (id === "CONFIG" && activeModule === "SETTINGS");
+      const iconKey = id === "SETTINGS" || id === "CONFIG" ? "CONFIG" : id as keyof typeof Icons;
+      const Icon = Icons[iconKey] || Icons.BRIDGE;
+
+      return (
+          <button
+              onClick={() => setActiveModule(id === "CONFIG" ? "SETTINGS" : id as Module)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all touch-target ${isActive ? 'text-accent' : 'text-white/30'}`}
+          >
+              <Icon className={`w-5 h-5 mb-1 ${isActive ? 'drop-shadow-[0_0_8px_var(--accent)]' : ''}`} />
+              <span className="text-[7px] font-black uppercase tracking-widest">{label}</span>
+          </button>
+      );
+  };
+
   return (
     <div className="h-dvh w-screen overflow-hidden bg-black text-white flex flex-col uppercase text-[10px]">
       {isExercisesOpen && <ExerciseHub onDismiss={() => setIsExercisesOpen(false)} />}
-      <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-4 md:px-10 shrink-0 relative z-50">
+
+      {/* --- MOBILE/DESKTOP HEADER --- */}
+      <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-4 md:px-10 shrink-0 relative z-50 pt-[var(--sat)]">
          <div className="flex items-center gap-3">
-             <button onClick={() => setIsMobileNavOpen(!isMobileNavOpen)} className="lg:hidden p-2 border border-white/10 rounded-sm hover:bg-white/5 text-white"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">{isMobileNavOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}</svg></button>
+             <button onClick={() => setIsMobileNavOpen(!isMobileNavOpen)} className="lg:hidden p-2 text-white/60 hover:text-white transition-colors">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {isMobileNavOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
+                </svg>
+             </button>
              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('BRIDGE')}>
                  <div className="h-8 w-8 border border-accent flex items-center justify-center text-accent font-black tracking-tighter">TV</div>
                  <span className="system-text text-[10px] md:text-lg font-black text-accent tracking-[0.3em] hidden sm:block">Tempus Victa</span>
              </div>
          </div>
          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-end mr-4">
-                 <span className="text-[6px] text-white/20 font-black tracking-widest">{isSyncing ? "SYNCING_CLOUDS..." : "SYSTEM_SYNCHRONIZED"}</span>
+            <div className="flex flex-col items-end mr-2">
+                 <span className="text-[6px] text-white/20 font-black tracking-widest">{isSyncing ? "SYNCING..." : "SYNCED"}</span>
             </div>
-            <div onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className={`flex items-center gap-2 px-3 py-1 border cursor-pointer transition-all ${status === 'authenticated' ? 'border-accent shadow-[0_0_10px_rgba(0,212,255,0.2)]' : 'border-red-500 bg-red-500/10'}`}>
+            <div onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className={`flex items-center gap-2 px-3 py-1.5 border cursor-pointer transition-all rounded-sm ${status === 'authenticated' ? 'border-accent/40 bg-accent/5' : 'border-red-500/40 bg-red-500/5'}`}>
                 <div className={`h-1.5 w-1.5 rounded-full ${status === 'authenticated' ? 'bg-accent animate-pulse' : 'bg-red-500'}`} />
-                <span className="text-[8px] font-black">{status === 'authenticated' ? 'LINKED' : 'OFFLINE'}</span>
+                <span className="text-[8px] font-black tracking-widest">{status === 'authenticated' ? 'LINKED' : 'OFFLINE'}</span>
             </div>
          </div>
       </header>
 
       <div className="flex flex-grow overflow-hidden relative">
-        <aside className={`absolute lg:relative z-40 transition-all duration-300 h-full ${isMobileNavOpen ? 'translate-x-0 shadow-[0_0_50px_rgba(0,0,0,0.9)]' : '-translate-x-full lg:translate-x-0'}`}>
-            <SideNav
-                onModuleChange={(m) => { setActiveModule(m); setIsMobileNavOpen(false); }}
-                activeModule={activeModule}
-                isAdmin={isMichaelAdmin}
-                onToggleExercises={() => setIsExercisesOpen(true)}
-            />
+        {/* --- DRAWER (Mobile) / SIDEBAR (Desktop) --- */}
+        <aside className={`fixed inset-0 lg:relative z-40 transition-transform duration-300 lg:translate-x-0 ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setIsMobileNavOpen(false)} />
+            <div className="relative w-72 h-full shadow-2xl">
+                <SideNav
+                    onModuleChange={(m) => { setActiveModule(m); setIsMobileNavOpen(false); }}
+                    activeModule={activeModule}
+                    isAdmin={isMichaelAdmin}
+                    onToggleExercises={() => setIsExercisesOpen(true)}
+                />
+            </div>
         </aside>
 
+        {/* --- MAIN STAGE --- */}
         <main className="flex-grow overflow-hidden relative bg-black/20">
-             <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
+             <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto hide-scrollbar">
               {activeModule === "BRIDGE" && <Bridge tasks={tasks} calendar={calendar} onNavigate={setActiveModule as any} onQuickTask={(t) => setTasks(prev => [{id: Date.now().toString(), title: t, status: 'TODO', source: 'WORKING_MEMORY'}, ...prev])} />}
               {activeModule === "READY_ROOM" && (
                 <ReadyRoom
@@ -380,15 +442,18 @@ function AppShell() {
               )}
               {activeModule === "ADMIN" && <AdminBoard wishes={wishes} setWishes={setWishes} setTasks={setTasks} />}
               {activeModule === "SETTINGS" && (
-                  <div className="flex flex-col items-center py-12 animate-fade-in">
-                      <div className="w-full max-w-xl p-8 border border-white/10 bg-white/[0.02] rounded-xl relative">
+                  <div className="flex flex-col items-center py-6 md:py-12 animate-slide-up">
+                      <div className="w-full max-w-xl p-6 md:p-8 hud-panel rounded-xl">
                           <h2 className="system-text text-xl font-black italic text-accent mb-8">COGNITIVE CONFIG</h2>
                           <div className="space-y-6 text-left">
                               {[{ l: "OpenAI Key", v: apiKey, s: setApiKey, k: "tv_api_key" }, { l: "Tavily Key", v: searchKey, s: setSearchKey, k: "tv_search_key" }].map(f => (
-                                <div key={f.l} className="flex flex-col gap-2"><label className="text-[8px] text-white/40 font-bold uppercase">{f.l}</label><input type="password" value={f.v} onChange={(e) => f.s(e.target.value)} onBlur={() => localStorage.setItem(f.k, f.v)} className="bg-white/5 border border-white/10 p-3 text-xs text-white outline-none" /></div>
+                                <div key={f.l} className="flex flex-col gap-2"><label className="text-[8px] text-white/40 font-bold uppercase">{f.l}</label><input type="password" value={f.v} onChange={(e) => f.s(e.target.value)} onBlur={() => localStorage.setItem(f.k, f.v)} className="bg-white/5 border border-white/10 p-3 text-xs text-white outline-none focus:border-accent" /></div>
                               ))}
                           </div>
-                          <div className="mt-12 pt-8 border-t border-white/5 flex justify-between items-center"><span className="text-[8px] text-white/20 italic tracking-widest">Sovereign Link Stable</span><button onClick={() => handleCloudSync('PUSH')} className="bg-accent/10 border border-accent/20 px-6 py-2 text-accent text-[8px] font-black hover:bg-accent hover:text-black transition-all">FORCE PERSISTENCE</button></div>
+                          <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row gap-4 justify-between items-center">
+                            <span className="text-[8px] text-white/20 italic tracking-widest uppercase">Sovereign Link Stable // v{VERSION.split('-')[0]}</span>
+                            <button onClick={() => handleCloudSync('PUSH')} className="w-full md:w-auto bg-accent/10 border border-accent/20 px-6 py-3 text-accent text-[8px] font-black hover:bg-accent hover:text-black transition-all uppercase tracking-widest">FORCE PERSISTENCE</button>
+                          </div>
                       </div>
                   </div>
               )}
@@ -396,12 +461,22 @@ function AppShell() {
         </main>
       </div>
 
-      <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-start px-2 md:px-4 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50 text-white font-bold md:justify-center">
+      {/* --- THUMB-FRIENDLY BOTTOM NAV (Mobile Only) --- */}
+      <footer className="lg:hidden mobile-bottom-nav flex items-center justify-around z-50 px-2">
+          <NavItem id="BRIDGE" label="Bridge" />
+          <NavItem id="READY_ROOM" label="Room" />
+          <NavItem id="IO_BAY" label="Signal" />
+          <NavItem id="PROJECTS" label="Focus" />
+          <NavItem id="CONFIG" label="Config" />
+      </footer>
+
+      {/* --- PARALLELOGRAM NAV (Desktop Only) --- */}
+      <footer className="hidden lg:flex h-14 border-t border-white/10 bg-black/95 items-center justify-center px-4 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50">
           {[
             { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "IO_BAY", label: "I/O Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "To-Do" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "MIRROR", label: "Mirror" }, { id: "WISHES", label: "Wishes" }, { id: "SETTINGS", label: "Config" },
             ...(isMichaelAdmin ? [{ id: "ADMIN", label: "Command" }] : [])
           ].map(item => (
-            <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`nav-parallelogram px-4 md:px-6 py-2 system-text text-[7px] md:text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}><span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span></button>
+            <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`nav-parallelogram px-6 py-2 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}><span className="nav-text-fix relative z-10 block whitespace-nowrap">{item.label}</span></button>
           ))}
       </footer>
     </div>

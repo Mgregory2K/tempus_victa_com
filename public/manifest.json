@@ -4,8 +4,9 @@
   "description": "Sovereign Intelligence Layer // local-first cognitive orchestration",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#010103",
-  "theme_color": "#00d4ff",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "/next.svg",
