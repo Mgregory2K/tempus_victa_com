@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 /**
- * J5 TWIN+ KERNEL v14.0 - "DOMAIN-FIRST ROUTING"
+ * J5 TWIN+ KERNEL v14.1 - "ES2017 COMPATIBLE HARDENED"
  *
  * DOCTRINE:
  * 1. TRUTH HIERARCHY: Signal Layer > Identity Memory > Situational State > Reasoning.
@@ -94,16 +94,12 @@ export async function POST(req: Request) {
     const safeTasks = Array.isArray(tasks) ? tasks : [];
     const safeCalendar = Array.isArray(calendar) ? calendar : [];
 
-    // 1. INTENT CLASSIFICATION & ROUTING
-    // isLocal: Strictly life context keywords anchors
+    // 1. INTENT CLASSIFICATION
     const isLocalQuery = /^(do i|what('| )?s my|my|have i|i have|calendar|schedule|list|plan|agenda)\b/i.test(lowMsg);
-
-    // isVolatile: Domain-specific world keywords
     const isVolatileWorld = /\b(president|potus|weather|temperature|forecast|price|stock|news|breaking|current)\b/i.test(lowMsg);
 
     // 2. SIGNAL ACQUISITION (The Scout)
     let scout = null;
-    // Local context always wins over world context
     if (!isLocalQuery && isVolatileWorld) {
         scout = await getTavilyIntel(message, searchKey);
     }
@@ -159,9 +155,11 @@ ${recalled.map(m => `- ${m.key}: ${m.value}`).join("\n") || "None."}
             });
 
             const rawContent = response.choices[0].message.content || "";
-            const memoryMatch = rawContent.match(/<memory_update>(.*?)<\/memory_update>/s);
+            // Removed /s flag for ES2017 compatibility. Using [^] to match any character including newlines.
+            const memoryMatch = rawContent.match(/<memory_update>([^]*?)<\/memory_update>/);
+
             let candidateMemories: any[] = [];
-            if (memoryMatch?.[1]) {
+            if (memoryMatch && memoryMatch[1]) {
                 try {
                     const parsed = JSON.parse(memoryMatch[1]);
                     candidateMemories = Array.isArray(parsed) ? parsed : [parsed];
@@ -170,14 +168,14 @@ ${recalled.map(m => `- ${m.key}: ${m.value}`).join("\n") || "None."}
 
             return NextResponse.json({
                 role: 'assistant',
-                content: rawContent.replace(/<memory_update>.*?<\/memory_update>/s, '').trim(),
+                content: rawContent.replace(/<memory_update>[^]*?<\/memory_update>/, '').trim(),
                 candidateMemories,
                 sourceLayer: scout ? `Neural Strike (${scout.source})` : "Neural Strike (Local)"
             });
         } catch (e) { console.log("[BRAIN ERROR]", e); }
     }
 
-    // 4. FALLBACK (Authoritative Signal wins if no Brain)
+    // 4. FALLBACK
     if (isLocalQuery) {
         return NextResponse.json({
             role: 'assistant',
