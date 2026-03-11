@@ -7,7 +7,7 @@ import QuoteBoard from './QuoteBoard';
 
 interface IdentityMirrorProps {
     externalTasks?: any[];
-    setExternalTasks?: (tasks: any[]) => void;
+    setExternalTasks?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 export default function IdentityMirror({ externalTasks = [], setExternalTasks }: IdentityMirrorProps) {
