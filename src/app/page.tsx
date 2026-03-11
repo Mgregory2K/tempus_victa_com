@@ -27,7 +27,7 @@ import {
 
 export type Module = "BRIDGE" | "READY_ROOM" | "IO_BAY" | "PROJECTS" | "TODO" | "CORKBOARD" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "15.0.0-SEGMENTED";
+const VERSION = "16.0.0-SYNC-HARDENED";
 
 export interface Message {
   id: string;
@@ -52,6 +52,31 @@ export interface Chat {
     scopeId: string; // Project ID or "PROTOCOL"
     segments: ChatSegment[];
     updatedAt: string;
+}
+
+export interface Note {
+    id: string;
+    text: string;
+    x: number;
+    y: number;
+    rotation: number;
+    color: string;
+}
+
+export interface Quote {
+    id: string;
+    text: string;
+    author: string;
+    timestamp: string;
+    context?: string;
+    isSynced?: boolean;
+}
+
+export interface Wish {
+    id: string;
+    text: string;
+    timestamp: string;
+    status: 'PENDING' | 'MANIFESTED';
 }
 
 // 🎤 SHARED VOICE COMPONENT
@@ -121,8 +146,11 @@ function AppShell() {
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [wishes, setWishes] = useState<Wish[]>([]);
 
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [identityMemory, setIdentityMemory] = useState<TwinMemory[]>([]);
   const [situationalState, setSituationalState] = useState<SituationalState[]>([]);
   const [patternSignals, setPatternSignals] = useState<PatternSignal[]>([]);
@@ -132,14 +160,13 @@ function AppShell() {
   const [hasMounted, setHasMounted] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isExercisesOpen, setIsExercisesOpen] = useState(false);
 
   const isMichaelAdmin = session?.user?.email ? ["michael.gregory1@gmail.com", "stewart.jared@gmail.com", "michael@tempusvicta.com"].includes(session.user.email.toLowerCase()) : false;
 
-  const msgCountRef = useRef(0);
+  const hasPulledRef = useRef(false);
 
-  // Derive Projects from tasks (Standard TV logic)
-  const projects = tasks.filter(t => t.source === 'PROJECTS' || t.isProject).map(t => ({ id: t.id, title: t.title }));
-
+  // 1. INITIAL HYDRATION (Local Storage)
   useEffect(() => {
     setHasMounted(true);
     setApiKey(localStorage.getItem("tv_api_key") || "");
@@ -150,19 +177,14 @@ function AppShell() {
         setPatternSignals(JSON.parse(localStorage.getItem("tv_patterns") || "[]"));
         setTasks(JSON.parse(localStorage.getItem("tv_tasks") || "[]"));
         setChats(JSON.parse(localStorage.getItem("tv_chats") || "[]"));
-    } catch (e) {}
+        setNotes(JSON.parse(localStorage.getItem("tv_notes") || "[]"));
+        setQuotes(JSON.parse(localStorage.getItem("tv_quotes") || "[]"));
+        setWishes(JSON.parse(localStorage.getItem("tv_wishes") || "[]"));
+    } catch (e) { console.error("Hydration Error", e); }
     setIsHydrated(true);
   }, []);
 
-  useEffect(() => {
-    if (!hasMounted || !isHydrated) return;
-    localStorage.setItem("tv_identity", JSON.stringify(identityMemory));
-    localStorage.setItem("tv_situation", JSON.stringify(situationalState));
-    localStorage.setItem("tv_patterns", JSON.stringify(patternSignals));
-    localStorage.setItem("tv_tasks", JSON.stringify(tasks));
-    localStorage.setItem("tv_chats", JSON.stringify(chats));
-  }, [identityMemory, situationalState, patternSignals, tasks, chats, hasMounted, isHydrated]);
-
+  // 2. CLOUD SYNC LOGIC
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL') => {
     if (!session || isSyncing) return;
     setIsSyncing(true);
@@ -171,20 +193,51 @@ function AppShell() {
             await Promise.all([
                 fetch('/api/sync?file=identity_memory.json', { method: 'POST', body: JSON.stringify(identityMemory) }),
                 fetch('/api/sync?file=chats.json', { method: 'POST', body: JSON.stringify(chats) }),
-                fetch('/api/sync?file=tasks.json', { method: 'POST', body: JSON.stringify(tasks) })
+                fetch('/api/sync?file=tasks.json', { method: 'POST', body: JSON.stringify(tasks) }),
+                fetch('/api/sync?file=notes.json', { method: 'POST', body: JSON.stringify(notes) }),
+                fetch('/api/sync?file=quotes.json', { method: 'POST', body: JSON.stringify(quotes) }),
+                fetch('/api/sync?file=wishes.json', { method: 'POST', body: JSON.stringify(wishes) }),
+                fetch('/api/sync?file=pattern_signals.json', { method: 'POST', body: JSON.stringify(patternSignals) }),
+                fetch('/api/sync?file=session_state.json', { method: 'POST', body: JSON.stringify(situationalState) })
             ]);
         } else {
-            const [resId, resChats, resTasks] = await Promise.all([
-                fetch('/api/sync?file=identity_memory.json'),
-                fetch('/api/sync?file=chats.json'),
-                fetch('/api/sync?file=tasks.json')
+            const fetchFile = async (name: string) => {
+                const res = await fetch(`/api/sync?file=${name}`);
+                return res.ok ? res.json() : null;
+            };
+            const [id, c, t, n, q, w, p, s] = await Promise.all([
+                fetchFile('identity_memory.json'), fetchFile('chats.json'), fetchFile('tasks.json'),
+                fetchFile('notes.json'), fetchFile('quotes.json'), fetchFile('wishes.json'),
+                fetchFile('pattern_signals.json'), fetchFile('session_state.json')
             ]);
-            if (resId.ok) setIdentityMemory(await resId.json());
-            if (resChats.ok) setChats(await resChats.json());
-            if (resTasks.ok) setTasks(await resTasks.json());
+            if (id) setIdentityMemory(id);
+            if (c) setChats(c);
+            if (t) setTasks(t);
+            if (n) setNotes(n);
+            if (q) setQuotes(q);
+            if (w) setWishes(w);
+            if (p) setPatternSignals(p);
+            if (s) setSituationalState(s);
         }
-    } catch (e) {} finally { setIsSyncing(false); }
-  }, [session, identityMemory, chats, tasks]);
+    } catch (e) { console.error("Sync Error", e); } finally { setIsSyncing(false); }
+  }, [session, isSyncing, identityMemory, chats, tasks, notes, quotes, wishes, patternSignals, situationalState]);
+
+  // 3. PERSISTENCE TRIGGER (Local + Immediate Cloud Push)
+  useEffect(() => {
+    if (!hasMounted || !isHydrated) return;
+    localStorage.setItem("tv_identity", JSON.stringify(identityMemory));
+    localStorage.setItem("tv_situation", JSON.stringify(situationalState));
+    localStorage.setItem("tv_patterns", JSON.stringify(patternSignals));
+    localStorage.setItem("tv_tasks", JSON.stringify(tasks));
+    localStorage.setItem("tv_chats", JSON.stringify(chats));
+    localStorage.setItem("tv_notes", JSON.stringify(notes));
+    localStorage.setItem("tv_quotes", JSON.stringify(quotes));
+    localStorage.setItem("tv_wishes", JSON.stringify(wishes));
+
+    // Auto-sync on significant changes (debounced by React state cycle)
+    const timer = setTimeout(() => handleCloudSync('PUSH'), 5000);
+    return () => clearTimeout(timer);
+  }, [identityMemory, situationalState, patternSignals, tasks, chats, notes, quotes, wishes, hasMounted, isHydrated, handleCloudSync]);
 
   useEffect(() => {
     if (status === 'authenticated' && !hasPulledRef.current && isHydrated) {
@@ -193,9 +246,9 @@ function AppShell() {
     }
   }, [status, isHydrated, handleCloudSync]);
 
-  const hasPulledRef = useRef(false);
+  // 4. MODULES
+  const projects = tasks.filter(t => t.source === 'PROJECTS' || t.isProject).map(t => ({ id: t.id, title: t.title }));
 
-  // Fetch Calendar
   useEffect(() => {
     if (status !== 'authenticated') return;
     const fetchCal = async () => {
@@ -213,13 +266,13 @@ function AppShell() {
       const durableCandidates = candidates.filter(c => !c.isSituational);
       setIdentityMemory(prev => governIdentity(prev, durableCandidates));
       if (lastUserMessage) setPatternSignals(prev => detectPatterns(lastUserMessage, prev));
-      setTimeout(() => handleCloudSync('PUSH'), 2000);
-  }, [handleCloudSync]);
+  }, []);
 
   if (!hasMounted) return null;
 
   return (
     <div className="h-dvh w-screen overflow-hidden bg-black text-white flex flex-col uppercase text-[10px]">
+      {isExercisesOpen && <ExerciseHub onDismiss={() => setIsExercisesOpen(false)} />}
       <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-4 md:px-10 shrink-0 relative z-50">
          <div className="flex items-center gap-3">
              <button onClick={() => setIsMobileNavOpen(!isMobileNavOpen)} className="lg:hidden p-2 border border-white/10 rounded-sm hover:bg-white/5 text-white"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">{isMobileNavOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}</svg></button>
@@ -229,6 +282,9 @@ function AppShell() {
              </div>
          </div>
          <div className="flex items-center gap-4">
+            <div className="flex flex-col items-end mr-4">
+                 <span className="text-[6px] text-white/20 font-black tracking-widest">{isSyncing ? "SYNCING_CLOUDS..." : "SYSTEM_SYNCHRONIZED"}</span>
+            </div>
             <div onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className={`flex items-center gap-2 px-3 py-1 border cursor-pointer transition-all ${status === 'authenticated' ? 'border-accent shadow-[0_0_10px_rgba(0,212,255,0.2)]' : 'border-red-500 bg-red-500/10'}`}>
                 <div className={`h-1.5 w-1.5 rounded-full ${status === 'authenticated' ? 'bg-accent animate-pulse' : 'bg-red-500'}`} />
                 <span className="text-[8px] font-black">{status === 'authenticated' ? 'LINKED' : 'OFFLINE'}</span>
@@ -238,7 +294,12 @@ function AppShell() {
 
       <div className="flex flex-grow overflow-hidden relative">
         <aside className={`absolute lg:relative z-40 transition-all duration-300 h-full ${isMobileNavOpen ? 'translate-x-0 shadow-[0_0_50px_rgba(0,0,0,0.9)]' : '-translate-x-full lg:translate-x-0'}`}>
-            <SideNav onModuleChange={(m) => { setActiveModule(m); setIsMobileNavOpen(false); }} activeModule={activeModule} isAdmin={isMichaelAdmin} />
+            <SideNav
+                onModuleChange={(m) => { setActiveModule(m); setIsMobileNavOpen(false); }}
+                activeModule={activeModule}
+                isAdmin={isMichaelAdmin}
+                onToggleExercises={() => setIsExercisesOpen(true)}
+            />
         </aside>
 
         <main className="flex-grow overflow-hidden relative bg-black/20">
@@ -257,10 +318,40 @@ function AppShell() {
               {activeModule === "IO_BAY" && <IOBay onNavigate={setActiveModule as any} onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
               {activeModule === "PROJECTS" && <ProjectBoard externalTasks={tasks} setTasks={setTasks} />}
               {activeModule === "TODO" && <SovereignTodo externalTasks={tasks} setTasks={setTasks} />}
-              {activeModule === "CORKBOARD" && <Corkboard externalNotes={[]} setNotes={() => {}} userName={session?.user?.name || "User"} />}
-              {activeModule === "MIRROR" && <IdentityMirror externalTasks={tasks} setExternalTasks={setTasks} />}
-              {activeModule === "WISHES" && <WishBoard wishes={[]} onWish={() => {}} />}
-              {activeModule === "ADMIN" && <AdminBoard wishes={[]} setWishes={() => {}} setTasks={setTasks} />}
+              {activeModule === "CORKBOARD" && (
+                <Corkboard
+                  externalNotes={notes}
+                  setNotes={setNotes}
+                  userName={session?.user?.name || "User"}
+                  onArchive={(id) => setNotes(prev => prev.filter(n => n.id !== id))}
+                  onPromote={(id, target) => {
+                    const note = notes.find(n => n.id === id);
+                    if (!note) return;
+                    setTasks(prev => [{
+                      id: Date.now().toString(),
+                      title: note.text,
+                      status: 'TODO',
+                      source: target === 'PROJECTS' ? 'PROJECTS' : 'CORKBOARD',
+                      isProject: target === 'PROJECTS'
+                    }, ...prev]);
+                    setNotes(prev => prev.filter(n => n.id !== id));
+                  }}
+                />
+              )}
+              {activeModule === "MIRROR" && (
+                  <IdentityMirror
+                    externalTasks={tasks} setExternalTasks={setTasks}
+                    externalQuotes={quotes} setQuotes={setQuotes}
+                    userName={session?.user?.name || "User"}
+                  />
+              )}
+              {activeModule === "WISHES" && (
+                <WishBoard
+                  wishes={wishes}
+                  onWish={(text) => setWishes(prev => [{ id: Date.now().toString(), text, timestamp: new Date().toISOString(), status: 'PENDING' }, ...prev])}
+                />
+              )}
+              {activeModule === "ADMIN" && <AdminBoard wishes={wishes} setWishes={setWishes} setTasks={setTasks} />}
               {activeModule === "SETTINGS" && (
                   <div className="flex flex-col items-center py-12 animate-fade-in">
                       <div className="w-full max-w-xl p-8 border border-white/10 bg-white/[0.02] rounded-xl relative">

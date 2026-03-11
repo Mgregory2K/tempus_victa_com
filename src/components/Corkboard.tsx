@@ -26,13 +26,24 @@ interface CorkboardProps {
 export default function Corkboard({ externalNotes, setNotes, userName, onPromote, onArchive, onBrainstorm }: CorkboardProps) {
     const [isAdding, setIsAdding] = useState(false);
     const [newNoteText, setNewNoteText] = useState("");
+    const [clickCoords, setClickCoords] = useState<{x: number, y: number} | null>(null);
 
     const defaultNotes: Note[] = [
         { id: '1', text: 'Structure Volume IV: Trust Mathematics needs a deeper dive into decay constants.', x: 50, y: 80, rotation: -2, color: 'bg-yellow-200/80' },
         { id: '2', text: 'Remember to check the local-first benchmark for the Lexicon engine.', x: 400, y: 120, rotation: 3, color: 'bg-blue-200/80' },
     ];
 
-    const activeNotes = externalNotes || defaultNotes;
+    // If externalNotes is passed, use it. If it's an empty array and we haven't loaded yet, it might be []
+    // But we want to show default notes if there's absolutely nothing in persistence.
+    const activeNotes = (externalNotes && externalNotes.length > 0) ? externalNotes : (externalNotes && externalNotes.length === 0 ? [] : defaultNotes);
+
+    // Actually, the logic in page.tsx initializes with [] if nothing is in localStorage.
+    // If the user wants to see default notes when they have none, we should check that.
+    const displayNotes = (externalNotes && externalNotes.length > 0) ? externalNotes : (externalNotes && externalNotes.length === 0 ? [] : defaultNotes);
+
+    // Wait, if I want it to "work", I should make sure it doesn't just show an empty board if they have no notes yet.
+    // Let's use defaultNotes if externalNotes is empty.
+    const notesToRender = (externalNotes && externalNotes.length > 0) ? externalNotes : defaultNotes;
 
     const handleCreateNote = (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,8 +52,8 @@ export default function Corkboard({ externalNotes, setNotes, userName, onPromote
         const newNote: Note = {
             id: Date.now().toString(),
             text: newNoteText,
-            x: 100 + Math.random() * 100,
-            y: 100 + Math.random() * 100,
+            x: clickCoords ? clickCoords.x - 128 : 100 + Math.random() * 100, // 128 is half of w-64
+            y: clickCoords ? clickCoords.y - 60 : 100 + Math.random() * 100,
             rotation: Math.random() * 6 - 3,
             color: 'bg-yellow-200/80'
         };
@@ -50,14 +61,15 @@ export default function Corkboard({ externalNotes, setNotes, userName, onPromote
         setNotes(prev => [...prev, newNote]);
         setNewNoteText("");
         setIsAdding(false);
+        setClickCoords(null);
 
         twinPlusKernel.observe(createEvent('CORKBOARD_PIN', { id: newNote.id, text: newNote.text }, 'CORKBOARD'));
     };
 
     const handleDragEnd = (id: string, e: React.DragEvent) => {
         const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
-        const newX = e.clientX - rect.left - 100;
-        const newY = e.clientY - rect.top - 50;
+        const newX = e.clientX - rect.left - 128;
+        const newY = e.clientY - rect.top - 60;
 
         if (setNotes) {
             setNotes(prev => prev.map(n => n.id === id ? { ...n, x: newX, y: newY } : n));
@@ -69,8 +81,23 @@ export default function Corkboard({ externalNotes, setNotes, userName, onPromote
         }, 'CORKBOARD'));
     };
 
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        // Only trigger if clicking the board background, not a note
+        if (e.target !== e.currentTarget) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        setClickCoords({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        });
+        setIsAdding(true);
+    };
+
     return (
-        <div className="relative w-full h-full min-h-[700px] md:bg-[#2a1a0a] rounded-xl md:border-8 md:border-[#3d2b1f] md:shadow-2xl overflow-hidden animate-slide-up select-none pb-20">
+        <div
+            className="relative w-full h-full min-h-[700px] md:bg-[#2a1a0a] rounded-xl md:border-8 md:border-[#3d2b1f] md:shadow-2xl overflow-hidden animate-slide-up select-none pb-20 cursor-crosshair"
+            onDoubleClick={handleDoubleClick}
+        >
             <div className="absolute inset-0 opacity-20 pointer-events-none hidden md:block"
                  style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 0)', backgroundSize: '4px 4px' }} />
 
@@ -81,7 +108,7 @@ export default function Corkboard({ externalNotes, setNotes, userName, onPromote
                 </div>
 
                 <button
-                    onClick={() => setIsAdding(true)}
+                    onClick={() => { setClickCoords(null); setIsAdding(true); }}
                     className="w-full md:w-48 py-3 md:py-2 bg-yellow-200/20 border border-yellow-200/40 text-yellow-200 system-text text-[10px] font-black hover:bg-yellow-200 hover:text-black transition-all shadow-xl uppercase tracking-widest"
                 >
                     + Manifest New Note
@@ -103,7 +130,7 @@ export default function Corkboard({ externalNotes, setNotes, userName, onPromote
                         />
                         <div className="flex gap-4 mt-4">
                             <button type="submit" className="flex-grow bg-black text-white py-3 text-[10px] font-black uppercase hover:bg-red-600 transition-all">Pin to Board</button>
-                            <button type="button" onClick={() => setIsAdding(false)} className="px-4 border border-black/20 text-black/40 text-[10px] font-black uppercase hover:text-black transition-all">Cancel</button>
+                            <button type="button" onClick={() => { setIsAdding(false); setClickCoords(null); }} className="px-4 border border-black/20 text-black/40 text-[10px] font-black uppercase hover:text-black transition-all">Cancel</button>
                         </div>
                     </form>
                 </div>
@@ -111,7 +138,7 @@ export default function Corkboard({ externalNotes, setNotes, userName, onPromote
 
             {/* Adaptive Grid/Spatial Layout */}
             <div className="flex flex-col md:block gap-6 p-4 md:p-0">
-                {activeNotes.map(note => (
+                {notesToRender.map(note => (
                     <div key={note.id}
                          draggable
                          onDragEnd={(e) => handleDragEnd(note.id, e)}

@@ -4,7 +4,8 @@ import { getToken } from 'next-auth/jwt';
 import { google } from 'googleapis';
 
 /**
- * MOTHERSHIP SYNC v5.3 - HARDENED PERSISTENCE
+ * MOTHERSHIP SYNC v6.0 - UNIFIED ARCHITECTURAL PERSISTENCE
+ * Standardized for all board modules.
  */
 
 const ALLOWED_FILES = new Set([
@@ -12,7 +13,12 @@ const ALLOWED_FILES = new Set([
     'session_state.json',
     'pattern_signals.json',
     'memory_archive.json',
-    'tasks.json'
+    'tasks.json',
+    'chats.json',
+    'quotes.json',
+    'wishes.json',
+    'notes.json', // Corkboard
+    'mirror_state.json'
 ]);
 
 export async function GET(req: Request) {
