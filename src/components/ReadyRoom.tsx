@@ -1,64 +1,46 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { VoiceButton } from '@/app/page';
-import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
-import { createEvent } from '@/core/twin_plus/twin_event';
+import { VoiceButton, Message } from '@/app/page';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: string;
-  sourceLayer?: string;
-  vote?: number | null;
-  wrongSource?: boolean;
-  isPageBreak?: boolean;
+interface ReadyRoomProps {
+    messages: Message[];
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+    identityMemory?: any[];
+    situationalState?: any[];
+    patternSignals?: any[];
+    apiKey: string;
+    searchKey: string;
+    assistantName: string;
+    userName?: string;
+    tasks?: any[];
+    calendar?: any[];
+    onMemoryUpdate?: (candidates: any[], lastUserMessage?: string) => void;
 }
 
 export default function ReadyRoom({
-    messages: externalMessages,
-    setMessages: setExternalMessages,
+    messages,
+    setMessages,
+    identityMemory = [],
+    situationalState = [],
+    patternSignals = [],
     apiKey,
     searchKey,
-    geminiKey,
     assistantName,
     userName,
-    initialMessage,
-    onContextConsumed,
     tasks = [],
-    calendar = []
-}: {
-    messages: Message[],
-    setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
-    apiKey: string,
-    searchKey: string,
-    geminiKey?: string,
-    assistantName: string,
-    userName?: string,
-    initialMessage?: string | null,
-    onContextConsumed?: () => void,
-    tasks?: any[],
-    calendar?: any[]
-}) {
+    calendar = [],
+    onMemoryUpdate
+}: ReadyRoomProps) {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const hasConsumedInitial = useRef(false);
-
-    useEffect(() => {
-        if (initialMessage && !hasConsumedInitial.current) {
-            hasConsumedInitial.current = true;
-            handleSend(`[BRAINSTORM_CONTEXT]: ${initialMessage}`);
-            onContextConsumed?.();
-        }
-    }, [initialMessage]);
 
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [externalMessages, isTyping]);
+    }, [messages, isTyping]);
 
     const handleSend = async (overrideInput?: string) => {
         let text = overrideInput || input.trim();
@@ -71,7 +53,7 @@ export default function ReadyRoom({
             timestamp: new Date().toISOString()
         };
 
-        setExternalMessages(prev => [...prev, userMsg]);
+        setMessages(prev => [...prev, userMsg]);
         if (!overrideInput) setInput("");
         setIsTyping(true);
 
@@ -81,19 +63,25 @@ export default function ReadyRoom({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    history: externalMessages.slice(-10),
+                    history: messages.slice(-10),
                     assistantName,
                     userName,
                     apiKey,
                     searchKey,
-                    geminiKey,
                     tasks,
                     calendar,
-                    forceLocal: false
+                    identityMemory,
+                    situationalState,
+                    patternSignals
                 }),
             });
 
             const data = await response.json();
+
+            // 🧬 IDENTITY UPDATE
+            if (data.candidateMemories && data.candidateMemories.length > 0) {
+                onMemoryUpdate?.(data.candidateMemories, text);
+            }
 
             const aiMsg: Message = {
                 id: Date.now().toString(),
@@ -103,12 +91,12 @@ export default function ReadyRoom({
                 timestamp: new Date().toISOString()
             };
 
-            setExternalMessages(prev => [...prev, aiMsg]);
+            setMessages(prev => [...prev, aiMsg]);
         } catch (error) {
-            setExternalMessages(prev => [...prev, {
+            setMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "Link's fuzzy. I'm sticking to the local briefcase for a second.",
+                content: "Neural link fuzzy. Status maintained.",
                 timestamp: new Date().toISOString(),
                 sourceLayer: "Local Partner"
             }]);
@@ -126,14 +114,14 @@ export default function ReadyRoom({
                         {assistantName || "J5"} // Ready Room
                     </h2>
                     <span className="text-[6px] text-white/40 font-bold uppercase tracking-widest mt-1 italic">
-                        Sovereign Partnership // Intel Active
+                        Governed Cognitive Identity Mode
                     </span>
                 </div>
             </div>
 
             {/* Messages Feed */}
             <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 md:p-8 space-y-8 scrollbar-thin bg-black/20">
-                {externalMessages.map((msg) => (
+                {messages.map((msg) => (
                     <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                         <div className="group relative max-w-[85%] md:max-w-[70%]">
                             <div className={`p-4 rounded-2xl border ${

@@ -36,6 +36,9 @@ export interface Message {
   content: string;
   timestamp: string;
   sourceLayer?: string;
+  vote?: number | null;
+  wrongSource?: boolean;
+  isPageBreak?: boolean;
 }
 
 // 🎤 SHARED VOICE COMPONENT

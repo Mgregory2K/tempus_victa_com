@@ -94,12 +94,16 @@ export async function POST(req: Request) {
     const safeTasks = Array.isArray(tasks) ? tasks : [];
     const safeCalendar = Array.isArray(calendar) ? calendar : [];
 
-    // 1. INTENT CLASSIFICATION
+    // 1. INTENT CLASSIFICATION & ROUTING
+    // isLocal: Strictly life context keywords anchors
     const isLocalQuery = /^(do i|what('| )?s my|my|have i|i have|calendar|schedule|list|plan|agenda)\b/i.test(lowMsg);
+
+    // isVolatile: Domain-specific world keywords
     const isVolatileWorld = /\b(president|potus|weather|temperature|forecast|price|stock|news|breaking|current)\b/i.test(lowMsg);
 
     // 2. SIGNAL ACQUISITION (The Scout)
     let scout = null;
+    // Local context always wins over world context
     if (!isLocalQuery && isVolatileWorld) {
         scout = await getTavilyIntel(message, searchKey);
     }
