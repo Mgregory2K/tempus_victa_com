@@ -5,14 +5,13 @@ import Bridge from "@/components/bridge";
 import SideNav from "@/components/SideNav";
 import WorkoutTracker from "@/components/WorkoutTracker";
 import ReviewScreen from "@/components/ReviewScreen";
-import SignalBay from "@/components/SignalBay";
+import IOBay from "@/components/IOBay";
 import Corkboard from "@/components/Corkboard";
 import QuoteBoard from "@/components/QuoteBoard";
 import Winboard from "@/components/Winboard";
 import ProjectBoard from "@/components/ProjectBoard";
 import SovereignTodo from "@/components/SovereignTodo";
 import GroceryList from "@/components/GroceryList";
-import ClockTower from "@/components/ClockTower";
 import IdentityMirror from "@/components/IdentityMirror";
 import DailyBrief from "@/components/DailyBrief";
 import ReadyRoom from "@/components/ReadyRoom";
@@ -26,7 +25,7 @@ import {
     governIdentity, runMemoryCompression, detectPatterns
 } from "@/core/memory/governance";
 
-export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
+export type Module = "BRIDGE" | "READY_ROOM" | "IO_BAY" | "PROJECTS" | "TODO" | "CORKBOARD" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
 const VERSION = "15.0.0-SEGMENTED";
 
@@ -36,6 +35,7 @@ export interface Message {
   content: string;
   timestamp: string;
   sourceLayer?: string;
+  vote?: number | null; // 1 for Up, -1 for Down
 }
 
 export interface ChatSegment {
@@ -49,9 +49,8 @@ export interface ChatSegment {
 export interface Chat {
     id: string;
     title: string;
+    scopeId: string; // Project ID or "PROTOCOL"
     segments: ChatSegment[];
-    projectId?: string;
-    isProtocol?: boolean;
     updatedAt: string;
 }
 
@@ -138,7 +137,9 @@ function AppShell() {
 
   const msgCountRef = useRef(0);
 
-  // Persistence logic
+  // Derive Projects from tasks (Standard TV logic)
+  const projects = tasks.filter(t => t.source === 'PROJECTS' || t.isProject).map(t => ({ id: t.id, title: t.title }));
+
   useEffect(() => {
     setHasMounted(true);
     setApiKey(localStorage.getItem("tv_api_key") || "");
@@ -185,6 +186,29 @@ function AppShell() {
     } catch (e) {} finally { setIsSyncing(false); }
   }, [session, identityMemory, chats, tasks]);
 
+  useEffect(() => {
+    if (status === 'authenticated' && !hasPulledRef.current && isHydrated) {
+        hasPulledRef.current = true;
+        handleCloudSync('PULL');
+    }
+  }, [status, isHydrated, handleCloudSync]);
+
+  const hasPulledRef = useRef(false);
+
+  // Fetch Calendar
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const fetchCal = async () => {
+        try {
+            const res = await fetch('/api/calendar');
+            if (res.ok) { const data = await res.json(); setCalendar(data); }
+        } catch (e) {}
+    };
+    fetchCal();
+    const interval = setInterval(fetchCal, 300000);
+    return () => clearInterval(interval);
+  }, [status]);
+
   const mergeGovernedMemory = useCallback((candidates: any[], lastUserMessage?: string) => {
       const durableCandidates = candidates.filter(c => !c.isSituational);
       setIdentityMemory(prev => governIdentity(prev, durableCandidates));
@@ -223,17 +247,20 @@ function AppShell() {
               {activeModule === "READY_ROOM" && (
                 <ReadyRoom
                     chats={chats} setChats={setChats} activeChatId={activeChatId} setActiveChatId={setActiveChatId}
+                    projects={projects}
                     identityMemory={identityMemory} situationalState={situationalState}
                     apiKey={apiKey} searchKey={searchKey} assistantName={assistantName} userName={session?.user?.name || "User"}
                     tasks={tasks} calendar={calendar}
                     onMemoryUpdate={mergeGovernedMemory}
                 />
               )}
-              {activeModule === "SIGNAL_BAY" && <SignalBay onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
+              {activeModule === "IO_BAY" && <IOBay onNavigate={setActiveModule as any} onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
               {activeModule === "PROJECTS" && <ProjectBoard externalTasks={tasks} setTasks={setTasks} />}
               {activeModule === "TODO" && <SovereignTodo externalTasks={tasks} setTasks={setTasks} />}
-              {activeModule === "WINBOARD" && <Winboard externalTasks={tasks} setExternalTasks={setTasks} />}
-              {activeModule === "MIRROR" && <IdentityMirror />}
+              {activeModule === "CORKBOARD" && <Corkboard externalNotes={[]} setNotes={() => {}} userName={session?.user?.name || "User"} />}
+              {activeModule === "MIRROR" && <IdentityMirror externalTasks={tasks} setExternalTasks={setTasks} />}
+              {activeModule === "WISHES" && <WishBoard wishes={[]} onWish={() => {}} />}
+              {activeModule === "ADMIN" && <AdminBoard wishes={[]} setWishes={() => {}} setTasks={setTasks} />}
               {activeModule === "SETTINGS" && (
                   <div className="flex flex-col items-center py-12 animate-fade-in">
                       <div className="w-full max-w-xl p-8 border border-white/10 bg-white/[0.02] rounded-xl relative">
@@ -253,7 +280,7 @@ function AppShell() {
 
       <footer className="h-14 border-t border-white/10 bg-black/95 flex items-center justify-start px-2 md:px-4 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50 text-white font-bold md:justify-center">
           {[
-            { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SIGNAL_BAY", label: "Signal Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "To-Do" }, { id: "WINBOARD", label: "Win Board" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "QUOTES", label: "Quotes" }, { id: "CLOCK_TOWER", label: "Clock Tower" }, { id: "MIRROR", label: "Mirror" }, { id: "WISHES", label: "Wishes" }, { id: "SETTINGS", label: "Config" },
+            { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "IO_BAY", label: "I/O Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "To-Do" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "MIRROR", label: "Mirror" }, { id: "WISHES", label: "Wishes" }, { id: "SETTINGS", label: "Config" },
             ...(isMichaelAdmin ? [{ id: "ADMIN", label: "Command" }] : [])
           ].map(item => (
             <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`nav-parallelogram px-4 md:px-6 py-2 system-text text-[7px] md:text-[8px] font-black transition-all border relative overflow-hidden uppercase text-white font-bold ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}><span className="nav-text-fix relative z-10 block whitespace-nowrap uppercase text-white font-bold">{item.label}</span></button>

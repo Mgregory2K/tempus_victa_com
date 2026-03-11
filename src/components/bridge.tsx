@@ -111,10 +111,10 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
 
             {/* 🧬 VITAL SIGNS */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard title="Clock Tower" value="85H" trend="12%+" glowColor="accent" targetModule="CLOCK_TOWER" />
+                <MetricCard title="Audit Ledger" value="85H" trend="ACTIVE" glowColor="accent" targetModule="IO_BAY" />
                 <MetricCard title="Affinity" value="94" unit="%" trend="PEAK" glowColor="neon-green" targetModule="MIRROR" />
                 <MetricCard title="Objectives" value={activeProjectsCount} trend="ACTIVE" glowColor="purple-500" targetModule="PROJECTS" />
-                <MetricCard title="Signal Bay" value="12" trend="SIGNALS" glowColor="orange-500" targetModule="SIGNAL_BAY" />
+                <MetricCard title="Signal Bay" value="12" trend="SIGNALS" glowColor="orange-500" targetModule="IO_BAY" />
             </section>
 
             {/* 🧬 MOMENTUM HUD */}
@@ -167,7 +167,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
                     </div>
                 )}
 
-                <div onClick={() => navigateWithTelemetry('WINBOARD')} className="hud-panel p-6 bg-neon-green/5 border-neon-green/20 relative cursor-pointer group hover:bg-neon-green/10 transition-all text-white ripple">
+                <div onClick={() => navigateWithTelemetry('MIRROR')} className="hud-panel p-6 bg-neon-green/5 border-neon-green/20 relative cursor-pointer group hover:bg-neon-green/10 transition-all text-white ripple">
                     <h3 className="system-text text-[10px] text-neon-green font-black tracking-widest uppercase mb-4">Recent Triumphs</h3>
                     <div className="space-y-3">
                         {recentWins.length > 0 ? (

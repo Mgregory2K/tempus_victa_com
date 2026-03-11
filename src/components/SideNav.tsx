@@ -89,14 +89,11 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin, onToggl
 
             <div className="flex-grow space-y-1 overflow-y-auto scrollbar-none pr-1">
                 <NavItem name="The Bridge" isActive={activeModule === 'BRIDGE'} onClick={() => onModuleChange?.('BRIDGE')} subtext="Strategic Cockpit" description="The expression layer of your Twin+. High-level synthesis of all cognitive data." />
-                <NavItem name="Signal Bay" isActive={activeModule === 'SIGNAL_BAY'} onClick={() => onModuleChange?.('SIGNAL_BAY')} subtext="Triage Engine" description="Filter and route all incoming life signals—emails, notifications, and thoughts." />
+                <NavItem name="I/O Bay" isActive={activeModule === 'IO_BAY'} onClick={() => onModuleChange?.('IO_BAY')} subtext="Intelligence Conduit" description="Combined signal triage and real-time ledger auditing." />
                 <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Strategic Objectives" description="Manage multi-stage strategic objectives and heavy artillery tasks." />
                 <NavItem name="Sovereign To-Do" isActive={activeModule === 'TODO'} onClick={() => onModuleChange?.('TODO')} subtext="Tactical Infantry" description="Quick-action checklist for micro-signals and the tire store principle." />
-                <NavItem name="Win Board" isActive={activeModule === 'WINBOARD'} onClick={() => onModuleChange?.('WINBOARD')} subtext="Daily Triumphs" description="A visual ledger of every completed action today." />
                 <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns and Twin+ affinity model." />
-                <NavItem name="Clock Tower" isActive={activeModule === 'CLOCK_TOWER'} onClick={() => onModuleChange?.('CLOCK_TOWER')} subtext="Immutable Ledger" description="Audit every signal and neural decision in real-time." />
                 <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured tactical intel." />
-                <NavItem name="Quote Board" isActive={activeModule === 'QUOTES'} onClick={() => onModuleChange?.('QUOTES')} subtext="Crystallized Intel" description="Review high-fidelity linguistic patterns." />
                 <NavItem name="Wishes" isActive={activeModule === 'WISHES'} onClick={() => onModuleChange?.('WISHES')} subtext="Future Development" description="Log requests for system expansion." />
 
                 <div className="pt-2">
