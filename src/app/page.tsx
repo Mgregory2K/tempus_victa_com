@@ -28,7 +28,7 @@ import {
 
 export type Module = "BRIDGE" | "READY_ROOM" | "SIGNAL_BAY" | "PROJECTS" | "TODO" | "WINBOARD" | "CORKBOARD" | "QUOTES" | "CLOCK_TOWER" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
 
-const VERSION = "14.1.2-SOVEREIGN";
+const VERSION = "15.0.0-SEGMENTED";
 
 export interface Message {
   id: string;
@@ -36,9 +36,23 @@ export interface Message {
   content: string;
   timestamp: string;
   sourceLayer?: string;
-  vote?: number | null;
-  wrongSource?: boolean;
-  isPageBreak?: boolean;
+}
+
+export interface ChatSegment {
+    id: string;
+    messages: Message[];
+    attachments: any[];
+    isSealed: boolean;
+    timestamp: string;
+}
+
+export interface Chat {
+    id: string;
+    title: string;
+    segments: ChatSegment[];
+    projectId?: string;
+    isProtocol?: boolean;
+    updatedAt: string;
 }
 
 // 🎤 SHARED VOICE COMPONENT
@@ -107,7 +121,9 @@ function AppShell() {
   const [assistantName, setAssistantName] = useState("J5");
 
   const [tasks, setTasks] = useState<any[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+
   const [identityMemory, setIdentityMemory] = useState<TwinMemory[]>([]);
   const [situationalState, setSituationalState] = useState<SituationalState[]>([]);
   const [patternSignals, setPatternSignals] = useState<PatternSignal[]>([]);
@@ -122,7 +138,7 @@ function AppShell() {
 
   const msgCountRef = useRef(0);
 
-  // Persistence logic for Governed Tiers
+  // Persistence logic
   useEffect(() => {
     setHasMounted(true);
     setApiKey(localStorage.getItem("tv_api_key") || "");
@@ -132,24 +148,10 @@ function AppShell() {
         setSituationalState(JSON.parse(localStorage.getItem("tv_situation") || "[]"));
         setPatternSignals(JSON.parse(localStorage.getItem("tv_patterns") || "[]"));
         setTasks(JSON.parse(localStorage.getItem("tv_tasks") || "[]"));
-        setMessages(JSON.parse(localStorage.getItem("tv_messages") || "[]"));
+        setChats(JSON.parse(localStorage.getItem("tv_chats") || "[]"));
     } catch (e) {}
     setIsHydrated(true);
   }, []);
-
-  // 🧬 FETCH CALENDAR
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-    const fetchCal = async () => {
-        try {
-            const res = await fetch('/api/calendar');
-            if (res.ok) { const data = await res.json(); setCalendar(data); }
-        } catch (e) {}
-    };
-    fetchCal();
-    const interval = setInterval(fetchCal, 300000);
-    return () => clearInterval(interval);
-  }, [status]);
 
   useEffect(() => {
     if (!hasMounted || !isHydrated) return;
@@ -157,8 +159,8 @@ function AppShell() {
     localStorage.setItem("tv_situation", JSON.stringify(situationalState));
     localStorage.setItem("tv_patterns", JSON.stringify(patternSignals));
     localStorage.setItem("tv_tasks", JSON.stringify(tasks));
-    localStorage.setItem("tv_messages", JSON.stringify(messages));
-  }, [identityMemory, situationalState, patternSignals, tasks, messages, hasMounted, isHydrated]);
+    localStorage.setItem("tv_chats", JSON.stringify(chats));
+  }, [identityMemory, situationalState, patternSignals, tasks, chats, hasMounted, isHydrated]);
 
   const handleCloudSync = useCallback(async (direction: 'PUSH' | 'PULL') => {
     if (!session || isSyncing) return;
@@ -167,58 +169,26 @@ function AppShell() {
         if (direction === 'PUSH') {
             await Promise.all([
                 fetch('/api/sync?file=identity_memory.json', { method: 'POST', body: JSON.stringify(identityMemory) }),
-                fetch('/api/sync?file=session_state.json', { method: 'POST', body: JSON.stringify(situationalState) }),
-                fetch('/api/sync?file=pattern_signals.json', { method: 'POST', body: JSON.stringify(patternSignals) }),
+                fetch('/api/sync?file=chats.json', { method: 'POST', body: JSON.stringify(chats) }),
                 fetch('/api/sync?file=tasks.json', { method: 'POST', body: JSON.stringify(tasks) })
             ]);
         } else {
-            const [resId, resSit, resPat, resTasks] = await Promise.all([
+            const [resId, resChats, resTasks] = await Promise.all([
                 fetch('/api/sync?file=identity_memory.json'),
-                fetch('/api/sync?file=session_state.json'),
-                fetch('/api/sync?file=pattern_signals.json'),
+                fetch('/api/sync?file=chats.json'),
                 fetch('/api/sync?file=tasks.json')
             ]);
             if (resId.ok) setIdentityMemory(await resId.json());
-            if (resSit.ok) setSituationalState(await resSit.json());
-            if (resPat.ok) setPatternSignals(await resPat.json());
+            if (resChats.ok) setChats(await resChats.json());
             if (resTasks.ok) setTasks(await resTasks.json());
         }
     } catch (e) {} finally { setIsSyncing(false); }
-  }, [session, identityMemory, situationalState, patternSignals, tasks]);
-
-  useEffect(() => {
-    if (status === 'authenticated' && !hasPulledRef.current && isHydrated) {
-        hasPulledRef.current = true;
-        handleCloudSync('PULL');
-    }
-  }, [status, isHydrated, handleCloudSync]);
-
-  const hasPulledRef = useRef(false);
+  }, [session, identityMemory, chats, tasks]);
 
   const mergeGovernedMemory = useCallback((candidates: any[], lastUserMessage?: string) => {
       const durableCandidates = candidates.filter(c => !c.isSituational);
-      const situationalCandidates = candidates.filter(c => c.isSituational);
       setIdentityMemory(prev => governIdentity(prev, durableCandidates));
-      if (situationalCandidates.length > 0) {
-          setSituationalState(prev => {
-              const newSits = situationalCandidates.map(c => ({
-                  id: Math.random().toString(36).substring(2, 11),
-                  key: c.key,
-                  value: c.value,
-                  timestamp: new Date().toISOString()
-              }));
-              return [...newSits, ...prev].slice(0, 15);
-          });
-      }
       if (lastUserMessage) setPatternSignals(prev => detectPatterns(lastUserMessage, prev));
-      msgCountRef.current += 1;
-      if (msgCountRef.current % 10 === 0) {
-          setIdentityMemory(prev => {
-              const { active, archived } = runMemoryCompression(prev);
-              if (archived.length > 0) fetch('/api/sync?file=memory_archive.json', { method: 'POST', body: JSON.stringify(archived) });
-              return active;
-          });
-      }
       setTimeout(() => handleCloudSync('PUSH'), 2000);
   }, [handleCloudSync]);
 
@@ -235,7 +205,6 @@ function AppShell() {
              </div>
          </div>
          <div className="flex items-center gap-4">
-            {isSyncing && <div className="text-accent animate-pulse tracking-widest text-[7px] italic hidden md:block">Neural Sync Active</div>}
             <div onClick={() => status === 'authenticated' ? signOut() : signIn('google')} className={`flex items-center gap-2 px-3 py-1 border cursor-pointer transition-all ${status === 'authenticated' ? 'border-accent shadow-[0_0_10px_rgba(0,212,255,0.2)]' : 'border-red-500 bg-red-500/10'}`}>
                 <div className={`h-1.5 w-1.5 rounded-full ${status === 'authenticated' ? 'bg-accent animate-pulse' : 'bg-red-500'}`} />
                 <span className="text-[8px] font-black">{status === 'authenticated' ? 'LINKED' : 'OFFLINE'}</span>
@@ -251,17 +220,20 @@ function AppShell() {
         <main className="flex-grow overflow-hidden relative bg-black/20">
              <div className="absolute inset-0 p-4 md:p-8 overflow-y-auto scrollbar-thin">
               {activeModule === "BRIDGE" && <Bridge tasks={tasks} calendar={calendar} onNavigate={setActiveModule as any} onQuickTask={(t) => setTasks(prev => [{id: Date.now().toString(), title: t, status: 'TODO', source: 'WORKING_MEMORY'}, ...prev])} />}
-              {activeModule === "READY_ROOM" && <ReadyRoom messages={messages} setMessages={setMessages} identityMemory={identityMemory} situationalState={situationalState} patternSignals={patternSignals} apiKey={apiKey} searchKey={searchKey} assistantName={assistantName} userName={session?.user?.name || "User"} tasks={tasks} calendar={calendar} onMemoryUpdate={mergeGovernedMemory} />}
+              {activeModule === "READY_ROOM" && (
+                <ReadyRoom
+                    chats={chats} setChats={setChats} activeChatId={activeChatId} setActiveChatId={setActiveChatId}
+                    identityMemory={identityMemory} situationalState={situationalState}
+                    apiKey={apiKey} searchKey={searchKey} assistantName={assistantName} userName={session?.user?.name || "User"}
+                    tasks={tasks} calendar={calendar}
+                    onMemoryUpdate={mergeGovernedMemory}
+                />
+              )}
               {activeModule === "SIGNAL_BAY" && <SignalBay onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
               {activeModule === "PROJECTS" && <ProjectBoard externalTasks={tasks} setTasks={setTasks} />}
               {activeModule === "TODO" && <SovereignTodo externalTasks={tasks} setTasks={setTasks} />}
               {activeModule === "WINBOARD" && <Winboard externalTasks={tasks} setExternalTasks={setTasks} />}
-              {activeModule === "CORKBOARD" && <Corkboard externalNotes={[]} setNotes={() => {}} userName={session?.user?.name || "User"} />}
               {activeModule === "MIRROR" && <IdentityMirror />}
-              {activeModule === "CLOCK_TOWER" && <ClockTower onNavigate={setActiveModule as any} />}
-              {activeModule === "QUOTES" && <QuoteBoard externalQuotes={[]} setQuotes={() => {}} />}
-              {activeModule === "WISHES" && <WishBoard wishes={[]} onWish={() => {}} />}
-              {activeModule === "ADMIN" && <AdminBoard wishes={[]} setWishes={() => {}} setTasks={setTasks} />}
               {activeModule === "SETTINGS" && (
                   <div className="flex flex-col items-center py-12 animate-fade-in">
                       <div className="w-full max-w-xl p-8 border border-white/10 bg-white/[0.02] rounded-xl relative">
