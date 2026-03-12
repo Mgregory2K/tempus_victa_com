@@ -11,7 +11,7 @@ import QuoteBoard from "@/components/QuoteBoard";
 import Winboard from "@/components/Winboard";
 import ProjectBoard from "@/components/ProjectBoard";
 import SovereignTodo from "@/components/SovereignTodo";
-import GroceryList from "@/components/GroceryList";
+import SharedLists from "@/components/SharedLists";
 import IdentityMirror from "@/components/IdentityMirror";
 import DailyBrief from "@/components/DailyBrief";
 import ReadyRoom from "@/components/ReadyRoom";
@@ -25,7 +25,7 @@ import {
     governIdentity, runMemoryCompression, detectPatterns
 } from "@/core/memory/governance";
 
-export type Module = "BRIDGE" | "READY_ROOM" | "IO_BAY" | "PROJECTS" | "TODO" | "CORKBOARD" | "MIRROR" | "ADMIN" | "WISHES" | "SETTINGS";
+export type Module = "BRIDGE" | "READY_ROOM" | "SHARED_LISTS" | "PROJECTS" | "TODO" | "CORKBOARD" | "MIRROR" | "IO_BAY" | "WISHES" | "ADMIN" | "SETTINGS";
 
 const VERSION = "17.0.0-TWIN-PLUS-SOVEREIGN";
 
@@ -41,6 +41,11 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
         </svg>
     ),
+    SHARED_LISTS: ({ className }: { className: string }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+    ),
     IO_BAY: ({ className }: { className: string }) => (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -48,12 +53,22 @@ const Icons = {
     ),
     PROJECTS: ({ className }: { className: string }) => (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
     ),
     TODO: ({ className }: { className: string }) => (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+    ),
+    MIRROR: ({ className }: { className: string }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+    ),
+    WISHES: ({ className }: { className: string }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
     ),
     CONFIG: ({ className }: { className: string }) => (
@@ -334,7 +349,7 @@ function AppShell() {
   const NavItem = ({ id, label }: { id: Module | "CONFIG", label: string }) => {
       const isActive = activeModule === id || (id === "CONFIG" && activeModule === "SETTINGS");
       const iconKey = (id === "SETTINGS" || id === "CONFIG" ? "CONFIG" : id) as keyof typeof Icons;
-      const IconComponent = Icons[iconKey] || Icons.BRIDGE;
+      const IconComponent = Icons[iconKey as keyof typeof Icons] || Icons.BRIDGE;
 
       return (
           <button
@@ -404,7 +419,7 @@ function AppShell() {
                     twinProjection={geminiProjection}
                 />
               )}
-              {activeModule === "IO_BAY" && <IOBay onNavigate={setActiveModule as any} onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
+              {activeModule === "SHARED_LISTS" && <SharedLists />}
               {activeModule === "PROJECTS" && <ProjectBoard externalTasks={tasks} setTasks={setTasks} />}
               {activeModule === "TODO" && <SovereignTodo externalTasks={tasks} setTasks={setTasks} />}
               {activeModule === "CORKBOARD" && (
@@ -434,6 +449,7 @@ function AppShell() {
                     userName={session?.user?.name || "User"}
                   />
               )}
+              {activeModule === "IO_BAY" && <IOBay onNavigate={setActiveModule as any} onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
               {activeModule === "WISHES" && (
                 <WishBoard
                   wishes={wishes}
@@ -465,7 +481,7 @@ function AppShell() {
       <footer className="lg:hidden mobile-bottom-nav flex items-center justify-around z-50 px-2">
           <NavItem id="BRIDGE" label="Bridge" />
           <NavItem id="READY_ROOM" label="Room" />
-          <NavItem id="IO_BAY" label="Signal" />
+          <NavItem id="SHARED_LISTS" label="Lists" />
           <NavItem id="PROJECTS" label="Focus" />
           <NavItem id="CONFIG" label="Config" />
       </footer>
@@ -473,7 +489,7 @@ function AppShell() {
       {/* --- PARALLELOGRAM NAV (Desktop Only) --- */}
       <footer className="hidden lg:flex h-14 border-t border-white/10 bg-black/95 items-center justify-center px-4 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50">
           {[
-            { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "IO_BAY", label: "I/O Bay" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "To-Do" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "MIRROR", label: "Mirror" }, { id: "WISHES", label: "Wishes" }, { id: "SETTINGS", label: "Config" },
+            { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SHARED_LISTS", label: "Shared Lists" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "Tasks" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "MIRROR", label: "Mirror" }, { id: "IO_BAY", label: "I/O Bay" }, { id: "WISHES", label: "Recycle Bin" }, { id: "SETTINGS", label: "Config" },
             ...(isMichaelAdmin ? [{ id: "ADMIN", label: "Command" }] : [])
           ].map(item => (
             <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`nav-parallelogram px-6 py-2 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}><span className="nav-text-fix relative z-10 block whitespace-nowrap">{item.label}</span></button>
