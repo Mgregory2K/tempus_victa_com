@@ -87,14 +87,16 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin, onToggl
                 <div className="h-px w-full bg-gradient-to-r from-accent to-transparent" />
             </div>
 
-            <div className="flex-grow space-y-1 overflow-y-auto scrollbar-none pr-1">
+            <div className="flex-grow space-y-1 overflow-y-auto scrollbar-none pr-1 text-white font-bold">
                 <NavItem name="The Bridge" isActive={activeModule === 'BRIDGE'} onClick={() => onModuleChange?.('BRIDGE')} subtext="Strategic Cockpit" description="The expression layer of your Twin+. High-level synthesis of all cognitive data." />
-                <NavItem name="I/O Bay" isActive={activeModule === 'IO_BAY'} onClick={() => onModuleChange?.('IO_BAY')} subtext="Intelligence Conduit" description="Combined signal triage and real-time ledger auditing." />
+                <NavItem name="Ready Room" isActive={activeModule === 'READY_ROOM'} onClick={() => onModuleChange?.('READY_ROOM')} subtext="Intelligence Center" description="Coordinate with J5 and invoke Ready Room Protocols." />
+                <NavItem name="Shared Lists" isActive={activeModule === 'SHARED_LISTS'} onClick={() => onModuleChange?.('SHARED_LISTS')} subtext="Collaborative Manifests" description="Coordinate real-time manifests with selected collaborators." />
                 <NavItem name="Project Board" isActive={activeModule === 'PROJECTS'} onClick={() => onModuleChange?.('PROJECTS')} subtext="Strategic Objectives" description="Manage multi-stage strategic objectives and heavy artillery tasks." />
                 <NavItem name="Sovereign To-Do" isActive={activeModule === 'TODO'} onClick={() => onModuleChange?.('TODO')} subtext="Tactical Infantry" description="Quick-action checklist for micro-signals and the tire store principle." />
-                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns and Twin+ affinity model." />
                 <NavItem name="Corkboard" isActive={activeModule === 'CORKBOARD'} onClick={() => onModuleChange?.('CORKBOARD')} subtext="Spatial Memory" description="Organize messy thoughts and unstructured tactical intel." />
-                <NavItem name="Wishes" isActive={activeModule === 'WISHES'} onClick={() => onModuleChange?.('WISHES')} subtext="Future Development" description="Log requests for system expansion." />
+                <NavItem name="The Mirror" isActive={activeModule === 'MIRROR'} onClick={() => onModuleChange?.('MIRROR')} subtext="Identity Graph" description="Reflect on your behavioral patterns and Twin+ affinity model." />
+                <NavItem name="I/O Bay" isActive={activeModule === 'IO_BAY'} onClick={() => onModuleChange?.('IO_BAY')} subtext="Intelligence Conduit" description="Combined signal triage and real-time ledger auditing." />
+                <NavItem name="Recycle Bin" isActive={activeModule === 'RECYCLE_BIN'} onClick={() => onModuleChange?.('RECYCLE_BIN')} subtext="Signal Incinerator" description="Manage stale intelligence and pending deletions." />
 
                 <div className="pt-2">
                     <NavItem
@@ -105,12 +107,6 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin, onToggl
                     />
                 </div>
             </div>
-
-            {isAdmin && (
-                <div className="shrink-0 mt-4 border-t border-accent/20 pt-4 animate-pulse">
-                    <NavItem name="Command" isActive={activeModule === 'ADMIN'} onClick={() => onModuleChange?.('ADMIN')} subtext="Root Authority" description="Newtonian Command Board for aggregate telemetry and wish manifestation." />
-                </div>
-            )}
 
             <div className="shrink-0 mt-4 border-t border-white/5 pt-4">
                 <div className="mb-2">
@@ -124,18 +120,6 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin, onToggl
                     <NavItem name="OpenAI" isLinked={status.openai} subtext="Neural Synthesis" description="GPT-4o Reasoning Engine is stable." />
                     <NavItem name="Notion" isLinked={status.notion} subtext="Knowledge Base" description="Persistent bridge to Notion workspace is active." />
                     <NavItem name="Internet" isLinked={status.tavily} subtext="Tavily Triage" description="High-speed internet signal filtering is active." />
-                </div>
-
-                <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
-                    <div className="flex flex-col gap-1 text-white">
-                        <div className="flex justify-between items-center text-white">
-                            <span className="system-text text-[7px] text-white/20 font-black uppercase tracking-widest text-white">Twin+ Confidence</span>
-                            <span className="text-[7px] text-accent font-black text-white">94%</span>
-                        </div>
-                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                            <div className="h-full bg-accent w-[94%] opacity-80 shadow-[0_0_10px_var(--accent)]" style={{ width: '94%' }} />
-                        </div>
-                    </div>
                 </div>
             </div>
         </nav>
