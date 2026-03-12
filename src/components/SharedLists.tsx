@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
+import { createEvent } from '@/core/twin_plus/twin_event';
 
 interface ListItem {
     id: string;
@@ -13,6 +15,8 @@ interface List {
     name: string;
     items: ListItem[];
     sharedWith: string[];
+    active_shopper?: string;
+    mode?: 'standard' | 'shopping';
 }
 
 export default function SharedLists() {
@@ -43,7 +47,8 @@ export default function SharedLists() {
                     { id: '2', text: 'Bread', checked: false },
                     { id: '3', text: 'Eggs', checked: true }
                 ],
-                sharedWith: ['jen@tempusvicta.com']
+                sharedWith: ['jen@tempusvicta.com'],
+                mode: 'standard'
             };
             setLists([defaultList]);
             setActiveListId(defaultList.id);
@@ -66,17 +71,24 @@ export default function SharedLists() {
             id: Date.now().toString(),
             name,
             items: [],
-            sharedWith: []
+            sharedWith: [],
+            mode: 'standard'
         };
         setLists([...lists, newList]);
         setActiveListId(newList.id);
+        twinPlusKernel.observe(createEvent('LIST_CREATED', { name }, 'SHARED_LISTS'));
     };
 
-    const renameList = () => {
-        if (!activeList) return;
-        const name = prompt("Rename list:", activeList.name);
-        if (!name) return;
-        setLists(lists.map(l => l.id === activeListId ? { ...l, name } : l));
+    const toggleMode = () => {
+        if (!activeListId) return;
+        setLists(lists.map(l => {
+            if (l.id === activeListId) {
+                const newMode = l.mode === 'shopping' ? 'standard' : 'shopping';
+                twinPlusKernel.observe(createEvent('LIST_MODE_TOGGLED', { listId: l.id, mode: newMode }, 'SHARED_LISTS'));
+                return { ...l, mode: newMode, active_shopper: newMode === 'shopping' ? 'Michael' : undefined };
+            }
+            return l;
+        }));
     };
 
     const addItem = (e: React.FormEvent) => {
@@ -89,6 +101,7 @@ export default function SharedLists() {
         };
         setLists(lists.map(l => l.id === activeListId ? { ...l, items: [newItem, ...l.items] } : l));
         setNewItemText("");
+        twinPlusKernel.observe(createEvent('LIST_ITEM_ADDED', { text: newItem.text }, 'SHARED_LISTS'));
     };
 
     const toggleItem = (itemId: string) => {
@@ -113,28 +126,48 @@ export default function SharedLists() {
         } : l));
         setShareEmail("");
         setIsSharing(false);
+        twinPlusKernel.observe(createEvent('LIST_SHARED', { email: shareEmail }, 'SHARED_LISTS'));
     };
 
     return (
         <div className="max-w-md mx-auto h-full flex flex-col space-y-6 animate-slide-up pb-20 overflow-hidden">
             <header className="shrink-0 space-y-4 border-b border-white/10 pb-4">
                 <div className="flex justify-between items-start">
-                    <div className="cursor-pointer group" onClick={renameList}>
-                        <h1 className="text-4xl font-black italic text-white uppercase tracking-tight group-hover:text-accent transition-colors">
-                            {activeList?.name || "Shared Lists"} <span className="text-xs opacity-20 italic">✎</span>
+                    <div>
+                        <h1 className="text-4xl font-black italic text-white uppercase tracking-tight">
+                            {activeList?.name || "Shared Lists"}
                         </h1>
-                        <p className="system-text text-[10px] text-neon-green font-black tracking-widest mt-1">
-                            {activeList?.sharedWith.length ? `Synced with ${activeList.sharedWith.join(", ")}` : "Private List"}
-                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                            <p className="system-text text-[10px] text-neon-green font-black tracking-widest uppercase">
+                                {activeList?.sharedWith.length ? `Synced: ${activeList.sharedWith.join(", ")}` : "Private Manifest"}
+                            </p>
+                            {activeList?.mode === 'shopping' && (
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-accent/20 border border-accent/40 rounded-sm">
+                                    <div className="w-1 h-1 rounded-full bg-accent animate-pulse" />
+                                    <span className="text-[8px] font-black text-accent uppercase tracking-tighter">LIVE: {activeList.active_shopper}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <button
-                        onClick={() => setIsSharing(!isSharing)}
-                        className={`p-2 rounded-sm border transition-all ${isSharing ? 'border-accent bg-accent/10' : 'border-white/10 hover:border-white/30'}`}
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={toggleMode}
+                            title="Toggle Store Mode"
+                            className={`p-2 rounded-sm border transition-all ${activeList?.mode === 'shopping' ? 'border-accent bg-accent/20 text-accent shadow-[0_0_10px_rgba(0,212,255,0.2)]' : 'border-white/10 text-white/20 hover:text-white'}`}
+                        >
+                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => setIsSharing(!isSharing)}
+                            className={`p-2 rounded-sm border transition-all ${isSharing ? 'border-accent bg-accent/10' : 'border-white/10 hover:border-white/30'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 {isSharing && (
@@ -177,11 +210,11 @@ export default function SharedLists() {
                 </div>
             </header>
 
-            <div className="flex-grow overflow-y-auto hide-scrollbar space-y-2 pr-2">
+            <div className={`flex-grow overflow-y-auto hide-scrollbar space-y-2 pr-2 transition-all duration-500 ${activeList?.mode === 'shopping' ? 'bg-accent/5 p-2 rounded-lg' : ''}`}>
                 {activeList?.items.map(item => (
                     <div
                         key={item.id}
-                        className={`flex items-center gap-4 p-4 hud-panel bg-black/40 border-white/5 group transition-all ${item.checked ? 'opacity-40' : 'hover:border-accent/20'}`}
+                        className={`flex items-center gap-4 p-4 hud-panel bg-black/40 border-white/5 group transition-all ${item.checked ? 'opacity-40' : 'hover:border-accent/20'} ${activeList.mode === 'shopping' ? 'border-accent/10' : ''}`}
                     >
                         <button
                             onClick={() => toggleItem(item.id)}
@@ -192,7 +225,7 @@ export default function SharedLists() {
 
                         <span
                             onClick={() => toggleItem(item.id)}
-                            className={`flex-grow text-sm font-medium transition-all ${item.checked ? 'line-through text-white/20' : 'text-white/90'}`}
+                            className={`flex-grow text-sm font-medium transition-all uppercase italic tracking-tight ${item.checked ? 'line-through text-white/20' : 'text-white/90 font-black'}`}
                         >
                             {item.text}
                         </span>

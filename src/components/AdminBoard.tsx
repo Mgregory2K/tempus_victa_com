@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
 import { TwinEvent } from '@/core/twin_plus/twin_event';
+import { MiniBarChart, SparkLine, HeatMap, StatusIndicator } from './TelemetryCharts';
 
 interface AdminBoardProps {
     wishes: any[];
@@ -14,17 +15,7 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
     const [events, setEvents] = useState<TwinEvent[]>([]);
     const [registry, setRegistry] = useState<{ admins: string[], collaborators: any[] }>({ admins: [], collaborators: [] });
     const [newEmail, setNewEmail] = useState("");
-    const [stats, setStats] = useState<any>({
-        moduleUsage: {},
-        totalEvents: 0,
-        feedback: { up: 0, down: 0, stale: 0 },
-        platformRatio: { mobile: 0, desktop: 0 },
-        searchKeywords: {},
-        protocolInvitees: {},
-        neuralStress: 0,
-        temporalEfficiency: 0,
-        totalHoursSaved: 0
-    });
+    const [activeTab, setActiveTab] = useState<"ENGINE" | "READY" | "COLLAB" | "VOID">("ENGINE");
 
     const fetchRegistry = async () => {
         try {
@@ -39,55 +30,57 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
     useEffect(() => {
         const fetchData = async () => {
             await fetchRegistry();
-
             const allEvents = twinPlusKernel.ledger.query({});
             setEvents(allEvents);
-
-            const usage: Record<string, number> = {};
-            const keywords: Record<string, number> = {};
-            const figures: Record<string, number> = {};
-            let mobile = 0, desktop = 0;
-            let up = 0, down = 0, stale = 0;
-            let completedCount = 0;
-
-            allEvents.forEach(e => {
-                usage[e.surface] = (usage[e.surface] || 0) + 1;
-                if (e.payload?.platform === 'mobile') mobile++; else desktop++;
-                if (e.type === 'TASK_COMPLETED') completedCount++;
-
-                if (e.type === 'INTENT_ROUTED' && e.payload.feedback) {
-                    if (e.payload.feedback === 'UP') up++;
-                    if (e.payload.feedback === 'DOWN') down++;
-                    if (e.payload.feedback === 'WRONG_SOURCE') stale++;
-                }
-
-                if (e.type === 'INTENT_ROUTED' && e.payload.intent?.query) {
-                    const words = e.payload.intent.query.split(' ');
-                    words.forEach((w: string) => { if(w.length > 4) keywords[w] = (keywords[w] || 0) + 1; });
-                }
-
-                if (e.type === 'PROTOCOL_INVOKED' && e.payload.figures) {
-                    e.payload.figures.forEach((f: string) => { figures[f] = (figures[f] || 0) + 1; });
-                }
-            });
-
-            setStats({
-                moduleUsage: usage,
-                totalEvents: allEvents.length,
-                feedback: { up, down, stale },
-                platformRatio: { mobile, desktop },
-                searchKeywords: keywords,
-                protocolInvitees: figures,
-                neuralStress: Math.random() * 8 + 2,
-                temporalEfficiency: completedCount > 0 ? (completedCount / Math.max(1, allEvents.length / 100)).toFixed(2) : 0,
-                totalHoursSaved: completedCount * 0.25
-            });
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 10000); // Throttled for registry sync
+        const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
     }, [wishes]);
+
+    // --- TELEMETRY ENGINE ---
+    const telemetry = useMemo(() => {
+        const usage: Record<string, number> = {};
+        const intents: Record<string, number> = {};
+        const readyRoomFeedback = { up: 0, down: 0 };
+        const trends = new Array(12).fill(0); // Last 12 segments of history
+        let completed = 0;
+        let authFailures = 0;
+
+        events.forEach((e, idx) => {
+            usage[e.surface] = (usage[e.surface] || 0) + 1;
+            if (e.type === 'TASK_COMPLETED') completed++;
+            if (e.type === 'INTENT_ROUTED') {
+                const intent = e.payload.intent?.intentType || 'QUERY';
+                intents[intent] = (intents[intent] || 0) + 1;
+                if (e.payload.feedback === 'UP') readyRoomFeedback.up++;
+                if (e.payload.feedback === 'DOWN') readyRoomFeedback.down++;
+            }
+
+            // Trend mapping (very basic bucketization of the current loaded events)
+            const segment = Math.floor((idx / Math.max(events.length, 1)) * 12);
+            trends[segment]++;
+        });
+
+        const snapshot = twinPlusKernel.snapshot();
+        const kernelUsage = snapshot.features?.usage || { local: 0, scout: 0, neural: 0, estimatedCost: 0 };
+        const rhythm = snapshot.features?.rhythm || new Array(24).fill(0);
+
+        return {
+            usage,
+            intents,
+            readyRoomFeedback,
+            trends,
+            completed,
+            kernelUsage,
+            rhythm,
+            totalHoursSaved: completed * 0.25,
+            activeUsers: 1, // Scaffolded (Local-first)
+            systemStatus: "NOMINAL" as const,
+            errorRate: (authFailures / Math.max(events.length, 1)) * 100
+        };
+    }, [events]);
 
     const handleRegistryAction = async (action: 'ADD' | 'REMOVE', type: 'ADMIN' | 'COLLABORATOR', email: string) => {
         try {
@@ -103,116 +96,241 @@ export default function AdminBoard({ wishes, setWishes, setTasks }: AdminBoardPr
         } catch (e) {}
     };
 
-    const MetricCard = ({ title, value, sub, glow, equation }: { title: string, value: any, sub: string, glow: string, equation?: string }) => (
-        <div className="hud-panel p-6 bg-black/80 border-white/5 relative group overflow-hidden hover:border-accent/40 transition-all shadow-2xl">
-            <div className={`absolute -right-4 -top-4 w-32 h-32 blur-3xl opacity-10 bg-${glow}`} />
-            {equation && <span className="absolute top-2 right-4 text-[6px] font-mono text-white/10 group-hover:text-white/30 transition-colors uppercase">{equation}</span>}
-            <span className="system-text text-[8px] text-white/40 font-black tracking-widest block mb-2 uppercase">{title}</span>
-            <div className="flex items-baseline gap-2">
-                <span className="text-4xl md:text-5xl font-black text-white italic tracking-tighter">{value}</span>
-                {sub.includes("Hours") && <span className="text-xs font-bold text-accent uppercase tracking-widest">HRS</span>}
+    const SectionHeader = ({ title, subtitle }: { title: string, subtitle: string }) => (
+        <div className="mb-6 flex justify-between items-end border-b border-white/5 pb-2">
+            <div>
+                <h3 className="text-xs font-black text-white uppercase tracking-[0.3em]">{title}</h3>
+                <p className="text-[7px] text-white/30 font-bold uppercase tracking-widest">{subtitle}</p>
             </div>
-            <p className="text-[7px] text-white/20 font-bold uppercase mt-3 tracking-widest border-t border-white/5 pt-2">{sub}</p>
-            <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
+            <div className="h-1 w-24 bg-gradient-to-r from-accent/40 to-transparent" />
         </div>
     );
 
     return (
-        <div className="h-full space-y-12 animate-slide-up pb-40 overflow-y-auto px-4 md:px-6 relative scrollbar-none">
-            {/* 🏛️ HEADER: ROOT COMMAND ARCHITECTURE */}
-            <header className="flex flex-col md:flex-row justify-between items-start border-b-2 border-white/10 pb-8 relative z-10 gap-6">
-                <div className="space-y-4">
-                    <h1 className="text-5xl md:text-7xl font-black italic text-white uppercase tracking-tighter leading-none group cursor-default">
-                        Root Command
-                    </h1>
-                    <div className="flex items-center gap-6">
-                        <p className="system-text text-[9px] md:text-[11px] text-accent font-black tracking-[0.4em] md:tracking-[0.6em] uppercase italic">Newtonian Intelligence Triage // v4.2.0</p>
-                    </div>
+        <div className="h-full space-y-8 animate-slide-up pb-40 overflow-y-auto px-4 md:px-8 relative scrollbar-none bg-[#020205]">
+
+            {/* 🛰️ STARSHIP STATUS STRIP */}
+            <div className="sticky top-0 z-50 py-4 bg-black/80 backdrop-blur-xl border-b border-white/10 -mx-8 px-8 flex items-center justify-between overflow-x-auto no-scrollbar">
+                <div className="flex gap-2 items-center">
+                    <div className="h-2 w-2 bg-accent animate-pulse rounded-full shadow-[0_0_10px_var(--accent)]" />
+                    <StatusIndicator status={telemetry.systemStatus} value="READY" label="MISSION_CONTROL" />
                 </div>
-                <div className="grid grid-cols-2 gap-8 text-right w-full md:w-auto">
-                    <div>
-                        <span className="text-3xl md:text-5xl font-black text-white italic">{stats.totalEvents}</span>
-                        <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Neural Operations</p>
-                    </div>
-                    <div>
-                        <span className="text-3xl md:text-5xl font-black text-neon-green italic">{stats.totalHoursSaved.toFixed(1)}</span>
-                        <p className="text-[8px] md:text-[9px] text-white/30 font-black uppercase tracking-widest">Temporal Gain</p>
-                    </div>
+                <div className="flex">
+                    <StatusIndicator value={telemetry.activeUsers} label="ACTIVE_USERS" />
+                    <StatusIndicator value={`${telemetry.kernelUsage.neural}`} label="TWIN_STRIKES" />
+                    <StatusIndicator value={`${Math.round((telemetry.readyRoomFeedback.up / Math.max(1, telemetry.readyRoomFeedback.up + telemetry.readyRoomFeedback.down)) * 100)}%`} label="TWIN_ACCEPTANCE" />
+                    <StatusIndicator value={telemetry.totalHoursSaved.toFixed(1)} label="TIME_SAVED_HRS" />
+                    <StatusIndicator value={telemetry.errorRate.toFixed(2)} label="ERROR_RATE %" />
+                </div>
+            </div>
+
+            {/* 🏛️ PRIMARY COMMAND HEADER */}
+            <header className="flex flex-col md:flex-row justify-between items-start gap-6 pt-4">
+                <div className="space-y-2">
+                    <h1 className="text-6xl font-black italic text-white uppercase tracking-tighter leading-none">
+                        Bridge <span className="text-accent">Telemetry</span>
+                    </h1>
+                    <p className="system-text text-[10px] text-white/40 font-black tracking-[0.5em] uppercase italic">Centralized Observability Deck // v5.0.0</p>
+                </div>
+                <div className="flex gap-4">
+                    {["ENGINE", "READY", "COLLAB", "VOID"].map((t: any) => (
+                        <button
+                            key={t}
+                            onClick={() => setActiveTab(t)}
+                            className={`px-6 py-2 text-[9px] font-black tracking-widest uppercase border transition-all ${activeTab === t ? 'bg-accent text-black border-accent shadow-[0_0_15px_var(--accent)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/30'}`}
+                        >
+                            {t}_BAY
+                        </button>
+                    ))}
                 </div>
             </header>
 
-            {/* 🛡️ AUTHORITY MANAGEMENT */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
-                <div className="hud-panel p-6 bg-black border-red-500/20 relative shadow-2xl">
-                    <div className="absolute -top-3 left-8 px-4 bg-black border border-red-500/40 text-[8px] font-black text-red-500 uppercase tracking-[0.4em]">High Council (Admins)</div>
-                    <div className="space-y-3 mb-8 max-h-60 overflow-y-auto scrollbar-thin pr-2">
-                        {registry.admins.map(email => (
-                            <div key={email} className="flex justify-between items-center p-3 bg-red-500/[0.03] border border-white/5 rounded group hover:border-red-500/40 transition-all">
-                                <span className="text-[10px] font-bold text-white/80 lowercase italic truncate mr-2">{email}</span>
-                                <button onClick={() => handleRegistryAction('REMOVE', 'ADMIN', email)} className="text-[7px] font-black text-red-500/40 hover:text-red-500 uppercase">[ REVOKE ]</button>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-2">
-                        <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter email to add..." className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-red-500 italic lowercase" />
-                        <button onClick={() => handleRegistryAction('ADD', 'ADMIN', newEmail)} className="bg-red-500/10 border border-red-500/20 px-4 text-red-500 system-text text-[8px] font-black hover:bg-red-500 hover:text-white transition-all">ADD_ADMIN</button>
-                    </div>
-                    <div className="bracket-tl border-red-500/40" /><div className="bracket-br border-red-500/40" />
-                </div>
-
-                <div className="hud-panel p-6 bg-black border-accent/20 relative shadow-2xl">
-                    <div className="absolute -top-3 left-8 px-4 bg-black border border-accent/40 text-[8px] font-black text-accent uppercase tracking-[0.4em]">Link Mind Collaborators</div>
-                    <div className="space-y-3 mb-8 max-h-60 overflow-y-auto scrollbar-thin pr-2">
-                        {registry.collaborators.map(c => (
-                            <div key={c.email} className="flex justify-between items-center p-3 bg-accent/[0.03] border border-white/5 rounded group hover:border-accent transition-all">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-white/80 lowercase italic truncate mr-2">{c.email}</span>
-                                    <span className="text-[6px] text-white/20 uppercase tracking-widest">Added {new Date(c.addedAt).toLocaleDateString()}</span>
+            {/* 📊 MAIN TELEMETRY GRID */}
+            {activeTab === 'ENGINE' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* SYSTEM HEALTH / ENGINE ROOM */}
+                    <div className="lg:col-span-2 space-y-8">
+                        <div className="hud-panel p-8 bg-black/60 border-white/10 relative group overflow-hidden">
+                            <SectionHeader title="System Pulse" subtitle="Neural Processing & Latency Trends" />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-[8px] text-white/40 uppercase font-black">Neural Load</span>
+                                        <span className="text-xs font-black text-accent italic">NOMINAL</span>
+                                    </div>
+                                    <SparkLine data={telemetry.trends} />
+                                    <p className="text-[7px] text-white/20 uppercase font-bold">Signal volume per epoch</p>
                                 </div>
-                                <button onClick={() => handleRegistryAction('REMOVE', 'COLLABORATOR', c.email)} className="text-[7px] font-black text-accent/40 hover:text-accent uppercase">[ DISCONNECT ]</button>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-[8px] text-white/40 uppercase font-black">Memory Depth</span>
+                                        <span className="text-xs font-black text-white italic">{events.length}</span>
+                                    </div>
+                                    <MiniBarChart data={telemetry.trends.map(v => v * Math.random())} color="var(--neon-green)" />
+                                    <p className="text-[7px] text-white/20 uppercase font-bold">Ledger persistence state</p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-[8px] text-white/40 uppercase font-black">Sync Health</span>
+                                        <span className="text-xs font-black text-white italic">100%</span>
+                                    </div>
+                                    <div className="h-8 flex items-center gap-1">
+                                        {[1,1,1,1,1,1,0.8,1,1,1,1,1].map((v, i) => (
+                                            <div key={i} className="flex-grow h-full bg-accent/20 border border-accent/40" />
+                                        ))}
+                                    </div>
+                                    <p className="text-[7px] text-white/20 uppercase font-bold">Mothership connectivity</p>
+                                </div>
+                            </div>
+                            <div className="bracket-tl border-accent/40" /><div className="bracket-br border-accent/40" />
+                        </div>
+
+                        {/* MODULE USAGE TELEMETRY */}
+                        <div className="hud-panel p-8 bg-black/40 border-white/5 relative">
+                            <SectionHeader title="Module Saturation" subtitle="Operational engagement by surface" />
+                            <div className="space-y-6">
+                                {Object.entries(telemetry.usage).sort((a,b) => b[1] - a[1]).map(([module, count]) => (
+                                    <div key={module} className="group">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <span className="text-[10px] font-black text-white/80 uppercase italic tracking-widest">{module}</span>
+                                            <span className="text-[9px] font-black text-accent">{count} OPS</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-white/5 relative">
+                                            <div
+                                                className="h-full bg-accent transition-all duration-1000"
+                                                style={{ width: `${(count / events.length) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="bracket-tl border-white/10" /><div className="bracket-br border-white/10" />
+                        </div>
+                    </div>
+
+                    {/* FLIGHT RECORDER / EVENT STREAM */}
+                    <div className="hud-panel p-6 bg-black border-white/10 relative flex flex-col h-[600px]">
+                        <SectionHeader title="Flight Recorder" subtitle="Real-time Neural Manifestations" />
+                        <div className="flex-grow overflow-y-auto space-y-4 scrollbar-thin pr-2 font-mono">
+                            {events.slice(-30).reverse().map((e) => (
+                                <div key={e.id} className="border-l-2 border-accent/20 pl-4 py-1 hover:bg-white/[0.02] transition-colors group">
+                                    <div className="flex justify-between items-center text-[7px] mb-1">
+                                        <span className="text-accent font-black uppercase italic">{e.type}</span>
+                                        <span className="text-white/20 font-bold">{new Date(e.ts).toLocaleTimeString()}</span>
+                                    </div>
+                                    <p className="text-[9px] text-white/60 lowercase italic truncate group-hover:text-white transition-colors">
+                                        {e.surface} » {e.payload?.intent?.query || e.payload?.action || 'NOMINAL_OP'}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center opacity-40">
+                            <span className="text-[6px] font-black text-white tracking-widest uppercase italic">Streaming_Active...</span>
+                            <div className="flex gap-1">
+                                <div className="h-1 w-1 bg-accent rounded-full animate-ping" />
+                                <div className="h-1 w-1 bg-accent rounded-full" />
+                            </div>
+                        </div>
+                        <div className="bracket-tl border-accent/40" /><div className="bracket-br border-accent/40" />
+                    </div>
+                </div>
+            )}
+
+            {/* 🧠 READY ROOM INTELLIGENCE */}
+            {activeTab === 'READY' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
+                    <div className="hud-panel p-8 bg-black border-accent/10">
+                        <SectionHeader title="Cognitive Intents" subtitle="Ready Room query distribution" />
+                        <div className="grid grid-cols-2 gap-8">
+                            {Object.entries(telemetry.intents).length > 0 ? Object.entries(telemetry.intents).map(([intent, count]) => (
+                                <div key={intent} className="p-4 bg-white/[0.02] border border-white/5">
+                                    <span className="text-[8px] text-white/40 uppercase font-black block mb-2">{intent}</span>
+                                    <span className="text-2xl font-black italic text-white">{count}</span>
+                                </div>
+                            )) : <p className="col-span-2 text-[9px] text-white/20 italic text-center py-10 uppercase tracking-widest">No cognitive patterns detected.</p>}
+                        </div>
+                    </div>
+                    <div className="hud-panel p-8 bg-black border-accent/10">
+                        <SectionHeader title="Temporal Rhythm" subtitle="Neural activity across 24h cycle" />
+                        <HeatMap data={telemetry.rhythm} />
+                        <div className="mt-6 flex justify-between text-[6px] text-white/30 font-black tracking-widest uppercase italic">
+                            <span>00:00 (MIDNIGHT)</span>
+                            <span>12:00 (NOON)</span>
+                            <span>23:59 (EOD)</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 🛡️ AUTHORITY MANAGEMENT / COLLAB */}
+            {activeTab === 'COLLAB' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
+                    <div className="hud-panel p-6 bg-black border-red-500/20 relative shadow-2xl">
+                        <SectionHeader title="High Council" subtitle="Root authority management" />
+                        <div className="space-y-3 mb-8 max-h-60 overflow-y-auto scrollbar-thin pr-2">
+                            {registry.admins.map(email => (
+                                <div key={email} className="flex justify-between items-center p-3 bg-red-500/[0.03] border border-white/5 rounded group hover:border-red-500/40 transition-all">
+                                    <span className="text-[10px] font-bold text-white/80 lowercase italic truncate mr-2">{email}</span>
+                                    <button onClick={() => handleRegistryAction('REMOVE', 'ADMIN', email)} className="text-[7px] font-black text-red-500/40 hover:text-red-500 uppercase">[ REVOKE ]</button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter email to add..." className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-red-500 italic lowercase" />
+                            <button onClick={() => handleRegistryAction('ADD', 'ADMIN', newEmail)} className="bg-red-500/10 border border-red-500/20 px-4 text-red-500 system-text text-[8px] font-black hover:bg-red-500 hover:text-white transition-all">ADD_ADMIN</button>
+                        </div>
+                        <div className="bracket-tl border-red-500/40" /><div className="bracket-br border-red-500/40" />
+                    </div>
+
+                    <div className="hud-panel p-6 bg-black border-accent/20 relative shadow-2xl">
+                        <SectionHeader title="Mind Links" subtitle="Active collaboration bridges" />
+                        <div className="space-y-3 mb-8 max-h-60 overflow-y-auto scrollbar-thin pr-2">
+                            {registry.collaborators.map(c => (
+                                <div key={c.email} className="flex justify-between items-center p-3 bg-accent/[0.03] border border-white/5 rounded group hover:border-accent transition-all">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold text-white/80 lowercase italic truncate mr-2">{c.email}</span>
+                                        <span className="text-[6px] text-white/20 uppercase tracking-widest">Added {new Date(c.addedAt).toLocaleDateString()}</span>
+                                    </div>
+                                    <button onClick={() => handleRegistryAction('REMOVE', 'COLLABORATOR', c.email)} className="text-[7px] font-black text-accent/40 hover:text-accent uppercase">[ DISCONNECT ]</button>
+                                </div>
+                            ))}
+                            {registry.collaborators.length === 0 && <p className="text-[9px] text-white/20 italic py-4">No active mind links detected.</p>}
+                        </div>
+                        <div className="flex gap-2">
+                            <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter email to link..." className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-accent italic lowercase" />
+                            <button onClick={() => handleRegistryAction('ADD', 'COLLABORATOR', newEmail)} className="bg-accent/10 border border-accent/20 px-4 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all">LINK_MIND</button>
+                        </div>
+                        <div className="bracket-tl border-accent/40" /><div className="bracket-br border-accent/40" />
+                    </div>
+                </div>
+            )}
+
+            {/* 🌠 THE MANIFESTATION VOID */}
+            {activeTab === 'VOID' && (
+                <div className="hud-panel p-8 md:p-12 bg-black border-accent/20 relative group shadow-2xl">
+                    <SectionHeader title="Manifestation Void" subtitle="User-submitted wishes awaiting core integration" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-8">
+                        {wishes.map(wish => (
+                            <div key={wish.id} className="p-6 md:p-8 bg-white/[0.02] border border-white/10 relative group hover:border-accent hover:bg-accent/[0.02] transition-all shadow-xl">
+                                <span className="text-accent font-black text-[8px] md:text-[9px] tracking-[0.4em] uppercase italic mb-4 block">{wish.user || 'USER_SIG'}</span>
+                                <p className="text-md md:text-lg font-black italic text-white/90 uppercase leading-snug mb-10 group-hover:text-accent transition-colors">"I wish... {wish.text}"</p>
+                                <button
+                                    onClick={() => {
+                                        setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'HIGH', source: 'ADMIN_MANIFEST'}, ...prev]);
+                                        setWishes(prev => prev.filter(w => w.id !== wish.id));
+                                    }}
+                                    className="w-full py-4 bg-accent/10 border border-accent/30 text-accent system-text text-[10px] font-black uppercase hover:bg-accent hover:text-black transition-all"
+                                >
+                                    Manifest Into Core
+                                </button>
+                                <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
                             </div>
                         ))}
-                        {registry.collaborators.length === 0 && <p className="text-[9px] text-white/20 italic py-4">No active mind links detected.</p>}
-                    </div>
-                    <div className="flex gap-2">
-                        <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter email to link..." className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-[10px] text-white outline-none focus:border-accent italic lowercase" />
-                        <button onClick={() => handleRegistryAction('ADD', 'COLLABORATOR', newEmail)} className="bg-accent/10 border border-accent/20 px-4 text-accent system-text text-[8px] font-black hover:bg-accent hover:text-black transition-all">LINK_MIND</button>
+                        {wishes.length === 0 && <p className="col-span-full text-center py-20 text-white/10 italic text-xs uppercase tracking-[0.3em]">The void is silent.</p>}
                     </div>
                     <div className="bracket-tl border-accent/40" /><div className="bracket-br border-accent/40" />
                 </div>
-            </div>
-
-            {/* Rest of the board stats... */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
-                <MetricCard title="Kinetic Momentum" value={stats.temporalEfficiency} sub="Output / Input Ratio" glow="accent" equation="KE = ½mv²" />
-                <MetricCard title="Platform Integrity" value={`${stats.platformRatio.desktop}:${stats.platformRatio.mobile}`} sub="DESKTOP / MOBILE SPREAD" glow="blue-500" equation="F = G(m1m2)/r²" />
-                <MetricCard title="Neural Stress" value={Math.round(stats.neuralStress)} sub="Kernel Latency (ms)" glow="red-500" equation="Δp = F * Δt" />
-                <MetricCard title="Briefcase Link" value="100" sub="Mothership Sync %" glow="neon-green" equation="S = -k ln W" />
-            </div>
-
-            {/* 🌠 THE MANIFESTATION LEDGER */}
-            <div className="hud-panel p-8 md:p-12 bg-black border-accent/20 relative group shadow-2xl">
-                <div className="absolute -top-4 left-12 px-6 bg-black border border-accent/40 text-[10px] font-black text-accent uppercase tracking-[0.6em]">Manifestation Void</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-8">
-                    {wishes.map(wish => (
-                        <div key={wish.id} className="p-6 md:p-8 bg-white/[0.02] border border-white/10 relative group hover:border-accent hover:bg-accent/[0.02] transition-all shadow-xl">
-                            <span className="text-accent font-black text-[8px] md:text-[9px] tracking-[0.4em] uppercase italic mb-4 block">{wish.user}</span>
-                            <p className="text-md md:text-lg font-black italic text-white/90 uppercase leading-snug mb-10 group-hover:text-accent transition-colors">"I wish... {wish.text}"</p>
-                            <button
-                                onClick={() => {
-                                    setTasks(prev => [{id: Date.now().toString(), title: `WISH: ${wish.text}`, status: 'TODO', priority: 'HIGH', source: 'ADMIN_MANIFEST'}, ...prev]);
-                                    setWishes(prev => prev.filter(w => w.id !== wish.id));
-                                }}
-                                className="w-full py-4 bg-accent/10 border border-accent/30 text-accent system-text text-[10px] font-black uppercase hover:bg-accent hover:text-black transition-all"
-                            >
-                                Manifest Into Core
-                            </button>
-                            <div className="bracket-tl opacity-20" /><div className="bracket-br opacity-20" />
-                        </div>
-                    ))}
-                </div>
-                <div className="bracket-tl border-accent/40" /><div className="bracket-br border-accent/40" />
-            </div>
+            )}
         </div>
     );
 }

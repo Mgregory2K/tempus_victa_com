@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
 import { createEvent } from "@/core/twin_plus/twin_event";
+import DailyBrief from "./DailyBrief";
 
 interface BridgeProps {
     tasks?: any[];
@@ -21,6 +22,8 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
     const [greeting, setGreeting] = useState("Good Day");
     const [quickTaskText, setQuickTaskText] = useState("");
     const [activeSnoozeId, setActiveSnoozeId] = useState<string | null>(null);
+    const [isBriefOpen, setIsBriefOpen] = useState(false);
+    const [signalCount, setSignalCount] = useState(12);
 
     const activeProjectsCount = tasks.filter(t => t.status !== 'DONE' && t.status !== 'SNOOZED').length;
 
@@ -53,14 +56,27 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
         else if (hour < 17) setGreeting("Good Afternoon");
         else setGreeting("Good Evening");
 
-        if (twinPlusKernel.ready()) {
-            const snapshot = twinPlusKernel.snapshot();
-            const recentEvents = snapshot.recentEvents || [];
-            if (recentEvents.length > 0) {
-                const lastAction = recentEvents[0].type.replace('_', ' ').toLowerCase();
-                setExecutiveSummary(`${firstName}, system nominal. Tracking recent ${lastAction} signals. Momentum is holding at ${dayWins} Triumphs today.`);
+        const updateState = () => {
+            if (twinPlusKernel.ready()) {
+                const snapshot = twinPlusKernel.snapshot();
+                const recentEvents = snapshot.recentEvents || [];
+
+                // Extract signal count from poll events if they exist
+                const lastPoll = recentEvents.find(e => e.type === 'EXTERNAL_SIGNALS_POLLED');
+                if (lastPoll && lastPoll.payload?.gmail) {
+                    setSignalCount(lastPoll.payload.gmail.unreadCount || 0);
+                }
+
+                if (recentEvents.length > 0) {
+                    const lastAction = recentEvents[0].type.replace('_', ' ').toLowerCase();
+                    setExecutiveSummary(`${firstName}, system nominal. Tracking recent ${lastAction} signals. Momentum is holding at ${dayWins} Triumphs today.`);
+                }
             }
-        }
+        };
+
+        updateState();
+        const interval = setInterval(updateState, 5000);
+        return () => clearInterval(interval);
     }, [firstName, dayWins]);
 
     const handleQuickTaskSubmit = (e: React.FormEvent) => {
@@ -84,10 +100,10 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
         onNavigate?.(module);
     };
 
-    const MetricCard = ({ title, value, unit, trend, glowColor, targetModule }: { title: string, value: string | number, unit?: string, trend?: string, glowColor: string, targetModule?: string }) => (
+    const MetricCard = ({ title, value, unit, trend, glowColor, targetModule, onClick, pulse = false }: { title: string, value: string | number, unit?: string, trend?: string, glowColor: string, targetModule?: string, onClick?: () => void, pulse?: boolean }) => (
         <div
-            onClick={() => targetModule && navigateWithTelemetry(targetModule)}
-            className="hud-panel p-4 bg-black/40 border-white/5 relative group overflow-hidden cursor-pointer hover:border-accent/40 transition-all active:scale-95 ripple"
+            onClick={onClick || (() => targetModule && navigateWithTelemetry(targetModule))}
+            className={`hud-panel p-4 bg-black/40 border-white/5 relative group overflow-hidden cursor-pointer hover:border-accent/40 transition-all active:scale-95 ripple ${pulse ? 'animate-pulse-slow' : ''}`}
         >
             <div className={`absolute -right-4 -top-4 w-24 h-24 blur-3xl opacity-10 group-hover:opacity-20 transition-opacity bg-${glowColor}`} />
             <span className="system-text text-[8px] text-white/40 font-black tracking-widest block mb-1 uppercase">{title}</span>
@@ -102,19 +118,38 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
 
     return (
         <div className="space-y-6 animate-slide-up pb-20">
-            <div className="mb-8 border-b border-white/5 pb-4">
-                <h1 className="text-4xl font-black italic text-white tracking-tighter uppercase leading-none">
-                    {greeting}, <span className="text-accent">{firstName}</span>
-                </h1>
-                <p className="system-text text-[8px] text-white/20 font-black tracking-[0.4em] mt-2 uppercase">Neural Link Stable // System Nominal</p>
+            {isBriefOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fade-in">
+                    <DailyBrief
+                        tasks={tasks}
+                        userName={session?.user?.name || "User"}
+                        onDismiss={() => setIsBriefOpen(false)}
+                    />
+                </div>
+            )}
+
+            <div className="mb-8 border-b border-white/5 pb-4 flex justify-between items-end">
+                <div>
+                    <h1 className="text-4xl font-black italic text-white tracking-tighter uppercase leading-none">
+                        {greeting}, <span className="text-accent">{firstName}</span>
+                    </h1>
+                    <p className="system-text text-[8px] text-white/20 font-black tracking-[0.4em] mt-2 uppercase">Neural Link Stable // System Nominal</p>
+                </div>
+                <div className="flex flex-col items-end">
+                    <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-neon-green animate-pulse shadow-[0_0_8px_#22c55e]" />
+                        <span className="text-[8px] font-black text-neon-green uppercase tracking-widest">Live Twin Pulse</span>
+                    </div>
+                    <span className="text-[6px] text-white/20 font-black uppercase tracking-tighter">Latency: 24ms // J5 Active</span>
+                </div>
             </div>
 
             {/* 🧬 VITAL SIGNS */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard title="Audit Ledger" value="85H" trend="ACTIVE" glowColor="accent" targetModule="IO_BAY" />
+                <MetricCard title="Sector Brief" value="RADAR" trend="ACTIVE" glowColor="accent" onClick={() => setIsBriefOpen(true)} />
                 <MetricCard title="Affinity" value="94" unit="%" trend="PEAK" glowColor="neon-green" targetModule="MIRROR" />
                 <MetricCard title="Objectives" value={activeProjectsCount} trend="ACTIVE" glowColor="purple-500" targetModule="PROJECTS" />
-                <MetricCard title="Signal Bay" value="12" trend="SIGNALS" glowColor="orange-500" targetModule="IO_BAY" />
+                <MetricCard title="Signal Bay" value={signalCount} trend="SIGNALS" glowColor="orange-500" targetModule="IO_BAY" pulse={signalCount > 0} />
             </section>
 
             {/* 🧬 MOMENTUM HUD */}

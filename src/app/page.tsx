@@ -17,6 +17,7 @@ import DailyBrief from "@/components/DailyBrief";
 import ReadyRoom from "@/components/ReadyRoom";
 import AdminBoard from "@/components/AdminBoard";
 import WishBoard from "@/components/WishBoard";
+import RecycleBin from "@/components/RecycleBin";
 import ExerciseHub from "@/components/ExerciseHub";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { twinPlusKernel } from "@/core/twin_plus/twin_plus_kernel";
@@ -25,9 +26,9 @@ import {
     governIdentity, runMemoryCompression, detectPatterns
 } from "@/core/memory/governance";
 
-export type Module = "BRIDGE" | "READY_ROOM" | "SHARED_LISTS" | "PROJECTS" | "TODO" | "CORKBOARD" | "MIRROR" | "IO_BAY" | "WISHES" | "ADMIN" | "SETTINGS";
+export type Module = "BRIDGE" | "READY_ROOM" | "SHARED_LISTS" | "PROJECTS" | "TODO" | "CORKBOARD" | "MIRROR" | "IO_BAY" | "RECYCLE_BIN" | "WISHES" | "ADMIN" | "SETTINGS";
 
-const VERSION = "17.0.0-TWIN-PLUS-SOVEREIGN";
+const VERSION = "17.1.0-TWIN-PLUS-FORENSIC-RESTORE";
 
 // --- NATIVE ICON SET ---
 const Icons = {
@@ -66,7 +67,7 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
     ),
-    WISHES: ({ className }: { className: string }) => (
+    RECYCLE_BIN: ({ className }: { className: string }) => (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
@@ -216,6 +217,7 @@ function AppShell() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isExercisesOpen, setIsExercisesOpen] = useState(false);
+  const [isDailyBriefOpen, setIsDailyBriefOpen] = useState(false);
 
   const isMichaelAdmin = session?.user?.email ? ["michael.gregory1@gmail.com", "stewart.jared@gmail.com", "michael@tempusvicta.com"].includes(session.user.email.toLowerCase()) : false;
 
@@ -365,6 +367,17 @@ function AppShell() {
   return (
     <div className="h-dvh w-screen overflow-hidden bg-black text-white flex flex-col uppercase text-[10px]">
       {isExercisesOpen && <ExerciseHub onDismiss={() => setIsExercisesOpen(false)} />}
+      {isDailyBriefOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fade-in">
+              <DailyBrief
+                tasks={tasks}
+                userName={session?.user?.name || "User"}
+                apiKey={apiKey}
+                searchKey={searchKey}
+                onDismiss={() => setIsDailyBriefOpen(false)}
+              />
+          </div>
+      )}
 
       {/* --- MOBILE/DESKTOP HEADER --- */}
       <header className="h-14 md:h-16 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-4 md:px-10 shrink-0 relative z-50 pt-[var(--sat)]">
@@ -380,6 +393,13 @@ function AppShell() {
              </div>
          </div>
          <div className="flex items-center gap-4">
+            <button
+                onClick={() => setIsDailyBriefOpen(true)}
+                className="hidden md:flex items-center gap-2 px-4 py-2 border border-accent/20 bg-accent/5 hover:bg-accent/10 transition-all text-accent group"
+            >
+                <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                <span className="text-[8px] font-black tracking-[0.2em] uppercase">Sector Brief</span>
+            </button>
             <div className="flex flex-col items-end mr-2">
                  <span className="text-[6px] text-white/20 font-black tracking-widest">{isSyncing ? "SYNCING..." : "SYNCED"}</span>
             </div>
@@ -450,6 +470,7 @@ function AppShell() {
                   />
               )}
               {activeModule === "IO_BAY" && <IOBay onNavigate={setActiveModule as any} onRouteToTask={(s) => setTasks(prev => [{id: s.id, title: s.content, status: 'TODO', source: 'SIGNAL_BAY'}, ...prev])} />}
+              {activeModule === "RECYCLE_BIN" && <RecycleBin />}
               {activeModule === "WISHES" && (
                 <WishBoard
                   wishes={wishes}
@@ -489,7 +510,7 @@ function AppShell() {
       {/* --- PARALLELOGRAM NAV (Desktop Only) --- */}
       <footer className="hidden lg:flex h-14 border-t border-white/10 bg-black/95 items-center justify-center px-4 overflow-x-auto scrollbar-none gap-1 shrink-0 z-50">
           {[
-            { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SHARED_LISTS", label: "Shared Lists" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "Tasks" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "MIRROR", label: "Mirror" }, { id: "IO_BAY", label: "I/O Bay" }, { id: "WISHES", label: "Recycle Bin" }, { id: "SETTINGS", label: "Config" },
+            { id: "BRIDGE", label: "Bridge" }, { id: "READY_ROOM", label: "Ready Room" }, { id: "SHARED_LISTS", label: "Shared Lists" }, { id: "PROJECTS", label: "Projects" }, { id: "TODO", label: "Tasks" }, { id: "CORKBOARD", label: "Corkboard" }, { id: "MIRROR", label: "Mirror" }, { id: "IO_BAY", label: "I/O Bay" }, { id: "RECYCLE_BIN", label: "Recycle Bin" }, { id: "SETTINGS", label: "Config" },
             ...(isMichaelAdmin ? [{ id: "ADMIN", label: "Command" }] : [])
           ].map(item => (
             <button key={item.id} onClick={() => setActiveModule(item.id as Module)} className={`nav-parallelogram px-6 py-2 system-text text-[8px] font-black transition-all border relative overflow-hidden uppercase ${activeModule === item.id ? 'text-white border-accent nav-active-pulse' : 'text-white/20 border-white/10 hover:border-white/40 hover:text-white/60'}`}><span className="nav-text-fix relative z-10 block whitespace-nowrap">{item.label}</span></button>
