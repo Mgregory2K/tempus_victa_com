@@ -74,8 +74,16 @@ export async function callReadyRoomModel(
 - Margot Robbie: Use a poised, sharp, and slightly Australian-inflected or industry-savvy tone. Focus on collaborative but intellectually competitive insight.
 - Homer Simpson: Use simple vocabulary, focus on food/comfort, "D'oh!", "Woo-hoo!", and frequent non-sequiturs about donuts or TV.
 - Dog Whisperer (Cesar Millan): Use terms like "energy," "calm-assertive," "pack leader," "don't touch, don't talk, don't eye contact." Focus on behavioral balance and discipline.
-- CONFLICT & INTERACTION: Participants MUST reference and challenge each other. "Donald, you're missing the point..." or "Margot's idea is a total disaster, believe me."
+- CONFLICT & INTERACTION: Participants MUST reference and challenge each other.
 - NO REPETITION: Do not repeat the moderator or the user's phrasing. Move the debate forward.
+`;
+
+  const PACING_INSTRUCTIONS = `
+# PACING & CONCISENESS (FAST MODE - MANDATORY)
+- MODERATOR: Extremely short (10-20 words). Just transition.
+- PARTICIPANTS: Default to short, punchy responses (35-70 words max). 1-3 sentences only.
+- SPEED: Prioritize immediate response over exhaustive analysis.
+- CAP: If there are 4+ participants, keep turns even shorter (max 30 words) and do exactly one pass.
 `;
 
   if (isHolodeck) {
@@ -116,6 +124,7 @@ ORDER: Moderator preamble -> Participant 1 -> Participant 2 -> ... -> Participan
 3. ROUND-ROBIN: Generate a <participant_turn> for EVERY participant listed.
 
 ${PERSONA_GROUNDING_INSTRUCTIONS}
+${PACING_INSTRUCTIONS}
 
 # OUTPUT FORMAT
 Use the following structure:
@@ -149,6 +158,7 @@ Continue generation until the queue of participants for this round is exhausted.
 4. NO DELAY: Do not return control to the user until all participants have spoken.
 
 ${PERSONA_GROUNDING_INSTRUCTIONS}
+${PACING_INSTRUCTIONS}
 
 # OUTPUT FORMAT
 You MUST use this exact XML structure:
@@ -215,10 +225,19 @@ At the very end, provide the updated session state:
     ],
     temperature: isHolodeck ? 0.9 : 0.7,
     max_tokens: 3000,
+    stream: isHolodeck,
   });
 
-  let rawText = response.choices[0].message.content || "";
-  rawText = rawText.replace(/SYSTEM_INVOKE_HOLODECK_\w+/g, "").trim();
-
-  return { rawText };
+  if (isHolodeck) {
+      let fullText = "";
+      for await (const chunk of response as any) {
+          fullText += chunk.choices[0]?.delta?.content || "";
+      }
+      return { rawText: fullText };
+  } else {
+      const res = response as any;
+      let rawText = res.choices[0].message.content || "";
+      rawText = rawText.replace(/SYSTEM_INVOKE_HOLODECK_\w+/g, "").trim();
+      return { rawText };
+  }
 }

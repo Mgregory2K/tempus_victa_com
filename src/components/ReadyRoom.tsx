@@ -166,10 +166,16 @@ export default function ReadyRoom({
                     }));
 
                 if (newMsgs.length > 0) {
-                    setChats(prev => prev.map(c => c.id === activeChatId ? {
-                        ...c,
-                        segments: c.segments.map(s => s.id === currentSegment?.id ? { ...s, messages: [...s.messages, ...newMsgs] } : s)
-                    } : c));
+                    // PACE RENDERING: Append messages one by one with a small delay for "streaming" effect
+                    for (let i = 0; i < newMsgs.length; i++) {
+                        const msg = newMsgs[i];
+                        setChats(prev => prev.map(c => c.id === activeChatId ? {
+                            ...c,
+                            segments: c.segments.map(s => s.id === currentSegment?.id ? { ...s, messages: [...s.messages, msg] } : s)
+                        } : c));
+                        // Small delay to simulate turn-by-turn completion
+                        if (newMsgs.length > 1) await new Promise(resolve => setTimeout(resolve, 300));
+                    }
                 } else {
                     console.log("[HOLODECK UI] No valid messages to append from API.");
                 }
@@ -439,7 +445,7 @@ export default function ReadyRoom({
                                 <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                     <div className={`group relative p-4 rounded-2xl border max-w-[85%] md:max-w-[70%] ${msg.role === 'user' ? 'bg-accent/10 border-accent/30' : 'bg-white/[0.03] border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.3)]'} ${holodeckStatus === 'active' ? 'border-accent/10 shadow-[0_0_15px_rgba(0,255,0,0.05)]' : ''}`}>
                                         <div className="flex justify-between items-center mb-2 gap-4">
-                                            <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>{msg.speakerLabel || msg.sourceLayer || msg.role}</span>
+                                            <span className={`system-text font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent text-[7px]' : 'text-white/40 text-[8px]'}`}>{msg.speakerLabel || msg.sourceLayer || msg.role}</span>
                                             {msg.role === 'assistant' && (
                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => handleVote(msg.id, 1)} title="Good response" className={`text-[10px] transition-all transform hover:scale-120 ${msg.vote === 1 ? 'grayscale-0 brightness-150' : 'grayscale opacity-30 hover:opacity-100'}`}>👍</button>
@@ -447,7 +453,7 @@ export default function ReadyRoom({
                                                 </div>
                                             )}
                                         </div>
-                                        <p className="text-[12px] font-medium leading-relaxed text-white/90 whitespace-pre-wrap">{msg.content}</p>
+                                        <p className={`${msg.role === 'user' ? 'text-[12px] leading-relaxed' : 'text-[10px] leading-snug'} font-medium text-white/90 whitespace-pre-wrap`}>{msg.content}</p>
                                     </div>
                                 </div>
                             ))}
