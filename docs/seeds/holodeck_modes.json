@@ -1,0 +1,33 @@
+[
+  {
+    "id": "freeform_discussion",
+    "name": "Freeform Discussion",
+    "description": "Loose, exploratory, user-driven discussion.",
+    "default": true
+  },
+  {
+    "id": "decision_support",
+    "name": "Decision Support",
+    "description": "Practical, outcome-oriented with strongest recommendations at end."
+  },
+  {
+    "id": "debate",
+    "name": "Debate",
+    "description": "Direct conflict where members challenge each other harder."
+  },
+  {
+    "id": "writing_workshop",
+    "name": "Writing Workshop",
+    "description": "Critique, style, phrasing, theme, and technical feedback."
+  },
+  {
+    "id": "philosophical_inquiry",
+    "name": "Philosophical Inquiry",
+    "description": "Deeper reflection with fewer practical constraints."
+  },
+  {
+    "id": "scenario_stress_test",
+    "name": "Scenario Stress Test",
+    "description": "Testing ideas to see what breaks under pressure."
+  }
+]

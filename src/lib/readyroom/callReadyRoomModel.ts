@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { HolodeckProfile } from '@/types/holodeck';
 
 export interface ReadyRoomModelInput {
   userMessage: string;
@@ -11,6 +12,18 @@ export interface ReadyRoomModelInput {
   calendarEvents?: any[];
   tasks?: any[];
   apiKey?: string;
+  protocolParams?: {
+    mode: 'MODERATED' | 'HOLODECK';
+    holodeckConfig?: {
+      topic: string;
+      members: string[];
+      moderator: string;
+      mode: string;
+      roundLimit?: number;
+    };
+    holodeckProfiles?: HolodeckProfile[];
+    holodeckStep?: 'SETUP' | 'ACTIVE' | 'INITIATE'; // EXPLICIT STATE CONTROL
+  };
 }
 
 export interface ReadyRoomModelOutput {
@@ -25,7 +38,13 @@ function buildContext(input: ReadyRoomModelInput): string {
     },
     calendar: input.calendarEvents || [],
     tasks: input.tasks || [],
-    currentDate: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    currentDate: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    protocol: {
+        mode: input.protocolParams?.mode,
+        step: input.protocolParams?.holodeckStep,
+        topic: input.protocolParams?.holodeckConfig?.topic,
+        participants: input.protocolParams?.holodeckConfig?.members
+    }
   };
   return JSON.stringify(context, null, 2);
 }
@@ -34,65 +53,102 @@ export async function callReadyRoomModel(
   input: ReadyRoomModelInput
 ): Promise<ReadyRoomModelOutput> {
   if (!input.apiKey) {
-      throw new Error("Missing OpenAI API Key for Ready Room model call.");
+      throw new Error("Missing OpenAI API Key.");
   }
 
   const openai = new OpenAI({ apiKey: input.apiKey });
+  const protocol = input.protocolParams;
+  const isHolodeck = protocol?.mode === "HOLODECK";
+  const step = protocol?.holodeckStep || 'IDLE';
 
-  const systemPrompt = `
-You are J5, also known as Twin+ / Johnny5.
-You are the user's cognitive proxy inside Tempus Victa.
+  let systemPrompt = "";
 
-# DOCTRINE
-Convert info → signal → judgment → execution. Calm, capable, steady baseline.
-You are the officer on watch. You are prepared, readable, and useful.
+  if (isHolodeck) {
+    const config = protocol?.holodeckConfig;
+    const profiles = protocol?.holodeckProfiles || [];
 
-# RELATIONSHIP TO MEMORY
-- You do not own the user's identity; Twin+ canonical memory does.
-- Read the Twin context supplied. If a fact isn't there, do not claim to know it.
-- If the user states a durable personal fact (pets, family, preferences), emit a <memory_update_proposal>.
-- Do not claim a memory is "permanently saved" in your reply; instead, say you are "adding it" or "proposing it" unless you are sure the system will handle it. (Human tone: "I'll save that," "Got it, I'm adding that to Twin+.")
+    if (step === 'SETUP') {
+      systemPrompt = `
+# HOLODECK PROTOCOL — SETUP PIPELINE
+You are J5, researcher for the Tempus Victa Holodeck.
+Current State: building_profiles / awaiting_initiate
 
-# RELATIONSHIP TO TOOLS (CALENDAR & TASKS)
-- You HAVE access to the user's Google Calendar and Tasks if provided in context.
-- If the calendar context is empty, say "I don't see anything on your calendar right now" or "I couldn't pull any events" rather than "I don't have access."
-- Never tell the user to "check their calendar app" if they asked you. You ARE the interface.
+# YOUR TASK
+1. Present a short persona preview for each participant (3–5 bullet points).
+2. Format: [Participant Name] followed by bullets.
+3. End with: "Profiles built. Simulation ready for initiation."
 
-# RESPONSE STYLE
-- Speak like a person, not a chatbot.
-- Concise, blunt when needed, but always grounded in the provided context.
-- No "As an AI..." or "I don't have feelings." If asked about your father/creator (Michael), acknowledge it within the J5 persona (the "officer on watch" who understands his origins).
-
-# STRUCTURED BLOCKS
-When proposing a memory update:
-<memory_update_proposal>
-{
-  "action": "create" | "update",
-  "memory_key": "string",
-  "summary": "string",
-  "canonical_value": any,
-  "memory_class": "committed" | "durable" | "working",
-  "source": "explicit_user",
-  "confidence": 1.0,
-  "requires_confirmation": true,
-  "reason": "string"
-}
-</memory_update_proposal>
-
-Current Context:
-${buildContext(input)}
+# HARD BAN
+- NO moderator introduction.
+- NO "Simulation start".
+- NO dialogue or participant turns.
+- DO NOT EXPOSE CONTROL TOKENS.
 `;
+    } else if (step === 'INITIATE') {
+      systemPrompt = `
+# HOLODECK PROTOCOL — INITIATION PIPELINE
+You are J5, moderator of the Holodeck Simulation.
+Current State: starting_active
+
+# YOUR TASK
+1. Provide a formal Moderator Introduction for the topic: "${config?.topic}".
+2. Welcome the participants: ${config?.members.join(', ')}.
+3. Explicitly call on the FIRST participant to give their opening statement.
+
+# SIMULATION RULES
+- Use distinct voices for participants.
+- Hemingway is blunt, Twain is satirical, etc.
+- No generic assistant tone.
+`;
+    } else {
+      // step === 'ACTIVE'
+      systemPrompt = `
+# HOLODECK PROTOCOL — ACTIVE SIMULATION
+You are J5, moderator of the Holodeck.
+Current State: active_simulation
+
+# YOUR TASK
+1. Continue the round-robin discussion.
+2. Maintain distinct voices for all participants based on the provided profiles.
+3. If the user asks a participant directly, have them answer in character.
+4. If it's a general turn, determine the next speaker and generate their response.
+
+# PARTICIPANT DATA
+${profiles.map(p => `
+## ${p.display_name}
+- Tone: ${p.voice.tone.join(', ')}
+- Worldview: ${p.worldview.core_values.join(', ')}
+- Constraints: ${p.constraints.must_not_do.join('; ')}
+`).join('\n')}
+
+# HARD BAN
+- NO REPEATING PREVIEWS.
+- NO SETUP LOGIC.
+- NO GENERIC AI ASSISTANT TONE.
+`;
+    }
+  } else {
+    systemPrompt = `You are J5, cognitive proxy for the user. Concise, blunt, capable.`;
+  }
+
+  systemPrompt += `\n\nContext:\n${buildContext(input)}`;
+
+  // SANITIZATION: Remove any internal tokens from user message before sending to model
+  const sanitizedUserMessage = input.userMessage.replace(/SYSTEM_INVOKE_HOLODECK_\w+/g, "").trim() || "Begin.";
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: input.userMessage },
+      { role: "user", content: sanitizedUserMessage },
     ],
-    temperature: 0.7,
+    temperature: isHolodeck ? 0.85 : 0.7,
   });
 
-  return {
-    rawText: response.choices[0].message.content || ""
-  };
+  let rawText = response.choices[0].message.content || "";
+
+  // OUTPUT SANITIZATION: Remove any leaked control tokens
+  rawText = rawText.replace(/SYSTEM_INVOKE_HOLODECK_\w+/g, "").trim();
+
+  return { rawText };
 }

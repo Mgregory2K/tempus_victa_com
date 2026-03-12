@@ -18,20 +18,18 @@ export async function POST(req: NextRequest) {
     const message = String(body.message ?? "");
     const apiKey = String(body.apiKey ?? "");
     const autoCommit = Boolean(body.autoCommit ?? false);
+    const protocolParams = body.protocolParams ?? null;
 
     if (!message) {
         return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
     }
 
     // 0. Fetch Calendar Context (internal fetch to our own API)
-    // We use the same token as the current request
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     let calendarEvents = [];
 
     if (token) {
         try {
-            // Use absolute URL for internal fetch in Next.js API routes if needed,
-            // but here we can try a direct fetch if we have the base URL
             const protocol = req.nextUrl.protocol;
             const host = req.nextUrl.host;
             const calRes = await fetch(`${protocol}//${host}/api/calendar`, {
@@ -53,7 +51,8 @@ export async function POST(req: NextRequest) {
       userMessage: message,
       twinState,
       calendarEvents,
-      apiKey
+      apiKey,
+      protocolParams
     });
 
     // 3. Extract structured memory blocks from the response
@@ -93,7 +92,7 @@ export async function POST(req: NextRequest) {
       committed: acceptedProposals,
       conflicts: conflictsFound,
       forgetProposals: parsed.memoryForgetProposals,
-      sourceLayer: "Twin+ Ready Room Kernel"
+      sourceLayer: protocolParams?.mode === "HOLODECK" ? "Holodeck Simulation Engine" : "Twin+ Ready Room Kernel"
     });
 
   } catch (error) {

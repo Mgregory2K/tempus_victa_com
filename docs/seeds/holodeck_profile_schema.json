@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Holodeck Runtime Profile",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "display_name": { "type": "string" },
+    "entity_type": {
+      "type": "string",
+      "enum": ["historical_public_figure", "living_public_figure", "fictional_character"]
+    },
+    "alive": { "type": "boolean" },
+    "profile_version": { "type": "integer" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "source_count": { "type": "integer" },
+    "last_built_utc": { "type": "string", "format": "date-time" },
+    "voice": {
+      "type": "object",
+      "properties": {
+        "tone": { "type": "array", "items": { "type": "string" } },
+        "cadence": { "type": "string" },
+        "humor": { "type": "string" },
+        "formality": { "type": "string" },
+        "verbosity": { "type": "string" }
+      }
+    },
+    "worldview": {
+      "type": "object",
+      "properties": {
+        "core_values": { "type": "array", "items": { "type": "string" } },
+        "dislikes": { "type": "array", "items": { "type": "string" } },
+        "biases": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reasoning_style": {
+      "type": "object",
+      "properties": {
+        "decision_basis": { "type": "array", "items": { "type": "string" } },
+        "debate_style": { "type": "array", "items": { "type": "string" } },
+        "likely_moves": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "must_not_do": { "type": "array", "items": { "type": "string" } },
+        "must_remain_grounded_in_public_persona": { "type": "boolean" }
+      }
+    },
+    "preview_bullets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 3,
+      "maxItems": 5
+    }
+  },
+  "required": ["id", "display_name", "entity_type", "voice", "worldview", "reasoning_style", "preview_bullets"]
+}
