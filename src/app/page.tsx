@@ -87,6 +87,9 @@ export interface Message {
   timestamp: string;
   sourceLayer?: string;
   vote?: number | null; // 1 for Up, -1 for Down
+  type?: 'holodeck_turn' | 'standard';
+  speakerId?: string;
+  speakerLabel?: string;
 }
 
 export interface ChatSegment {

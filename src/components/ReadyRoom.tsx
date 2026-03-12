@@ -155,10 +155,13 @@ export default function ReadyRoom({
                         return hasContent;
                     })
                     .map((m: any) => ({
-                        id: Date.now().toString() + Math.random(),
+                        id: m.id || (Date.now().toString() + Math.random()),
                         role: m.role,
                         content: m.content,
                         sourceLayer: m.sourceLayer,
+                        speakerId: m.speakerId,
+                        speakerLabel: m.speakerLabel,
+                        type: m.type,
                         timestamp: m.timestamp
                     }));
 
@@ -259,7 +262,7 @@ export default function ReadyRoom({
             try {
                 const holodeckTranscript: HolodeckMessage[] = currentSegment.messages.map(m => ({
                     timestamp_utc: m.timestamp,
-                    sender: m.role === 'user' ? (userName || 'User') : (m.sourceLayer || 'Assistant'),
+                    sender: m.role === 'user' ? (userName || 'User') : (m.speakerLabel || m.sourceLayer || 'Assistant'),
                     sender_type: m.role === 'user' ? 'user' : (m.sourceLayer?.includes('(Moderator)') ? 'moderator' : 'participant'),
                     content: m.content
                 }));
@@ -436,7 +439,7 @@ export default function ReadyRoom({
                                 <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                     <div className={`group relative p-4 rounded-2xl border max-w-[85%] md:max-w-[70%] ${msg.role === 'user' ? 'bg-accent/10 border-accent/30' : 'bg-white/[0.03] border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.3)]'} ${holodeckStatus === 'active' ? 'border-accent/10 shadow-[0_0_15px_rgba(0,255,0,0.05)]' : ''}`}>
                                         <div className="flex justify-between items-center mb-2 gap-4">
-                                            <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>{msg.sourceLayer || msg.role}</span>
+                                            <span className={`system-text text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-accent' : 'text-white/40'}`}>{msg.speakerLabel || msg.sourceLayer || msg.role}</span>
                                             {msg.role === 'assistant' && (
                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => handleVote(msg.id, 1)} title="Good response" className={`text-[10px] transition-all transform hover:scale-120 ${msg.vote === 1 ? 'grayscale-0 brightness-150' : 'grayscale opacity-30 hover:opacity-100'}`}>👍</button>

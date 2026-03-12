@@ -79,31 +79,35 @@ export async function POST(req: NextRequest) {
         const tag = match[1];
         const participantId = match[2];
         const rawContent = match[3];
-        const content = rawContent.trim().replace(/^J5:\s*/i, "");
+        const content = rawContent.trim().replace(/^J5:\s*/i, "").replace(/^[a-zA-Z\s]+:\s*/, "");
 
-        if (!content) {
-            console.warn(`[READY ROOM] Suppressing empty ghost card from tag: <${tag}${participantId ? ` id="${participantId}"` : ''}>. Raw content: "${rawContent}"`);
+        if (!content || content.length < 2) {
+            console.warn(`[READY ROOM] Suppressing ghost card: content too short or empty. Tag: <${tag}>`);
             continue;
         }
 
         if (tag === 'moderator_preamble') {
-          console.log(`[READY ROOM] Appending Moderator Preamble (${content.length} chars)`);
           messages.push({
+            id: `msg_${Date.now()}_${Math.random()}`,
             role: 'assistant',
+            type: 'holodeck_turn',
             content: content,
             sourceLayer: 'J5 (Moderator)',
+            speakerLabel: 'J5 (Moderator)',
             timestamp: new Date().toISOString()
           });
         } else if (tag === 'participant_turn') {
           const profile = protocolParams?.holodeckProfiles?.find((p: any) => p.id === participantId);
           const displayName = profile?.display_name || participantId || "Unknown Participant";
 
-          console.log(`[READY ROOM] Appending Participant Turn: ${displayName} (${content.length} chars)`);
           messages.push({
+            id: `msg_${Date.now()}_${Math.random()}`,
             role: 'assistant',
+            type: 'holodeck_turn',
             content: content,
             sourceLayer: displayName,
-            participantId: participantId,
+            speakerId: participantId,
+            speakerLabel: displayName,
             timestamp: new Date().toISOString()
           });
         }
@@ -112,31 +116,29 @@ export async function POST(req: NextRequest) {
       // DIAGNOSTICS LOGGING
       if (protocolParams?.mode === "HOLODECK") {
           const participants = protocolParams.holodeckConfig?.members || [];
-          const matchedIds = messages.filter(m => m.participantId).map(m => m.participantId);
-          console.log(`[READY ROOM DIAGNOSTICS] Participants in config: ${JSON.stringify(participants)}`);
-          console.log(`[READY ROOM DIAGNOSTICS] Participants rendered: ${JSON.stringify(matchedIds)}`);
+          const matchedIds = messages.filter(m => m.speakerId).map(m => m.speakerId);
+          console.log(`[READY ROOM DIAGNOSTICS] Expected: ${JSON.stringify(participants)} | Rendered: ${JSON.stringify(matchedIds)}`);
           if (matchedIds.length < participants.length) {
-              console.warn(`[READY ROOM DIAGNOSTICS] QUEUE STALL DETECTED: Expected ${participants.length} turns, got ${matchedIds.length}.`);
+              console.warn(`[READY ROOM DIAGNOSTICS] QUEUE STALL DETECTED: Only ${matchedIds.length}/${participants.length} participants spoke.`);
           }
       }
 
     } else {
-      // Fallback for standard messages or non-compliant holodeck responses
       const trimmedText = rawText.trim();
-      if (trimmedText) {
-        console.log(`[READY ROOM] No segments found, using fallback (${trimmedText.length} chars)`);
+      if (trimmedText && trimmedText.length > 2) {
         messages.push({
+          id: `msg_${Date.now()}_${Math.random()}`,
           role: 'assistant',
+          type: 'standard',
           content: trimmedText,
           sourceLayer: protocolParams?.mode === "HOLODECK" ? "J5 (Moderator)" : "Twin+ Ready Room Kernel",
+          speakerLabel: protocolParams?.mode === "HOLODECK" ? "J5 (Moderator)" : "Twin+ Ready Room Kernel",
           timestamp: new Date().toISOString()
         });
-      } else {
-        console.warn("[READY ROOM] No content found in model output after processing.");
       }
     }
 
-    // Process memory blocks from the *entire* raw text (including dialogue)
+    // Process memory blocks
     const parsed = extractMemoryBlocks(modelOutput.rawText);
     const acceptedProposals = [];
     const conflictsFound = [...parsed.memoryConflicts];

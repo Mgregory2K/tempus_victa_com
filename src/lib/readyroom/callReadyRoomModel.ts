@@ -72,6 +72,8 @@ export async function callReadyRoomModel(
 - Participant output must be 100% shaped by the provided runtime profile. No generic assistant prose.
 - Donald Trump: Use hyperbole, sentence fragments, "huge," "disaster," "believe me," and aggressive rhetorical questioning. Focus on dominance, grievance, and simple, punchy words.
 - Margot Robbie: Use a poised, sharp, and slightly Australian-inflected or industry-savvy tone. Focus on collaborative but intellectually competitive insight.
+- Homer Simpson: Use simple vocabulary, focus on food/comfort, "D'oh!", "Woo-hoo!", and frequent non-sequiturs about donuts or TV.
+- Dog Whisperer (Cesar Millan): Use terms like "energy," "calm-assertive," "pack leader," "don't touch, don't talk, don't eye contact." Focus on behavioral balance and discipline.
 - CONFLICT & INTERACTION: Participants MUST reference and challenge each other. "Donald, you're missing the point..." or "Margot's idea is a total disaster, believe me."
 - NO REPETITION: Do not repeat the moderator or the user's phrasing. Move the debate forward.
 `;
@@ -80,6 +82,7 @@ export async function callReadyRoomModel(
     const config = protocol?.holodeckConfig;
     const profiles = protocol?.holodeckProfiles || [];
     const memories = protocol?.participantMemories || {};
+    const roomState = protocol?.roomState;
 
     if (step === 'SETUP') {
       systemPrompt = `
@@ -141,8 +144,9 @@ Continue generation until the queue of participants for this round is exhausted.
 
 # YOUR TASK
 1. MODERATOR DISPATCH: Provide a brief transition (J5).
-2. ROUND-ROBIN: Generate turns for ALL participants listed.
-3. NO DELAY: Do not return control to the user until all participants have spoken.
+2. ROUND-ROBIN: Generate turns for ALL participants listed below.
+3. EXCLUDE: Do not generate a turn for the last speaker if they just spoke as the user (unless specifically invoked).
+4. NO DELAY: Do not return control to the user until all participants have spoken.
 
 ${PERSONA_GROUNDING_INSTRUCTIONS}
 
@@ -154,7 +158,11 @@ J5: [Brief transition]
 <participant_turn participant_id="[id]">
 [Dialogue body ONLY.]
 </participant_turn>
-(Repeat for EVERY participant)
+(Repeat for EVERY participant in the round: ${config?.members.join(', ')})
+
+# SESSION STATE TRACKING
+- Current Round: ${roomState?.round_index || 1}
+- Last Speaker: ${roomState?.last_speaker_id || 'None'}
 
 # PARTICIPANT DATA & SESSION MEMORY
 ${profiles.map(p => {
@@ -176,7 +184,9 @@ At the very end, provide the updated session state:
   "room_state": {
     "strongest_claims": ["..."],
     "current_tension": "...",
-    "user_mood": "..."
+    "user_mood": "...",
+    "last_speaker_id": "[last_id_of_this_round]",
+    "round_index": ${ (roomState?.round_index || 1) + 1 }
   },
   "participant_memories": {
     "participant_id": { ... }

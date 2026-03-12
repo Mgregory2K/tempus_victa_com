@@ -56,6 +56,9 @@ export interface HolodeckRoomState {
   strongest_claims: string[];
   current_tension: string;
   user_mood: string;
+  last_speaker_id?: string;
+  round_index?: number;
+  active_participant_ids?: string[];
 }
 
 export type EvidenceType =
