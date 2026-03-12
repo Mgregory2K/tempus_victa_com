@@ -1,29 +1,56 @@
 // src/app/api/admin/council/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { google } from 'googleapis';
 
 /**
- * SOVEREIGN COUNCIL API v3.4
+ * SOVEREIGN COUNCIL API v3.5
  * Objective: Manage the high council (admins) and mind-link collaborators.
  * Storage: tv_shared_registry.json in appDataFolder.
+ *
+ * FIX v3.5: Hardened JSON parsing and Drive response handling to prevent 500 errors.
  */
 
 async function getRegistry(drive: any) {
-    const list = await drive.files.list({
-        spaces: 'appDataFolder',
-        q: "name = 'tv_shared_registry.json'",
-        fields: 'files(id, name)',
-    });
+    try {
+        const list = await drive.files.list({
+            spaces: 'appDataFolder',
+            q: "name = 'tv_shared_registry.json'",
+            fields: 'files(id, name)',
+        });
 
-    const file = list.data.files?.[0];
-    if (!file) return { admins: [], collaborators: [] };
+        const file = list.data.files?.[0];
+        if (!file) return { admins: [], collaborators: [] };
 
-    const content = await drive.files.get({
-        fileId: file.id!,
-        alt: 'media',
-    });
-    return content.data;
+        const content = await drive.files.get({
+            fileId: file.id!,
+            alt: 'media',
+        });
+
+        let data = content.data;
+
+        // googleapis can return data as an object, string, or stream depending on environment
+        if (typeof data === 'string' && data.trim()) {
+            try {
+                data = JSON.parse(data);
+            } catch (e) {
+                console.error("Council Registry: Failed to parse string data", e);
+                return { admins: [], collaborators: [] };
+            }
+        } else if (typeof data !== 'object' || data === null) {
+            // Handle unexpected data types (e.g. empty or streams)
+            console.warn("Council Registry: Unexpected data type from Drive", typeof data);
+            return { admins: [], collaborators: [] };
+        }
+
+        return {
+            admins: Array.isArray(data.admins) ? data.admins : [],
+            collaborators: Array.isArray(data.collaborators) ? data.collaborators : []
+        };
+    } catch (error) {
+        console.error("Council Registry: Error in getRegistry", error);
+        return { admins: [], collaborators: [] };
+    }
 }
 
 async function saveRegistry(drive: any, data: any) {
@@ -49,9 +76,14 @@ async function saveRegistry(drive: any, data: any) {
     }
 }
 
-export async function GET(req: Request) {
-    const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
+export async function GET(req: NextRequest) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token || !token.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        console.error("Council Registry: Missing Google Credentials");
+        return NextResponse.json({ error: 'System_Configuration_Error' }, { status: 500 });
+    }
 
     const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
     auth.setCredentials({ access_token: token.accessToken as string });
@@ -59,23 +91,30 @@ export async function GET(req: Request) {
 
     try {
         const registry = await getRegistry(drive);
+
         // Fallback to env admins if registry is empty
         if (registry.admins.length === 0) {
             const envAdmins = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-            registry.admins = envAdmins;
+            registry.admins = envAdmins.filter(e => e.length > 0);
         }
+
         return NextResponse.json(registry);
     } catch (e) {
+        console.error("Council Registry: GET 500", e);
         return NextResponse.json({ error: 'Failed to fetch registry' }, { status: 500 });
     }
 }
 
-export async function POST(req: Request) {
-    const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
+export async function POST(req: NextRequest) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token || !token.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { action, email, type } = body; // action: ADD|REMOVE, type: ADMIN|COLLABORATOR
+    const { action, email, type } = body;
+
+    if (!email || typeof email !== 'string') {
+        return NextResponse.json({ error: 'Invalid_Request: Missing email' }, { status: 400 });
+    }
 
     const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
     auth.setCredentials({ access_token: token.accessToken as string });
@@ -86,11 +125,12 @@ export async function POST(req: Request) {
 
         // Root Authority Fallback
         if (registry.admins.length === 0) {
-            registry.admins = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+            registry.admins = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(e => e.length > 0);
         }
 
         // Security: Only current admins can modify the council
-        if (!registry.admins.includes(token.email?.toLowerCase())) {
+        const userEmail = token.email?.toLowerCase();
+        if (!userEmail || !registry.admins.includes(userEmail)) {
             return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
         }
 
@@ -115,6 +155,7 @@ export async function POST(req: Request) {
         await saveRegistry(drive, registry);
         return NextResponse.json(registry);
     } catch (e) {
+        console.error("Council Registry: POST 500", e);
         return NextResponse.json({ error: 'Failed to update registry' }, { status: 500 });
     }
 }
