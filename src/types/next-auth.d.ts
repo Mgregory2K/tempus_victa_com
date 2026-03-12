@@ -6,6 +6,7 @@ declare module "next-auth" {
     accessToken?: string;
     refreshToken?: string;
     isAdmin?: boolean;
+    error?: string;
   }
 }
 
@@ -15,5 +16,6 @@ declare module "next-auth/jwt" {
     refreshToken?: string;
     expiresAt?: number;
     isAdmin?: boolean;
+    error?: string;
   }
 }
