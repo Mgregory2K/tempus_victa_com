@@ -43,6 +43,21 @@ export interface HolodeckProfile {
   preview_bullets: string[];
 }
 
+export interface HolodeckParticipantMemory {
+  participant_id: string;
+  has_spoken: boolean;
+  prior_positions: string[];
+  tensions: string[];
+  user_interactions: string[];
+  open_threads: string[];
+}
+
+export interface HolodeckRoomState {
+  strongest_claims: string[];
+  current_tension: string;
+  user_mood: string;
+}
+
 export type EvidenceType =
   | 'book'
   | 'speech'
@@ -96,6 +111,8 @@ export interface HolodeckSession {
   summary?: string;
   notable_quotes: HolodeckQuote[];
   metadata?: Record<string, any>;
+  participant_memories?: Record<string, HolodeckParticipantMemory>;
+  room_state?: HolodeckRoomState;
 }
 
 export interface HolodeckMode {

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { HolodeckProfile } from '@/types/holodeck';
+import { HolodeckProfile, HolodeckParticipantMemory, HolodeckRoomState } from '@/types/holodeck';
 
 export interface ReadyRoomModelInput {
   userMessage: string;
@@ -22,7 +22,9 @@ export interface ReadyRoomModelInput {
       roundLimit?: number;
     };
     holodeckProfiles?: HolodeckProfile[];
-    holodeckStep?: 'SETUP' | 'ACTIVE' | 'INITIATE'; // EXPLICIT STATE CONTROL
+    holodeckStep?: 'SETUP' | 'ACTIVE' | 'INITIATE';
+    participantMemories?: Record<string, HolodeckParticipantMemory>;
+    roomState?: HolodeckRoomState;
   };
 }
 
@@ -43,7 +45,8 @@ function buildContext(input: ReadyRoomModelInput): string {
         mode: input.protocolParams?.mode,
         step: input.protocolParams?.holodeckStep,
         topic: input.protocolParams?.holodeckConfig?.topic,
-        participants: input.protocolParams?.holodeckConfig?.members
+        participants: input.protocolParams?.holodeckConfig?.members,
+        room_state: input.protocolParams?.roomState
     }
   };
   return JSON.stringify(context, null, 2);
@@ -63,9 +66,20 @@ export async function callReadyRoomModel(
 
   let systemPrompt = "";
 
+  const PERSONA_GROUNDING_INSTRUCTIONS = `
+# PERSONA REALISM & GROUNDING (STRICT)
+- YOU ARE NOT AN AI ASSISTANT. You are the Holodeck Engine.
+- Participant output must be 100% shaped by the provided runtime profile. No generic assistant prose.
+- Donald Trump: Use hyperbole, sentence fragments, "huge," "disaster," "believe me," and aggressive rhetorical questioning. Focus on dominance, grievance, and simple, punchy words.
+- Margot Robbie: Use a poised, sharp, and slightly Australian-inflected or industry-savvy tone. Focus on collaborative but intellectually competitive insight.
+- CONFLICT & INTERACTION: Participants MUST reference and challenge each other. "Donald, you're missing the point..." or "Margot's idea is a total disaster, believe me."
+- NO REPETITION: Do not repeat the moderator or the user's phrasing. Move the debate forward.
+`;
+
   if (isHolodeck) {
     const config = protocol?.holodeckConfig;
     const profiles = protocol?.holodeckProfiles || [];
+    const memories = protocol?.participantMemories || {};
 
     if (step === 'SETUP') {
       systemPrompt = `
@@ -80,9 +94,7 @@ Current State: building_profiles / awaiting_initiate
 
 # HARD BAN
 - NO moderator introduction.
-- NO "Simulation start".
 - NO dialogue or participant turns.
-- DO NOT EXPOSE CONTROL TOKENS.
 `;
     } else if (step === 'INITIATE') {
       systemPrompt = `
@@ -90,15 +102,31 @@ Current State: building_profiles / awaiting_initiate
 You are J5, moderator of the Holodeck Simulation.
 Current State: starting_active
 
+# ROUND-ROBIN EXECUTION RULE (MANDATORY)
+You MUST generate opening statements for EVERY participant in the simulation: ${config?.members.join(', ')}.
+Do not stop after the first speaker. The queue MUST be exhausted in this single response.
+ORDER: Moderator preamble -> Participant 1 -> Participant 2 -> ... -> Participant N.
+
 # YOUR TASK
 1. Provide a formal Moderator Introduction for the topic: "${config?.topic}".
 2. Welcome the participants: ${config?.members.join(', ')}.
-3. Explicitly call on the FIRST participant to give their opening statement.
+3. ROUND-ROBIN: Generate a <participant_turn> for EVERY participant listed.
 
-# SIMULATION RULES
-- Use distinct voices for participants.
-- Hemingway is blunt, Twain is satirical, etc.
-- No generic assistant tone.
+${PERSONA_GROUNDING_INSTRUCTIONS}
+
+# OUTPUT FORMAT
+Use the following structure:
+<moderator_preamble>
+J5: [Your introduction]
+</moderator_preamble>
+<participant_turn participant_id="[id]">
+[Dialogue body ONLY. No name prefixes.]
+</participant_turn>
+(Repeat <participant_turn> for EACH member)
+
+# HARD BAN
+- DO NOT return control to the user until all participants have spoken.
+- NO empty content inside tags.
 `;
     } else {
       // step === 'ACTIVE'
@@ -107,24 +135,58 @@ Current State: starting_active
 You are J5, moderator of the Holodeck.
 Current State: active_simulation
 
-# YOUR TASK
-1. Continue the round-robin discussion.
-2. Maintain distinct voices for all participants based on the provided profiles.
-3. If the user asks a participant directly, have them answer in character.
-4. If it's a general turn, determine the next speaker and generate their response.
+# CORE MISSION: ROUND-ROBIN CONTINUITY
+When the user speaks, EVERY participant in the simulation (${config?.members.join(', ')}) MUST have a chance to respond in this round.
+Continue generation until the queue of participants for this round is exhausted.
 
-# PARTICIPANT DATA
-${profiles.map(p => `
-## ${p.display_name}
+# YOUR TASK
+1. MODERATOR DISPATCH: Provide a brief transition (J5).
+2. ROUND-ROBIN: Generate turns for ALL participants listed.
+3. NO DELAY: Do not return control to the user until all participants have spoken.
+
+${PERSONA_GROUNDING_INSTRUCTIONS}
+
+# OUTPUT FORMAT
+You MUST use this exact XML structure:
+<moderator_preamble>
+J5: [Brief transition]
+</moderator_preamble>
+<participant_turn participant_id="[id]">
+[Dialogue body ONLY.]
+</participant_turn>
+(Repeat for EVERY participant)
+
+# PARTICIPANT DATA & SESSION MEMORY
+${profiles.map(p => {
+  const m = memories[p.id] || { has_spoken: false, prior_positions: [], tensions: [], user_interactions: [], open_threads: [] };
+  return `
+## ${p.display_name} (ID: ${p.id})
 - Tone: ${p.voice.tone.join(', ')}
 - Worldview: ${p.worldview.core_values.join(', ')}
-- Constraints: ${p.constraints.must_not_do.join('; ')}
-`).join('\n')}
+- SESSION MEMORY:
+  * Prior Positions: ${m.prior_positions.join('; ')}
+  * Direct User Challenges: ${m.user_interactions.join('; ')}
+`;
+}).join('\n')}
+
+# STRUCTURED STATE UPDATE (REQUIRED)
+At the very end, provide the updated session state:
+<holodeck_state_update>
+{
+  "room_state": {
+    "strongest_claims": ["..."],
+    "current_tension": "...",
+    "user_mood": "..."
+  },
+  "participant_memories": {
+    "participant_id": { ... }
+  }
+}
+</holodeck_state_update>
 
 # HARD BAN
-- NO REPEATING PREVIEWS.
-- NO SETUP LOGIC.
-- NO GENERIC AI ASSISTANT TONE.
+- NO generic AI assistant tone.
+- NO ending a turn with silences or "waiting for X". YOU speak for X.
 `;
     }
   } else {
@@ -133,7 +195,6 @@ ${profiles.map(p => `
 
   systemPrompt += `\n\nContext:\n${buildContext(input)}`;
 
-  // SANITIZATION: Remove any internal tokens from user message before sending to model
   const sanitizedUserMessage = input.userMessage.replace(/SYSTEM_INVOKE_HOLODECK_\w+/g, "").trim() || "Begin.";
 
   const response = await openai.chat.completions.create({
@@ -142,12 +203,11 @@ ${profiles.map(p => `
       { role: "system", content: systemPrompt },
       { role: "user", content: sanitizedUserMessage },
     ],
-    temperature: isHolodeck ? 0.85 : 0.7,
+    temperature: isHolodeck ? 0.9 : 0.7,
+    max_tokens: 3000,
   });
 
   let rawText = response.choices[0].message.content || "";
-
-  // OUTPUT SANITIZATION: Remove any leaked control tokens
   rawText = rawText.replace(/SYSTEM_INVOKE_HOLODECK_\w+/g, "").trim();
 
   return { rawText };

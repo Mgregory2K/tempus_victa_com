@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { VoiceButton, Message, Chat, ChatSegment } from '@/app/page';
 import HolodeckModal, { HolodeckConfig } from './HolodeckModal';
-import { HolodeckProfile, HolodeckSession, HolodeckMessage } from '@/types/holodeck';
+import { HolodeckProfile, HolodeckSession, HolodeckMessage, HolodeckParticipantMemory, HolodeckRoomState } from '@/types/holodeck';
 import ParticipantPopup from './ParticipantPopup';
 import MatrixRain from './MatrixRain';
 
@@ -46,6 +46,10 @@ export default function ReadyRoom({
     const [holodeckProfiles, setHolodeckProfiles] = useState<HolodeckProfile[]>([]);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [focusedParticipant, setFocusedParticipant] = useState<{ profile: HolodeckProfile, pos: { x: number, y: number } } | null>(null);
+
+    // Session Memory Tracking
+    const [participantMemories, setParticipantMemories] = useState<Record<string, HolodeckParticipantMemory>>({});
+    const [roomState, setRoomState] = useState<HolodeckRoomState | null>(null);
 
     // Initialize first chat if none exists
     useEffect(() => {
@@ -120,20 +124,61 @@ export default function ReadyRoom({
                         mode: currentStatus === 'active' || isInternalSignal ? "HOLODECK" : "MODERATED",
                         holodeckStep: explicitStep || (currentStatus === 'active' ? 'ACTIVE' : 'SETUP'),
                         holodeckConfig: config,
-                        holodeckProfiles: profiles.length > 0 ? profiles : null
+                        holodeckProfiles: profiles.length > 0 ? profiles : null,
+                        participantMemories: participantMemories,
+                        roomState: roomState
                     } : null
                 }),
             });
 
             const data = await response.json();
+            console.log("[HOLODECK DEBUG] API Response:", data);
+
+            // --- UPDATE LOCAL HOLODECK STATE FROM RESPONSE ---
+            if (data.holodeckStateUpdate) {
+                if (data.holodeckStateUpdate.participant_memories) {
+                    setParticipantMemories(prev => ({ ...prev, ...data.holodeckStateUpdate.participant_memories }));
+                }
+                if (data.holodeckStateUpdate.room_state) {
+                    setRoomState(data.holodeckStateUpdate.room_state);
+                }
+            }
+
             if (data.candidateMemories) onMemoryUpdate?.(data.candidateMemories, text);
 
-            const aiMsg: Message = { id: Date.now().toString(), role: "assistant", content: data.content, sourceLayer: data.sourceLayer, timestamp: new Date().toISOString() };
+            if (data.messages && Array.isArray(data.messages)) {
+                // Split multi-speaker response + GHOST SUPPRESSION
+                const newMsgs = data.messages
+                    .filter((m: any) => {
+                        const hasContent = m.content && m.content.trim().length > 0;
+                        if (!hasContent) console.warn("[HOLODECK UI] Suppressing empty message object from API:", m);
+                        return hasContent;
+                    })
+                    .map((m: any) => ({
+                        id: Date.now().toString() + Math.random(),
+                        role: m.role,
+                        content: m.content,
+                        sourceLayer: m.sourceLayer,
+                        timestamp: m.timestamp
+                    }));
 
-            setChats(prev => prev.map(c => c.id === activeChatId ? {
-                ...c,
-                segments: c.segments.map(s => s.id === currentSegment?.id ? { ...s, messages: [...s.messages, aiMsg] } : s)
-            } : c));
+                if (newMsgs.length > 0) {
+                    setChats(prev => prev.map(c => c.id === activeChatId ? {
+                        ...c,
+                        segments: c.segments.map(s => s.id === currentSegment?.id ? { ...s, messages: [...s.messages, ...newMsgs] } : s)
+                    } : c));
+                } else {
+                    console.log("[HOLODECK UI] No valid messages to append from API.");
+                }
+            } else if (data.content && data.content.trim().length > 0) {
+                const aiMsg: Message = { id: Date.now().toString(), role: "assistant", content: data.content, sourceLayer: data.sourceLayer, timestamp: new Date().toISOString() };
+                setChats(prev => prev.map(c => c.id === activeChatId ? {
+                    ...c,
+                    segments: c.segments.map(s => s.id === currentSegment?.id ? { ...s, messages: [...s.messages, aiMsg] } : s)
+                } : c));
+            } else {
+                console.warn("[HOLODECK UI] API returned neither messages array nor top-level content.");
+            }
         } catch (error) {
             console.error("Neural link fuzzy", error);
         } finally { setIsTyping(false); }
@@ -214,8 +259,8 @@ export default function ReadyRoom({
             try {
                 const holodeckTranscript: HolodeckMessage[] = currentSegment.messages.map(m => ({
                     timestamp_utc: m.timestamp,
-                    sender: m.role === 'user' ? (userName || 'User') : 'Assistant',
-                    sender_type: m.role === 'user' ? 'user' : (m.content.includes(':') ? 'participant' : 'moderator'),
+                    sender: m.role === 'user' ? (userName || 'User') : (m.sourceLayer || 'Assistant'),
+                    sender_type: m.role === 'user' ? 'user' : (m.sourceLayer?.includes('(Moderator)') ? 'moderator' : 'participant'),
                     content: m.content
                 }));
 
@@ -244,10 +289,13 @@ export default function ReadyRoom({
                 setIsTyping(false);
             }
         }
+        // HARD RESET
         setHolodeckStatus('idle');
         setHolodeckConfig(null);
         setHolodeckProfiles([]);
         setCurrentSessionId(null);
+        setParticipantMemories({});
+        setRoomState(null);
         addPageBreak();
     };
 
