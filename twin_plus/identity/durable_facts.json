@@ -2,6 +2,7 @@
   "facts": [
     {
       "id": "fact_pet.dog.name",
+      "twin_id": "tv_8a6c1f4f9e0e7b8c3d2e6f7a4b1c9d8e",
       "key": "pet.dog.name",
       "value": "Rocky",
       "value_type": "string",
@@ -20,6 +21,7 @@
     },
     {
       "id": "fact_family.grandpa.name",
+      "twin_id": "tv_8a6c1f4f9e0e7b8c3d2e6f7a4b1c9d8e",
       "key": "family.grandpa.name",
       "value": "Donald",
       "value_type": "string",

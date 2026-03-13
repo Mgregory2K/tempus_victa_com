@@ -8,8 +8,10 @@ import { TwinPreferenceLedger } from './twin_preference_ledger';
  */
 export interface OutputIntent {
   surface: string;
-  purpose: 'inform' | 'plan' | 'decide' | 'summarize' | 'rewrite' | 'protocol';
+  purpose: 'inform' | 'plan' | 'decide' | 'summarize' | 'rewrite' | 'protocol' | 'coach' | 'warn';
   draftText: string;
+  riskLevel?: number; // 0..1
+  impactCost?: number; // 0..1
 }
 
 /**
@@ -20,11 +22,13 @@ export interface ShapedOutput {
   shapingApplied: string[];
   intentDetected?: string;
   suggestedActions?: { type: string; payload: any; label: string }[];
+  requiresUserConfirmation?: boolean;
 }
 
 /**
- * The TwinShaper modifies output before it is shown to the user,
- * aligning it with their learned communication style and detecting actionable intent.
+ * The TwinShaper modifies output before it is shown to the user.
+ * v3.4.0 - NUMERIC CLARIFICATION GATE & CHAIN COMPRESSION
+ * RULE: Efficiency > Accuracy.
  */
 export class TwinShaper {
   constructor(private prefs: TwinPreferenceLedger, private features: TwinFeatureStore) {}
@@ -34,47 +38,55 @@ export class TwinShaper {
     const shapingApplied: string[] = [];
     const suggestedActions: ShapedOutput['suggestedActions'] = [];
 
-    // 1. STYLE MODEL: Apply Length and Tone Constraints
-    // Values from TwinPreferenceLedger (inspectable identity)
-    const lengthPref = this.prefs.getPreference<any>('response_length')?.value || 'balanced';
-    const resultsMode = this.prefs.getPreference<any>('results_mode')?.value || false;
+    // 1. CLARIFICATION GATE (Numeric Version)
+    // ask_clarification = (confidence_score * (1 - risk_score) * (1 - impact_cost)) < 0.52
+    const confidenceScore = 0.8; // Example baseline, should come from kernel
+    const riskScore = intent.riskLevel ?? 0.2;
+    const impactCost = intent.impactCost ?? 0.1;
 
-    if (resultsMode || lengthPref === 'short') {
-        // In "Results Mode", we aggressively prune conversational filler
+    const clarificationMetric = (confidenceScore * (1 - riskScore) * (1 - impactCost));
+    const shouldAskClarification = clarificationMetric < 0.52;
+
+    // 2. STYLE MODEL: Apply Length and Tone Constraints
+    const profile = this.features.userProfile;
+    const resultsMode = this.prefs.getPreference<any>('results_mode')?.value || (profile.directness > 0.8);
+
+    if (resultsMode || profile.verbosity < 0.3) {
+        // Efficiency > Accuracy: Prune conversational filler
         if (shapedText.length > 150 && intent.purpose !== 'protocol') {
-            shapedText = shapedText.split('\n').slice(0, 3).join('\n') + "...";
-            shapingApplied.push('RESULTS_MODE_COMPRESSION');
+            const lines = shapedText.split('\n');
+            shapedText = lines.slice(0, 3).join('\n');
+            if (lines.length > 3) shapedText += "...";
+            shapingApplied.push('EFFICIENCY_COMPRESSION');
         }
     }
 
-    // 2. INTENT DETECTION: "Manifest Action" logic
-    // We look for patterns that suggest tasks, quotes, or signals
-    const lowerText = intent.draftText.toLowerCase();
-
-    // TASK DETECTION
-    if (lowerText.includes('task:') || lowerText.includes('todo:') || lowerText.includes('need to')) {
-        const lines = intent.draftText.split('\n');
-        const taskLine = lines.find(l => l.toLowerCase().includes('task:') || l.toLowerCase().includes('todo:')) || lines[0];
+    // 3. CHAIN COMPRESSION DETECTION
+    // If we detect a repeated pattern, suggest one-tap execution
+    if (this.detectWorkflowChain(intent.draftText)) {
         suggestedActions.push({
-            type: 'MANIFEST_TASK',
-            label: 'Manifest Task',
-            payload: { title: taskLine.replace(/task:|todo:/gi, '').trim(), priority: 'MED' }
+            type: 'CHAIN_EXECUTION',
+            label: 'Execute Workflow Chain',
+            payload: { chain_id: 'auto_detected_chain' }
         });
+        shapingApplied.push('CHAIN_COMPRESSION_OFFERED');
     }
 
-    // QUOTE DETECTION
-    if (lowerText.includes('crystallize:') || lowerText.includes('quote:')) {
-         suggestedActions.push({
-            type: 'CRYSTALLIZE_QUOTE',
-            label: 'Crystallize Quote',
-            payload: { text: intent.draftText.replace(/crystallize:|quote:/gi, '').trim() }
-        });
-    }
+    // 4. AUTOMATION GATE (Numeric Version)
+    // automation_score = (confidence * 0.6) + (success * 0.3) - (impact * 0.7)
+    const automationScore = (confidenceScore * 0.6) + (0.9 * 0.3) - (impactCost * 0.7);
+    const requiresConfirmation = automationScore < 0.82;
 
     return {
       text: shapedText,
       shapingApplied,
-      suggestedActions: suggestedActions.length > 0 ? suggestedActions : undefined
+      suggestedActions: suggestedActions.length > 0 ? suggestedActions : undefined,
+      requiresUserConfirmation: requiresConfirmation
     };
+  }
+
+  private detectWorkflowChain(text: string): boolean {
+      // Mock logic for detecting a chain like "Research -> Task -> Update"
+      return text.includes('research') && (text.includes('task') || text.includes('add'));
   }
 }

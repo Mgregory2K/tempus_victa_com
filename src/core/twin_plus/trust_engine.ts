@@ -1,9 +1,20 @@
 // src/core/twin_plus/trust_engine.ts
 
 /**
- * Volume IV — Learning Engine and Trust Mathematics
- * TrustScore = BaseTrust + Reinforcement + Recency + AccuracyHistory
+ * TWIN+ TRUST ENGINE v3.4.0
+ * RULE: User > Twin > Platform
+ *
+ * Trust levels for identity anchoring:
+ * User: 1.0 (Canonical)
+ * Twin Inference: 0.7
+ * External AI: 0.3 (Can suggest, cannot define)
  */
+
+export const TRUST_LEVELS = {
+    USER: 1.0,
+    TWIN_INFERENCE: 0.7,
+    EXTERNAL_AI: 0.3
+};
 
 export interface TrustNode {
     source: string;
@@ -28,5 +39,14 @@ export class TrustEngine {
     public static reinforce(currentScore: number, success: boolean): number {
         const delta = success ? REINFORCEMENT_BOOST : -REINFORCEMENT_BOOST;
         return Math.max(0.0, Math.min(1.0, currentScore + delta));
+    }
+
+    /**
+     * Verifies if a source has enough trust to update a canonical identity fact.
+     */
+    public static canUpdateIdentity(sourceTrust: number, existingTrust: number = 1.0): boolean {
+        // Only User (1.0) can override established User-owned facts.
+        // External AI (0.3) can never override User or Twin facts.
+        return sourceTrust >= existingTrust;
     }
 }

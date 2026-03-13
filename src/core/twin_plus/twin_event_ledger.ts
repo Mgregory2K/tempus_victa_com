@@ -4,15 +4,21 @@ import { TwinEvent } from './twin_event';
 
 /**
  * The TwinEventLedger is the append-only source of truth.
- * v3.3.3 - RESILIENT_MERGE (Heals missing payloads)
+ * v3.4.0 - IDENTITY_ANCHORED (Enforces twin_id matching)
  */
 export class TwinEventLedger {
   private events: TwinEvent[] = [];
+  private currentTwinId: string | null = null;
 
-  public static async open(): Promise<TwinEventLedger> {
+  public static async open(twinId?: string): Promise<TwinEventLedger> {
     const ledger = new TwinEventLedger();
+    if (twinId) ledger.currentTwinId = twinId;
     ledger.loadLocal();
     return ledger;
+  }
+
+  public setTwinId(id: string) {
+    this.currentTwinId = id;
   }
 
   private loadLocal() {
@@ -20,7 +26,11 @@ export class TwinEventLedger {
         try {
             const saved = localStorage.getItem('tv_event_history');
             if (saved) {
-                this.events = JSON.parse(saved);
+                const allEvents: TwinEvent[] = JSON.parse(saved);
+                // Filter by twin_id if anchored
+                this.events = this.currentTwinId
+                    ? allEvents.filter(e => e.twin_id === this.currentTwinId)
+                    : allEvents;
             }
         } catch (e) {
             console.error("Failed to load event ledger", e);
@@ -29,6 +39,17 @@ export class TwinEventLedger {
   }
 
   public append(e: TwinEvent): void {
+    // RULE: If twin_id does not match -> memory is rejected.
+    if (this.currentTwinId && e.twin_id !== 'PENDING' && e.twin_id !== this.currentTwinId) {
+        console.warn(`REJECTED: Identity mismatch. Event ${e.id} belongs to ${e.twin_id}, but current anchor is ${this.currentTwinId}`);
+        return;
+    }
+
+    // Auto-stamp if pending
+    if (e.twin_id === 'PENDING' && this.currentTwinId) {
+        e.twin_id = this.currentTwinId;
+    }
+
     // Neural Healing: Ensure payload exists
     const event = { ...e, payload: e.payload || {} };
     const existing = this.events.find(x => x.id === event.id);
@@ -44,7 +65,7 @@ export class TwinEventLedger {
 
   /**
    * Merges external events with Fault-Tolerance.
-   * v3.3.3: HEALS GHOST EVENTS (Missing payloads)
+   * v3.4.0: IDENTITY DRIFT PREVENTION
    */
   public merge(externalEvents: TwinEvent[]): void {
     if (!Array.isArray(externalEvents)) return;
@@ -53,6 +74,11 @@ export class TwinEventLedger {
 
     externalEvents.forEach(e => {
         if (!e || !e.id) return;
+
+        // Identity Drift Protection
+        if (this.currentTwinId && e.twin_id !== this.currentTwinId) {
+            return; // Skip foreign identity data
+        }
 
         // Neural Healing: Pre-emptive payload stabilization
         const incoming = { ...e, payload: e.payload || {} };
@@ -84,6 +110,7 @@ export class TwinEventLedger {
 
   private saveLocal() {
     if (typeof window !== 'undefined') {
+        // We save everything to localStorage, but filtering happens on load
         localStorage.setItem('tv_event_history', JSON.stringify(this.events));
     }
   }

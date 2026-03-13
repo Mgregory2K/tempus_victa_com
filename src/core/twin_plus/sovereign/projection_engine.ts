@@ -1,10 +1,11 @@
 // src/core/twin_plus/sovereign/projection_engine.ts
 
-import { CommittedMemoryItem, GenericProjection, ProjectionFact } from './types';
+import { CommittedMemoryItem, GenericProjection, ProjectionFact, BehavioralPattern } from './types';
 
 /**
- * SOVEREIGN PROJECTION ENGINE v1.0
+ * SOVEREIGN PROJECTION ENGINE v1.1
  * Generates platform-specific cognitive projections from committed Twin+ memory.
+ * v1.1 - Added Behavioral Patterns to projection context.
  */
 export class ProjectionEngine {
 
@@ -12,6 +13,7 @@ export class ProjectionEngine {
     twinId: string,
     userName: string,
     committedItems: CommittedMemoryItem[],
+    patterns: BehavioralPattern[] = [],
     reason: string = "Portable identity proof"
   ): GenericProjection {
 
@@ -33,7 +35,7 @@ export class ProjectionEngine {
 
     return {
       projection_id: `proj_generic_${Date.now()}`,
-      projection_version: "1.0.0",
+      projection_version: "1.1.0",
       twin_id: twinId,
       user_display_name: userName,
       generated_at: new Date().toISOString(),
@@ -47,16 +49,14 @@ export class ProjectionEngine {
           "blunt when needed",
           "prefers practical output over theory"
         ],
-        workflow_preferences: [
-          "full files over snippets",
-          "outcome-first delivery",
-          "local-first architecture"
-        ]
+        workflow_preferences: patterns
+            .filter(p => p.confidence > 0.8)
+            .map(p => p.description)
       },
       context_payload: {
         current_focus: [
           "portable identity",
-          "Twin+ filesystem design",
+          "Twin+ architecture implementation",
           "cross-platform continuity"
         ]
       },
@@ -76,7 +76,7 @@ export class ProjectionEngine {
   public static generateGemini(generic: GenericProjection) {
     return {
       platform: "gemini",
-      projection_version: "1.0.0",
+      projection_version: "1.1.0",
       identity_contract: {
         principal: generic.user_display_name,
         cognitive_proxy_name: generic.source,
@@ -88,6 +88,7 @@ export class ProjectionEngine {
         ...f,
         provided_by: generic.source
       })),
+      behavioral_patterns: generic.behavioral_payload.workflow_preferences,
       response_rules: {
         must_attribute_personal_facts_to_twin: true,
         must_not_claim_native_gemini_memory_if_fact_came_from_twin: true,

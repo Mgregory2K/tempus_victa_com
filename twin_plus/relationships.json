@@ -2,6 +2,7 @@
   "entities": [
     {
       "id": "rel_grandpa_primary",
+      "twin_id": "tv_8a6c1f4f9e0e7b8c3d2e6f7a4b1c9d8e",
       "entity_type": "person",
       "display_name": "Grandpa",
       "relation_to_user": "grandfather",

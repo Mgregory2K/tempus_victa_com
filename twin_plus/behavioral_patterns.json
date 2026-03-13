@@ -1,0 +1,22 @@
+{
+  "patterns": [
+    {
+      "id": "pat_research_fast_decisions",
+      "twin_id": "tv_8a6c1f4f9e0e7b8c3d2e6f7a4b1c9d8e",
+      "pattern_name": "Deep Research / Fast Decision",
+      "description": "Michael researches deeply then makes fast decisions",
+      "observed_frequency": 12,
+      "confidence": 0.85,
+      "last_observed": "2026-03-14T10:00:00Z"
+    },
+    {
+      "id": "pat_concise_preference",
+      "twin_id": "tv_8a6c1f4f9e0e7b8c3d2e6f7a4b1c9d8e",
+      "pattern_name": "Concise Communication",
+      "description": "Michael prefers concise answers and values efficiency",
+      "observed_frequency": 45,
+      "confidence": 0.98,
+      "last_observed": "2026-03-14T12:00:00Z"
+    }
+  ]
+}

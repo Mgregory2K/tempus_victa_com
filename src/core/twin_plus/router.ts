@@ -8,12 +8,18 @@ export type TaskType =
   | 'ACTION_CMD'
   | 'WEB_SEARCH'
   | 'NEURAL_SYNTHESIS'
-  | 'PROTOCOL_SIM';
+  | 'PROTOCOL_SIM'
+  | 'WEB_FACT'
+  | 'PLANNING'
+  | 'OPTIMIZATION';
 
 export interface QueryIntent {
   surface: string;
   queryText: string;
   taskType: TaskType;
+  timeSensitivity?: number; // 0..1
+  verifiabilityRequirement?: number; // 0..1
+  complexityScore?: number; // 0..1
 }
 
 export interface RoutePlan {
@@ -24,8 +30,8 @@ export interface RoutePlan {
 }
 
 /**
- * TWIN_ROUTER v4.2 - SEMANTIC INTENT EDITION
- * No more 90s keyword matching. We analyze the "Shape" and "Domain" of the request.
+ * TWIN_ROUTER v3.4.0 - NUMERIC EFFICIENCY EDITION
+ * RULE: Efficiency > Accuracy. All decisions are numerical.
  */
 export class TwinRouter {
   constructor(private prefs: TwinPreferenceLedger, private features: TwinFeatureStore) {}
@@ -35,55 +41,78 @@ export class TwinRouter {
     const aiOptIn = typeof window !== 'undefined' ? !!localStorage.getItem('tv_api_key') : false;
     const hasInternet = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-    let strategy: RoutePlan['strategy'] = 'LOCAL';
-    const reasons: string[] = ['SEMANTIC_INTENT_ANALYSIS'];
+    const reasons: string[] = ['NUMERIC_EFFICIENCY_ROUTING'];
 
-    // 1. OFFLINE ENFORCEMENT
+    // 1. OFFLINE ENFORCEMENT (Hard constraint)
     if (!hasInternet) {
-        return this.finalize('LOCAL', aiOptIn, ['SENSORS_OFFLINE']);
+        return this.finalize('LOCAL', false, ['SENSORS_OFFLINE']);
     }
 
-    // 2. DOMAIN DETECTION (Personal vs External)
-    // Personal: "My", "I have", "Calendar", "Tasks", "Schedule"
-    // External: "Who is", "Capital of", "News", "Weather"
-    const isPersonalDomain = /^(do i|what('| )s my|my|have i|i have|calendar|schedule|task|todo|list|plan)/i.test(text);
-    const isExplicitCommand = /^(task:|todo:|note:|cork:|add |remind )/i.test(text);
+    // 2. NUMERIC INTENT SCORING
+    const timeSensitivity = intent.timeSensitivity ?? (this.inferTimeSensitivity(text));
+    const verifiabilityRequirement = intent.verifiabilityRequirement ?? (this.inferVerifiability(text));
+    const complexityScore = intent.complexityScore ?? (this.inferComplexity(text));
 
-    // 3. DOCTRINE: LOCAL-SENSORS FIRST
-    // If the user is asking about their own life, J5 checks the "Local Briefcase" first.
-    if (isPersonalDomain && !isExplicitCommand) {
-        strategy = 'LOCAL';
-        reasons.push('LOCAL_SENSOR_PRIORITY');
-        return this.finalize(strategy, aiOptIn, reasons);
+    // 3. DOCTRINE: LOCAL-FIRST (Knowledge Confidence check)
+    const localKnowledgeConfidence = this.calculateLocalConfidence(text);
+    if (localKnowledgeConfidence > 0.63 && verifiabilityRequirement < 0.55) {
+        reasons.push('LOCAL_CONFIDENCE_SUFFICIENT');
+        return this.finalize('LOCAL', aiOptIn, reasons);
     }
 
-    // 4. ACTION COMMANDS (Manifestation)
-    if (isExplicitCommand) {
-        strategy = 'LOCAL';
-        reasons.push('MANIFESTATION_INTENT');
-        return this.finalize(strategy, aiOptIn, reasons);
+    // 4. ESCALATE TO WEB (IT-Style Learning Trigger)
+    const shouldEscalateToWeb =
+        (localKnowledgeConfidence < 0.63) &&
+        (verifiabilityRequirement > 0.55);
+
+    if (shouldEscalateToWeb || intent.taskType === 'WEB_FACT' || intent.taskType === 'WEB_SEARCH') {
+        reasons.push('WEB_ESCALATION_TRIGGERED');
+        // Check if synthesis is also needed
+        if (aiOptIn && complexityScore > 0.71) {
+            reasons.push('HYBRID_NEURAL_REQUIRED');
+            return this.finalize('HYBRID', aiOptIn, reasons);
+        }
+        return this.finalize('INTERNET', aiOptIn, reasons);
     }
 
-    // 5. EXTERNAL SCOUT (The Magic Layer)
-    // Simple inquiries that don't need "Neural Strike" complexity.
-    const isSimpleInquiry = text.split(' ').length < 10 && !isPersonalDomain;
-    if (isSimpleInquiry || intent.taskType === 'WEB_SEARCH') {
-        strategy = 'INTERNET';
-        reasons.push('SCOUT_SUFFICIENT');
-        return this.finalize(strategy, aiOptIn, reasons);
+    // 5. NEURAL STRIKE (Numerical Complexity Gate)
+    const shouldEscalateToAi =
+        (complexityScore > 0.71) &&
+        (localKnowledgeConfidence < 0.68) &&
+        (aiOptIn);
+
+    if (shouldEscalateToAi || intent.taskType === 'NEURAL_SYNTHESIS' || intent.taskType === 'PROTOCOL_SIM') {
+        reasons.push('NEURAL_COMPLEXITY_GATE_PASSED');
+        return this.finalize('AI', aiOptIn, reasons);
     }
 
-    // 6. NEURAL STRIKE (Escalation)
-    if (aiOptIn && (text.length > 50 || text.includes("think") || text.includes("analyze") || intent.taskType === 'PROTOCOL_SIM')) {
-        strategy = 'AI';
-        reasons.push('NEURAL_STRIKE_REQUIRED');
-    } else {
-        // Default to Scout if internet is available and it's not a heavy lift.
-        strategy = 'INTERNET';
-        reasons.push('SCOUT_PREFERENCE');
-    }
+    // Default Fallback
+    reasons.push('EFFICIENCY_FALLBACK_SCOUT');
+    return this.finalize('INTERNET', aiOptIn, reasons);
+  }
 
-    return this.finalize(strategy, aiOptIn, reasons);
+  private inferTimeSensitivity(text: string): number {
+      if (text.includes('now') || text.includes('today') || text.includes('tonight')) return 0.9;
+      if (text.includes('tomorrow') || text.includes('week')) return 0.6;
+      return 0.3;
+  }
+
+  private inferVerifiability(text: string): number {
+      const factualKeywords = ['who', 'what', 'where', 'when', 'price', 'weather', 'score', 'president', 'capital'];
+      if (factualKeywords.some(k => text.includes(k))) return 0.8;
+      return 0.4;
+  }
+
+  private inferComplexity(text: string): number {
+      if (text.length > 100) return 0.8;
+      if (text.includes('think') || text.includes('analyze') || text.includes('plan') || text.includes('compare')) return 0.75;
+      return 0.2;
+  }
+
+  private calculateLocalConfidence(text: string): number {
+      // Basic heuristic: if it looks like personal life, confidence is higher locally
+      const isPersonal = /^(do i|what('| )s my|my|have i|i have|calendar|schedule|task|todo|list|plan)/i.test(text);
+      return isPersonal ? 0.85 : 0.2;
   }
 
   private finalize(strategy: RoutePlan['strategy'], aiAllowed: boolean, reasons: string[]): RoutePlan {

@@ -35,14 +35,18 @@ export type TwinEventType =
   | 'LIST_CREATED'
   | 'LIST_SHARED'
   | 'LIST_ITEM_ADDED'
-  | 'LIST_MODE_TOGGLED';
+  | 'LIST_MODE_TOGGLED'
+  | 'IDENTITY_ANCHORED'
+  | 'MEMORY_COMMITTED';
 
 /**
  * Defines the schema for a TwinEvent.
  * All events must include these core fields.
+ * RULE: Every memory object must reference the canonical twin_id.
  */
 export interface TwinEvent {
   id: string; // uuid
+  twin_id: string; // The canonical identity anchor
   ts: string; // UTC ISO 8601 timestamp
   surface: string; // BRIDGE | READY_ROOM | MISSIONS | etc
   type: TwinEventType;
@@ -53,9 +57,15 @@ export interface TwinEvent {
   privacy: 'normal' | 'sensitive' | 'redacted';
 }
 
-export function createEvent(type: TwinEventType, payload: any, surface: string = 'SYSTEM'): TwinEvent {
+export function createEvent(
+  type: TwinEventType,
+  payload: any,
+  surface: string = 'SYSTEM',
+  twinId: string = 'PENDING'
+): TwinEvent {
   return {
     id: Math.random().toString(36).substring(7),
+    twin_id: twinId,
     ts: new Date().toISOString(),
     surface,
     type,

@@ -6,6 +6,7 @@ import { TwinPreferenceLedger } from './twin_preference_ledger';
 import { TwinRouter, RoutePlan, QueryIntent } from './router';
 import { TwinShaper, ShapedOutput, OutputIntent } from './shaper';
 import { TwinEvent, createEvent } from './twin_event';
+import { TwinManifest } from './identity_model';
 
 export interface TwinSnapshot {
   prefs: any;
@@ -24,6 +25,7 @@ class TwinPlusKernel {
 
   private isInitialized = false;
   private eventQueue: TwinEvent[] = [];
+  private manifest: TwinManifest | null = null;
 
   private constructor() {}
 
@@ -34,42 +36,49 @@ class TwinPlusKernel {
     return TwinPlusKernel._instance;
   }
 
-  public async init(): Promise<void> {
+  public async init(existingManifest?: TwinManifest): Promise<void> {
     if (this.isInitialized) return;
 
-    this.ledger = await TwinEventLedger.open();
+    this.manifest = existingManifest || null;
+    const twinId = this.manifest?.twin_id;
+
+    this.ledger = await TwinEventLedger.open(twinId);
     this.prefs = await TwinPreferenceLedger.open();
     this.features = await TwinFeatureStore.open(this.prefs);
+
+    if (this.manifest) {
+        this.features.setManifest(this.manifest);
+    }
+
     this.router = new TwinRouter(this.prefs, this.features);
     this.shaper = new TwinShaper(this.prefs, this.features);
 
     this.isInitialized = true;
-    console.log("Twin+ Kernel Initialized.");
+    console.log(`Twin+ Kernel Initialized. Identity: ${twinId || 'UNANCHORED'}`);
 
     if (this.eventQueue.length > 0) {
         this.eventQueue.forEach(e => this.observe(e));
         this.eventQueue = [];
     }
 
-    this.observe(createEvent('ENTROPY_REDUCED', { action: 'KERNEL_INIT' }, 'SYSTEM'));
+    this.observe(this.createKernelEvent('ENTROPY_REDUCED', { action: 'KERNEL_INIT' }));
 
     // Initial Signal Scan
     this.scanExternalNodes();
   }
 
-  /**
-   * SCAN_EXTERNAL_NODES v3.4 - GMAIL/SHEETS INGESTION
-   * J5 polls the newly enabled APIs to surface life signals.
-   */
+  private createKernelEvent(type: any, payload: any): TwinEvent {
+      return createEvent(type, payload, 'SYSTEM', this.manifest?.twin_id || 'PENDING');
+  }
+
   public async scanExternalNodes() {
       if (typeof window === 'undefined') return;
       try {
           const res = await fetch('/api/signals');
           if (res.ok) {
               const data = await res.json();
-              this.observe(createEvent('EXTERNAL_SIGNALS_POLLED', data, 'EXTERNAL_NODE'));
+              this.observe(this.createKernelEvent('EXTERNAL_SIGNALS_POLLED', data));
 
-              // If high-value signals exist, notify the Identity Mirror for potential Bridge summary
               if (data.gmail?.unreadCount > 0) {
                   console.log(`J5: Tracking ${data.gmail.unreadCount} unread signals in primary inbox.`);
               }
@@ -107,6 +116,11 @@ class TwinPlusKernel {
         return;
     }
 
+    // Enforce twin_id consistency
+    if (this.manifest && e.twin_id === 'PENDING') {
+        e.twin_id = this.manifest.twin_id;
+    }
+
     this.ledger.append(e);
     this.features.apply(e);
   }
@@ -114,7 +128,7 @@ class TwinPlusKernel {
   public route(intent: QueryIntent): RoutePlan {
     if (!this.isInitialized) throw new Error("Kernel not ready.");
     const plan = this.router.route(intent);
-    this.observe(createEvent('INTENT_ROUTED', { intent, plan }, intent.surface));
+    this.observe(this.createKernelEvent('INTENT_ROUTED', { intent, plan }));
     return plan;
   }
 

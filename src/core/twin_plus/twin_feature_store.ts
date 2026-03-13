@@ -1,10 +1,11 @@
 // src/core/twin_plus/twin_feature_store.ts
 import { TwinEvent } from './twin_event';
 import { TwinPreferenceLedger } from './twin_preference_ledger';
-import { TwinIdentity, INITIAL_IDENTITY, CognitiveProfile } from './identity_model';
+import { TwinIdentity, INITIAL_IDENTITY_PROFILE, CognitiveProfile, TwinManifest } from './identity_model';
+import { BehavioralPattern } from './sovereign/types';
 
 /**
- * TWIN+ FEATURE STORE v3.5.9 - USAGE & LEARNING
+ * TWIN+ FEATURE STORE v3.4.0 - COGNITIVE OS
  */
 
 export interface UsageMetrics {
@@ -17,7 +18,16 @@ export interface UsageMetrics {
 export class TwinFeatureStore {
   private prefs: TwinPreferenceLedger;
 
-  public identity: TwinIdentity = INITIAL_IDENTITY;
+  public manifest: TwinManifest | null = null;
+  public userProfile: CognitiveProfile = INITIAL_IDENTITY_PROFILE;
+  public behavioralPatterns: BehavioralPattern[] = [];
+  public lexicon: Record<string, number> = {};
+  public doctrines: string[] = [
+    "Local > Internet > AI",
+    "Efficiency > Accuracy",
+    "Magician, not Programmer"
+  ];
+
   public usage: UsageMetrics = { local: 0, scout: 0, neural: 0, estimatedCost: 0 };
 
   // Memory Layers
@@ -36,13 +46,30 @@ export class TwinFeatureStore {
     return store;
   }
 
+  public setManifest(manifest: TwinManifest) {
+    this.manifest = manifest;
+    this.saveSovereignLedger();
+  }
+
   private async loadSovereignLedger() {
     if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem("tv_identity_graph");
+    const savedManifest = localStorage.getItem("tv_twin_manifest");
+    const savedProfile = localStorage.getItem("tv_user_profile");
+    const savedPatterns = localStorage.getItem("tv_behavioral_patterns");
+    const savedLexicon = localStorage.getItem("tv_lexicon");
     const savedUsage = localStorage.getItem("tv_usage_metrics");
 
-    if (saved) {
-        try { this.identity = JSON.parse(saved); } catch (e) {}
+    if (savedManifest) {
+        try { this.manifest = JSON.parse(savedManifest); } catch (e) {}
+    }
+    if (savedProfile) {
+        try { this.userProfile = JSON.parse(savedProfile); } catch (e) {}
+    }
+    if (savedPatterns) {
+        try { this.behavioralPatterns = JSON.parse(savedPatterns); } catch (e) {}
+    }
+    if (savedLexicon) {
+        try { this.lexicon = JSON.parse(savedLexicon); } catch (e) {}
     }
     if (savedUsage) {
         try { this.usage = JSON.parse(savedUsage); } catch (e) {}
@@ -51,13 +78,20 @@ export class TwinFeatureStore {
 
   private saveSovereignLedger() {
     if (typeof window !== 'undefined') {
-        this.identity.lastUpdated = new Date().toISOString();
-        localStorage.setItem("tv_identity_graph", JSON.stringify(this.identity));
+        if (this.manifest) localStorage.setItem("tv_twin_manifest", JSON.stringify(this.manifest));
+        localStorage.setItem("tv_user_profile", JSON.stringify(this.userProfile));
+        localStorage.setItem("tv_behavioral_patterns", JSON.stringify(this.behavioralPatterns));
+        localStorage.setItem("tv_lexicon", JSON.stringify(this.lexicon));
         localStorage.setItem("tv_usage_metrics", JSON.stringify(this.usage));
     }
   }
 
   public apply(e: TwinEvent): void {
+    // Identity Anchor Verification
+    if (this.manifest && e.twin_id !== 'PENDING' && e.twin_id !== this.manifest.twin_id) {
+        return; // Ignore events not belonging to this identity
+    }
+
     // 1. Telemetry
     this.episodicMemory.push({ ts: e.ts, type: e.type, surface: e.surface });
     if (this.episodicMemory.length > 100) this.episodicMemory.shift();
@@ -73,7 +107,7 @@ export class TwinFeatureStore {
         if (strategy === 'INTERNET') this.usage.scout++;
         if (strategy === 'AI') {
             this.usage.neural++;
-            this.usage.estimatedCost += 0.01; // Rough heuristic for GPT-4o
+            this.usage.estimatedCost += 0.01; // Rough heuristic
         }
     }
 
@@ -82,7 +116,7 @@ export class TwinFeatureStore {
         const words = e.payload.content.toLowerCase().split(/\s+/);
         words.forEach((w: string) => {
             if (w.length > 3) {
-                this.identity.lexicon[w] = (this.identity.lexicon[w] || 0) + 1;
+                this.lexicon[w] = (this.lexicon[w] || 0) + 1;
             }
         });
     }
@@ -96,11 +130,11 @@ export class TwinFeatureStore {
   }
 
   private reinforceIdentity(feedbackType: string) {
-    const p = this.identity.userProfile;
-    const step = 0.05;
+    const p = this.userProfile;
+    const step = 0.02;
     switch (feedbackType) {
         case 'UP':
-            p.directness = Math.min(1, p.directness + 0.02);
+            p.directness = Math.min(1, p.directness + step);
             break;
         case 'DOWN':
             p.directness = Math.max(0, p.directness - step);
@@ -111,7 +145,9 @@ export class TwinFeatureStore {
 
   public snapshot() {
     return {
-      identity: this.identity,
+      manifest: this.manifest,
+      profile: this.userProfile,
+      patterns: this.behavioralPatterns,
       usage: this.usage,
       rhythm: this.activityRhythm,
       memoryDepth: this.episodicMemory.length

@@ -2,6 +2,7 @@
   "items": [
     {
       "id": "mem_pet.dog.name",
+      "twin_id": "tv_8a6c1f4f9e0e7b8c3d2e6f7a4b1c9d8e",
       "memory_key": "pet.dog.name",
       "summary": "Michael's dog's name",
       "canonical_value": "Rocky",
@@ -24,6 +25,7 @@
     },
     {
       "id": "mem_family.grandpa.name",
+      "twin_id": "tv_8a6c1f4f9e0e7b8c3d2e6f7a4b1c9d8e",
       "memory_key": "family.grandpa.name",
       "summary": "Michael's grandpa's name",
       "canonical_value": "Donald",

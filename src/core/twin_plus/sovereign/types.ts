@@ -4,22 +4,24 @@ export type MemoryClass = "committed" | "durable" | "working" | "inferred" | "ep
 export type MemorySource = "explicit_user" | "imported_user_data" | "confirmed_external" | "inferred";
 export type Visibility = "local_only" | "twin_core" | "exportable" | "restricted";
 
+/**
+ * TWIN MANIFEST
+ * The canonical identity file that anchors the digital brain.
+ */
 export interface TwinPlusManifest {
-  schema_version: string;
-  filesystem_version: string;
-  twin_id: string;
-  user_id: string;
+  twin_id: string;          // tv_... (SHA256 based)
+  version: number;
   created_at: string;
-  updated_at: string;
-  platform_projection_versions: Record<string, string>;
-  integrity?: {
-    hash_algorithm: string;
-    file_hashes: Record<string, string>;
-  };
+  owner_email: string;
+  identity_anchor: string;  // e.g. "thecreator"
+  salt: string;
+  schema_version?: string;
+  filesystem_version?: string;
 }
 
 export interface DurableFact {
   id: string;
+  twin_id: string;          // Every object must reference the canonical twin_id
   key: string;
   value: unknown;
   value_type: "string" | "number" | "boolean" | "object" | "array";
@@ -34,8 +36,19 @@ export interface DurableFact {
   updated_at: string;
 }
 
+export interface BehavioralPattern {
+  id: string;
+  twin_id: string;
+  pattern_name: string;
+  description: string;
+  observed_frequency: number;
+  confidence: number;
+  last_observed: string;
+}
+
 export interface RelationshipEntity {
   id: string;
+  twin_id: string;
   entity_type: "person" | "pet" | "organization" | "place" | "team";
   display_name: string;
   relation_to_user: string;
@@ -50,6 +63,7 @@ export interface RelationshipEntity {
 
 export interface CommittedMemoryItem {
   id: string;
+  twin_id: string;
   memory_key: string;
   summary: string;
   canonical_value: unknown;
@@ -106,6 +120,7 @@ export interface GenericProjection {
 
 export interface MemoryLedgerEvent {
   event_id: string;
+  twin_id: string;
   ts: string;
   action: "create" | "update" | "delete" | "project";
   target: string;
