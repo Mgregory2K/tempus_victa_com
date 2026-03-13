@@ -15,7 +15,6 @@ export const SITE_SELECTORS: Record<SiteType, SiteSelector> = {
     sendButton: 'button[aria-label="Send message"]',
   },
   openai: {
-    id: "prompt-textarea",
     inputBox: "#prompt-textarea",
     sendButton: 'button[data-testid="send-button"]',
   },

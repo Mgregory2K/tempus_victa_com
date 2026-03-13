@@ -15,17 +15,22 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => ({}))) as {
       scope?: ProjectionScope;
+      audience?: string;
     };
 
-    const passport = exportTwinPassport(email, body.scope);
+    const passport = exportTwinPassport(email, body.scope, body.audience);
 
     return NextResponse.json({
       ok: true,
       passport,
     });
   } catch (error) {
+    console.error("Twin Export Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

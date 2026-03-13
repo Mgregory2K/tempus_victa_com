@@ -28,9 +28,11 @@ function ensureKeysExist() {
 export function signPassportAsymmetric(payload: TwinPassportPayload): TwinPassport {
   ensureKeysExist();
 
-  const privateKeyPem = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
   const registry = KeyRegistry.getInstance();
+  registry.refresh(); // Crucial: reload keys from disk if they were just generated
+
   const activeKey = registry.getActiveKey();
+  const privateKeyPem = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
 
   // Check 2: Passport ID uniqueness (UUID)
   const passportId = `twp_${crypto.randomUUID().replace(/-/g, '')}`;
@@ -42,8 +44,8 @@ export function signPassportAsymmetric(payload: TwinPassportPayload): TwinPasspo
     alg: "Ed25519"
   };
 
-  // Sign using real Ed25519
-  const signature = crypto.sign(null, Buffer.from(JSON.stringify(enrichedPayload)), privateKeyPem).toString('base64');
+  // Sign using Ed25519 (algorithm must be undefined for Ed25519)
+  const signature = crypto.sign(undefined, Buffer.from(JSON.stringify(enrichedPayload)), privateKeyPem).toString('base64');
 
   return {
     ...enrichedPayload,

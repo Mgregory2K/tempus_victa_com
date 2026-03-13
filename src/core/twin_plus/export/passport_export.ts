@@ -6,9 +6,10 @@ import { ProjectionScope } from "../scopes";
 
 export function exportTwinPassport(
   email: string,
-  scope: ProjectionScope = "ai_chat_compact"
+  scope: ProjectionScope = "ai_chat_compact",
+  audience?: string
 ): TwinPassport {
   const manifest = resolveOrCreateTwinManifest(email);
   const memory = loadTwinMemory();
-  return buildTwinPassport(manifest, memory, scope);
+  return buildTwinPassport(manifest, memory, scope, audience);
 }
