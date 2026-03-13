@@ -3,131 +3,205 @@
 import React, { useState, useEffect } from 'react';
 import { twinPlusKernel } from '@/core/twin_plus/twin_plus_kernel';
 import { createEvent } from '@/core/twin_plus/twin_event';
-
-interface ListItem {
-    id: string;
-    text: string;
-    checked: boolean;
-}
-
-interface List {
-    id: string;
-    name: string;
-    items: ListItem[];
-    sharedWith: string[];
-    active_shopper?: string;
-    mode?: 'standard' | 'shopping';
-}
+import { SharedList, SharedListItem, ListPermission, DEFAULT_GROCERY_CATEGORIES } from '@/types/shared-lists';
 
 export default function SharedLists() {
-    const [lists, setLists] = useState<List[]>([]);
+    const [lists, setLists] = useState<SharedList[]>([]);
     const [activeListId, setActiveListId] = useState<string | null>(null);
     const [newItemText, setNewItemText] = useState("");
+    const [newItemCategory, setNewItemCategory] = useState("Other");
     const [isSharing, setIsSharing] = useState(false);
     const [shareEmail, setShareEmail] = useState("");
+    const [sharePhone, setSharePhone] = useState("");
+    const [isSendingAlert, setIsSendingAlert] = useState(false);
 
     // Load lists from local storage on mount
     useEffect(() => {
-        const saved = localStorage.getItem("tv_shared_lists");
+        const saved = localStorage.getItem("tv_shared_lists_v2");
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
                 setLists(parsed);
-                if (parsed.length > 0) setActiveListId(parsed[0].id);
+                if (parsed.length > 0) setActiveListId(parsed[0].list_id);
             } catch (e) {
                 console.error("Failed to parse lists", e);
             }
         } else {
             // Default list if none exist
-            const defaultList: List = {
-                id: 'default-grocery',
+            const defaultList: SharedList = {
+                list_id: 'grocery_001',
                 name: 'Grocery List',
+                owner: 'michael.gregory1@gmail.com',
+                created_by: 'michael.gregory1@gmail.com',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
                 items: [
-                    { id: '1', text: 'Milk', checked: false },
-                    { id: '2', text: 'Bread', checked: false },
-                    { id: '3', text: 'Eggs', checked: true }
+                    { item_id: '1', text: 'Milk', checked: false, category: 'Dairy', created_by: 'michael.gregory1@gmail.com', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { item_id: '2', text: 'Eggs', checked: false, category: 'Dairy', created_by: 'michael.gregory1@gmail.com', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { item_id: '3', text: 'Bananas', checked: true, category: 'Produce', created_by: 'michael.gregory1@gmail.com', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
                 ],
-                sharedWith: ['jen@tempusvicta.com'],
+                permissions: [
+                    { email: 'jenmariehines@gmail.com', phone: '+15133157616', role: 'editor' }
+                ],
                 mode: 'standard'
             };
             setLists([defaultList]);
-            setActiveListId(defaultList.id);
+            setActiveListId(defaultList.list_id);
         }
     }, []);
 
     // Save lists on change
     useEffect(() => {
         if (lists.length > 0) {
-            localStorage.setItem("tv_shared_lists", JSON.stringify(lists));
+            localStorage.setItem("tv_shared_lists_v2", JSON.stringify(lists));
+            // Trigger background sync to cloud if session exists
+            fetch('/api/sync?file=shared_lists.json', {
+                method: 'POST',
+                body: JSON.stringify(lists)
+            }).catch(err => console.debug("Sync deferred: No active session"));
         }
     }, [lists]);
 
-    const activeList = lists.find(l => l.id === activeListId);
+    const activeList = lists.find(l => l.list_id === activeListId);
 
     const addList = () => {
         const name = prompt("Enter list name:");
         if (!name) return;
-        const newList: List = {
-            id: Date.now().toString(),
+        const newList: SharedList = {
+            list_id: Date.now().toString(),
             name,
+            owner: 'michael.gregory1@gmail.com',
+            created_by: 'michael.gregory1@gmail.com',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             items: [],
-            sharedWith: [],
+            permissions: [],
             mode: 'standard'
         };
         setLists([...lists, newList]);
-        setActiveListId(newList.id);
+        setActiveListId(newList.list_id);
         twinPlusKernel.observe(createEvent('LIST_CREATED', { name }, 'SHARED_LISTS'));
     };
 
-    const toggleMode = () => {
+    const startShopping = async () => {
+        if (!activeList || activeList.mode === 'shopping') return;
+
+        setIsSendingAlert(true);
+        try {
+            // Update local state first
+            const updatedLists = lists.map(l => {
+                if (l.list_id === activeListId) {
+                    return {
+                        ...l,
+                        mode: 'shopping' as const,
+                        active_shopper: 'Michael',
+                        shopping_started_at: new Date().toISOString()
+                    };
+                }
+                return l;
+            });
+            setLists(updatedLists);
+
+            // Trigger SMS alert if not sent already
+            if (!activeList.shopping_alert_sent) {
+                const response = await fetch('/api/lists/start-shopping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        listId: activeList.list_id,
+                        shopperName: 'Michael',
+                        collaborators: activeList.permissions.filter(p => p.phone)
+                    })
+                });
+
+                if (response.ok) {
+                    setLists(prev => prev.map(l =>
+                        l.list_id === activeListId ? { ...l, shopping_alert_sent: true } : l
+                    ));
+                }
+            }
+
+            twinPlusKernel.observe(createEvent('SHOPPING_STARTED', { listId: activeList.list_id }, 'SHARED_LISTS'));
+        } catch (error) {
+            console.error("Failed to start shopping:", error);
+        } finally {
+            setIsSendingAlert(false);
+        }
+    };
+
+    const stopShopping = () => {
         if (!activeListId) return;
         setLists(lists.map(l => {
-            if (l.id === activeListId) {
-                const newMode = l.mode === 'shopping' ? 'standard' : 'shopping';
-                twinPlusKernel.observe(createEvent('LIST_MODE_TOGGLED', { listId: l.id, mode: newMode }, 'SHARED_LISTS'));
-                return { ...l, mode: newMode, active_shopper: newMode === 'shopping' ? 'Michael' : undefined };
+            if (l.list_id === activeListId) {
+                return { ...l, mode: 'standard', active_shopper: undefined, shopping_alert_sent: false };
             }
             return l;
         }));
+        twinPlusKernel.observe(createEvent('SHOPPING_ENDED', { listId: activeListId }, 'SHARED_LISTS'));
     };
 
     const addItem = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newItemText.trim() || !activeListId) return;
-        const newItem: ListItem = {
-            id: Date.now().toString(),
+
+        const newItem: SharedListItem = {
+            item_id: Date.now().toString(),
             text: newItemText.trim(),
-            checked: false
+            checked: false,
+            category: newItemCategory,
+            created_by: 'michael.gregory1@gmail.com',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
-        setLists(lists.map(l => l.id === activeListId ? { ...l, items: [newItem, ...l.items] } : l));
+
+        setLists(lists.map(l => l.list_id === activeListId ? { ...l, items: [newItem, ...l.items] } : l));
         setNewItemText("");
-        twinPlusKernel.observe(createEvent('LIST_ITEM_ADDED', { text: newItem.text }, 'SHARED_LISTS'));
+        twinPlusKernel.observe(createEvent('LIST_ITEM_ADDED', { text: newItem.text, category: newItem.category }, 'SHARED_LISTS'));
     };
 
     const toggleItem = (itemId: string) => {
-        setLists(lists.map(l => l.id === activeListId ? {
+        setLists(lists.map(l => l.list_id === activeListId ? {
             ...l,
-            items: l.items.map(i => i.id === itemId ? { ...i, checked: !i.checked } : i)
+            items: l.items.map(i => i.item_id === itemId ? { ...i, checked: !i.checked, updated_at: new Date().toISOString() } : i)
         } : l));
     };
 
     const deleteItem = (itemId: string) => {
-        setLists(lists.map(l => l.id === activeListId ? {
+        setLists(lists.map(l => l.list_id === activeListId ? {
             ...l,
-            items: l.items.filter(i => i.id !== itemId)
+            items: l.items.filter(i => i.item_id !== itemId)
         } : l));
     };
 
     const shareList = () => {
         if (!shareEmail.trim() || !activeListId) return;
-        setLists(lists.map(l => l.id === activeListId ? {
+        const newPermission: ListPermission = {
+            email: shareEmail.trim(),
+            phone: sharePhone.trim() || undefined,
+            role: 'editor'
+        };
+        setLists(lists.map(l => l.list_id === activeListId ? {
             ...l,
-            sharedWith: [...new Set([...l.sharedWith, shareEmail.trim()])]
+            permissions: [...l.permissions.filter(p => p.email !== shareEmail.trim()), newPermission]
         } : l));
         setShareEmail("");
+        setSharePhone("");
         setIsSharing(false);
-        twinPlusKernel.observe(createEvent('LIST_SHARED', { email: shareEmail }, 'SHARED_LISTS'));
+        twinPlusKernel.observe(createEvent('LIST_SHARED', { email: shareEmail, phone: sharePhone }, 'SHARED_LISTS'));
     };
+
+    const groupedItems = activeList?.items.reduce((acc, item) => {
+        const cat = item.category || 'Other';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(item);
+        return acc;
+    }, {} as Record<string, SharedListItem[]>) || {};
+
+    const categoriesInUse = Object.keys(groupedItems).sort((a, b) => {
+        if (a === 'Other') return 1;
+        if (b === 'Other') return -1;
+        return a.localeCompare(b);
+    });
 
     return (
         <div className="max-w-md mx-auto h-full flex flex-col space-y-6 animate-slide-up pb-20 overflow-hidden">
@@ -139,31 +213,38 @@ export default function SharedLists() {
                         </h1>
                         <div className="flex items-center gap-3 mt-1">
                             <p className="system-text text-[10px] text-neon-green font-black tracking-widest uppercase">
-                                {activeList?.sharedWith.length ? `Synced: ${activeList.sharedWith.join(", ")}` : "Private Manifest"}
+                                {activeList?.permissions.length ? `Shared with ${activeList.permissions.length} manifest(s)` : "Private Manifest"}
                             </p>
                             {activeList?.mode === 'shopping' && (
                                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-accent/20 border border-accent/40 rounded-sm">
                                     <div className="w-1 h-1 rounded-full bg-accent animate-pulse" />
-                                    <span className="text-[8px] font-black text-accent uppercase tracking-tighter">LIVE: {activeList.active_shopper}</span>
+                                    <span className="text-[8px] font-black text-accent uppercase tracking-tighter">LIVE: {activeList.active_shopper} SHOPPING</span>
                                 </div>
                             )}
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button
-                            onClick={toggleMode}
-                            title="Toggle Store Mode"
-                            className={`p-2 rounded-sm border transition-all ${activeList?.mode === 'shopping' ? 'border-accent bg-accent/20 text-accent shadow-[0_0_10px_rgba(0,212,255,0.2)]' : 'border-white/10 text-white/20 hover:text-white'}`}
-                        >
-                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                        </button>
+                        {activeList?.mode === 'shopping' ? (
+                             <button
+                                onClick={stopShopping}
+                                className="px-3 py-1.5 bg-red-500/10 border border-red-500/40 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all rounded-sm"
+                            >
+                                Done
+                            </button>
+                        ) : (
+                            <button
+                                onClick={startShopping}
+                                disabled={isSendingAlert}
+                                className="px-3 py-1.5 bg-accent/10 border border-accent/40 text-accent text-[10px] font-black uppercase tracking-widest hover:bg-accent hover:text-black transition-all rounded-sm disabled:opacity-50"
+                            >
+                                {isSendingAlert ? 'Alerting...' : 'Start Shopping'}
+                            </button>
+                        )}
                         <button
                             onClick={() => setIsSharing(!isSharing)}
-                            className={`p-2 rounded-sm border transition-all ${isSharing ? 'border-accent bg-accent/10' : 'border-white/10 hover:border-white/30'}`}
+                            className={`p-2 rounded-sm border transition-all ${isSharing ? 'border-accent bg-accent/10 text-accent' : 'border-white/10 text-white/40 hover:text-white'}`}
                         >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                             </svg>
                         </button>
@@ -171,73 +252,88 @@ export default function SharedLists() {
                 </div>
 
                 {isSharing && (
-                    <div className="hud-panel p-4 bg-accent/5 border-accent/20 animate-slide-up">
-                        <label className="text-[8px] font-black uppercase text-accent/60 block mb-2 tracking-widest">Invite Collaborator</label>
-                        <div className="flex gap-2">
+                    <div className="hud-panel p-4 bg-accent/5 border-accent/20 animate-slide-up space-y-3">
+                        <label className="text-[8px] font-black uppercase text-accent/60 block tracking-widest">Add Collaborator</label>
+                        <div className="grid grid-cols-2 gap-2">
                             <input
                                 type="email"
                                 value={shareEmail}
                                 onChange={(e) => setShareEmail(e.target.value)}
-                                placeholder="email@address.com"
-                                className="flex-grow bg-white/5 border border-white/10 px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                                placeholder="Email"
+                                className="bg-white/5 border border-white/10 px-3 py-2 text-xs text-white outline-none focus:border-accent"
                             />
-                            <button
-                                onClick={shareList}
-                                className="bg-accent/20 border border-accent/40 px-4 text-accent text-[10px] font-black uppercase tracking-widest hover:bg-accent hover:text-black transition-all"
-                            >
-                                Share
-                            </button>
+                            <input
+                                type="tel"
+                                value={sharePhone}
+                                onChange={(e) => setSharePhone(e.target.value)}
+                                placeholder="Phone (+1...)"
+                                className="bg-white/5 border border-white/10 px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                            />
                         </div>
+                        <button
+                            onClick={shareList}
+                            className="w-full bg-accent/20 border border-accent/40 py-2 text-accent text-[10px] font-black uppercase tracking-widest hover:bg-accent hover:text-black transition-all"
+                        >
+                            Confirm Access
+                        </button>
                     </div>
                 )}
 
-                <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
+                <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
                     {lists.map(l => (
                         <button
-                            key={l.id}
-                            onClick={() => setActiveListId(l.id)}
-                            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeListId === l.id ? 'border-accent bg-accent/10 text-white' : 'border-white/10 text-white/40 hover:border-white/30'}`}
+                            key={l.list_id}
+                            onClick={() => setActiveListId(l.list_id)}
+                            className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeListId === l.list_id ? 'border-accent bg-accent/10 text-white' : 'border-white/10 text-white/40 hover:border-white/30'}`}
                         >
                             {l.name}
                         </button>
                     ))}
                     <button
                         onClick={addList}
-                        className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-dashed border-white/20 text-white/20 hover:border-accent/40 hover:text-accent transition-all"
+                        className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border border-dashed border-white/20 text-white/20 hover:border-accent/40 hover:text-accent transition-all"
                     >
-                        + New List
+                        + New
                     </button>
                 </div>
             </header>
 
-            <div className={`flex-grow overflow-y-auto hide-scrollbar space-y-2 pr-2 transition-all duration-500 ${activeList?.mode === 'shopping' ? 'bg-accent/5 p-2 rounded-lg' : ''}`}>
-                {activeList?.items.map(item => (
-                    <div
-                        key={item.id}
-                        className={`flex items-center gap-4 p-4 hud-panel bg-black/40 border-white/5 group transition-all ${item.checked ? 'opacity-40' : 'hover:border-accent/20'} ${activeList.mode === 'shopping' ? 'border-accent/10' : ''}`}
-                    >
-                        <button
-                            onClick={() => toggleItem(item.id)}
-                            className={`h-6 w-6 shrink-0 border-2 rounded-sm flex items-center justify-center transition-all ${item.checked ? 'border-neon-green bg-neon-green/20' : 'border-white/20 group-hover:border-accent/40'}`}
-                        >
-                            {item.checked && <div className="h-3 w-3 bg-neon-green shadow-[0_0_8px_#22c55e]" />}
-                        </button>
+            <div className={`flex-grow overflow-y-auto hide-scrollbar space-y-6 pr-1 transition-all duration-500 ${activeList?.mode === 'shopping' ? 'bg-accent/5 p-2 rounded-lg' : ''}`}>
+                {categoriesInUse.map(category => (
+                    <div key={category} className="space-y-1">
+                        <div className="flex items-center gap-2 mb-1 px-1">
+                            <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">{category}</span>
+                            <div className="h-px flex-grow bg-white/5" />
+                        </div>
+                        {groupedItems[category].map(item => (
+                            <div
+                                key={item.item_id}
+                                className={`flex items-center gap-3 px-3 py-2 h-[48px] hud-panel bg-black/40 border-white/5 group transition-all ${item.checked ? 'opacity-30' : 'hover:border-accent/20'} ${activeList?.mode === 'shopping' ? 'border-accent/10' : ''}`}
+                            >
+                                <button
+                                    onClick={() => toggleItem(item.item_id)}
+                                    className={`h-5 w-5 shrink-0 border rounded-sm flex items-center justify-center transition-all ${item.checked ? 'border-neon-green bg-neon-green/20' : 'border-white/20 group-hover:border-accent/40'}`}
+                                >
+                                    {item.checked && <div className="h-2 w-2 bg-neon-green shadow-[0_0_8px_#22c55e]" />}
+                                </button>
 
-                        <span
-                            onClick={() => toggleItem(item.id)}
-                            className={`flex-grow text-sm font-medium transition-all uppercase italic tracking-tight ${item.checked ? 'line-through text-white/20' : 'text-white/90 font-black'}`}
-                        >
-                            {item.text}
-                        </span>
+                                <span
+                                    onClick={() => toggleItem(item.item_id)}
+                                    className={`flex-grow text-xs font-bold transition-all uppercase italic tracking-tight ${item.checked ? 'line-through text-white/20' : 'text-white/90 font-black'}`}
+                                >
+                                    {item.text}
+                                </span>
 
-                        <button
-                            onClick={() => deleteItem(item.id)}
-                            className="opacity-0 group-hover:opacity-40 hover:!opacity-100 text-red-500 p-1"
-                        >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
+                                <button
+                                    onClick={() => deleteItem(item.item_id)}
+                                    className="opacity-0 group-hover:opacity-40 hover:!opacity-100 text-red-500 p-1"
+                                >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
+                        ))}
                     </div>
                 ))}
 
@@ -248,13 +344,25 @@ export default function SharedLists() {
                 )}
             </div>
 
-            <form onSubmit={addItem} className="shrink-0 pt-4 bg-gradient-to-t from-black via-black to-transparent pb-24">
+            <form onSubmit={addItem} className="shrink-0 space-y-2 pt-2 bg-gradient-to-t from-black via-black to-transparent pb-24">
+                <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                    {DEFAULT_GROCERY_CATEGORIES.map(cat => (
+                        <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setNewItemCategory(cat)}
+                            className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${newItemCategory === cat ? 'border-accent bg-accent/20 text-white' : 'border-white/5 text-white/20 hover:border-white/10'}`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
                 <div className="flex gap-2">
                     <input
                         value={newItemText}
                         onChange={(e) => setNewItemText(e.target.value)}
-                        placeholder="Manifest an item..."
-                        className="flex-grow bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-accent italic uppercase transition-all"
+                        placeholder={`Add to ${newItemCategory}...`}
+                        className="flex-grow bg-white/5 border border-white/10 px-4 py-2 text-xs text-white outline-none focus:border-accent italic uppercase transition-all"
                     />
                     <button
                         type="submit"

@@ -4,7 +4,7 @@ import { getToken } from 'next-auth/jwt';
 import { google } from 'googleapis';
 
 /**
- * MOTHERSHIP SYNC v7.0 - SOVEREIGN IDENTITY & BOARD PERSISTENCE
+ * MOTHERSHIP SYNC v7.1 - SOVEREIGN IDENTITY & BOARD PERSISTENCE
  * Authorized for all board modules and Twin+ Sovereign Identity Pack.
  */
 
@@ -18,6 +18,7 @@ const ALLOWED_FILES = new Set([
     'quotes.json',
     'wishes.json',
     'notes.json',
+    'shared_lists.json', // Added for Shared Lists persistence
     'mirror_state.json',
     // Twin+ Sovereign Identity Pack Files
     'twin_manifest.json',
