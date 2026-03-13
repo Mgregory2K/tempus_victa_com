@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GrantRegistry } from "@/src/core/twin_plus/grants/grant_registry";
+import { GrantRegistry } from "@/core/twin_plus/grants/grant_registry";
 
 function getAuthenticatedGoogleEmail(): string {
   return "michael.gregory1@gmail.com";

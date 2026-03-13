@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { exportTwinPassport } from "@/src/core/twin_plus/export/passport_export";
-import { ProjectionScope } from "@/src/core/twin_plus/scopes";
+import { exportTwinPassport } from "@/core/twin_plus/export/passport_export";
+import { ProjectionScope } from "@/core/twin_plus/scopes";
 
 function getAuthenticatedGoogleEmail(): string {
   return "michael.gregory1@gmail.com";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { RevocationRegistry } from "@/src/core/twin_plus/revocation/revocation_registry";
-import { GrantRegistry } from "@/src/core/twin_plus/grants/grant_registry";
+import { RevocationRegistry } from "@/core/twin_plus/revocation/revocation_registry";
+import { GrantRegistry } from "@/core/twin_plus/grants/grant_registry";
 
 export async function POST(request: Request) {
   try {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { verifyPassportAsymmetric } from "@/src/core/twin_plus/crypto/verify_passport";
-import { TwinPassport } from "@/src/core/twin_plus/identity_model";
+import { verifyPassportAsymmetric } from "@/core/twin_plus/crypto/verify_passport";
+import { TwinPassport } from "@/core/twin_plus/identity_model";
 
 export async function POST(request: Request) {
   try {

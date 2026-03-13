@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { resolveOrCreateTwinManifest } from "@/src/core/twin_plus/google_identity_bridge";
-import { loadTwinMemory } from "@/src/core/twin_plus/twin_memory";
+import { resolveOrCreateTwinManifest } from "@/core/twin_plus/google_identity_bridge";
+import { loadTwinMemory } from "@/core/twin_plus/twin_memory";
 
 function getAuthenticatedGoogleEmail(): string {
   // Replace this with your real Google session user email.

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { resolveOrCreateTwinManifest } from "@/src/core/twin_plus/google_identity_bridge";
-import { loadTwinMemory } from "@/src/core/twin_plus/twin_memory";
-import { buildTwinPassport } from "@/src/core/twin_plus/twin_passport";
-import { buildGeminiPrompt } from "@/src/core/twin_plus/adapters/adapter_gemini";
+import { resolveOrCreateTwinManifest } from "@/core/twin_plus/google_identity_bridge";
+import { loadTwinMemory } from "@/core/twin_plus/twin_memory";
+import { buildTwinPassport } from "@/core/twin_plus/twin_passport";
+import { buildGeminiPrompt } from "@/core/twin_plus/adapters/adapter_gemini";
 
 function getAuthenticatedGoogleEmail(): string {
   return "michael.gregory1@gmail.com";
