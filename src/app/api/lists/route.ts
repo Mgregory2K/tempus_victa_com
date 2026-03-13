@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { SharedList } from "@/types/shared-lists";
+import { SharedList, SharedListItem } from "@/types/shared-lists";
 
 const REGISTRY_PATH = path.join(process.cwd(), "twin_plus", "shared_lists_registry.json");
+
+/**
+ * SHARED LIST REGISTRY - CANONICAL STORAGE WITH MERGING
+ */
 
 async function readRegistry(): Promise<SharedList[]> {
     try {
@@ -20,6 +24,25 @@ async function writeRegistry(lists: SharedList[]) {
     await fs.writeFile(REGISTRY_PATH, JSON.stringify(lists, null, 2));
 }
 
+function mergeItems(existing: SharedListItem[], incoming: SharedListItem[]): SharedListItem[] {
+    const itemMap = new Map<string, SharedListItem>();
+
+    // Add existing items
+    existing.forEach(item => itemMap.set(item.item_id, item));
+
+    // Merge incoming items (newer updated_at wins, or just replace if incoming is present)
+    incoming.forEach(item => {
+        const existingItem = itemMap.get(item.item_id);
+        if (!existingItem || new Date(item.updated_at) >= new Date(existingItem.updated_at)) {
+            itemMap.set(item.item_id, item);
+        }
+    });
+
+    return Array.from(itemMap.values()).sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+}
+
 export async function GET(req: NextRequest) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const userEmail = token?.email?.toLowerCase();
@@ -29,8 +52,6 @@ export async function GET(req: NextRequest) {
     }
 
     const allLists = await readRegistry();
-
-    // Discovery: owned lists OR lists where permissions contains user email
     const userLists = allLists.filter(list =>
         list.owner?.toLowerCase() === userEmail ||
         list.permissions?.some(p => p.email.toLowerCase() === userEmail)
@@ -57,7 +78,6 @@ export async function POST(req: NextRequest) {
         const existingIndex = allLists.findIndex(l => l.list_id === listData.list_id);
 
         if (existingIndex > -1) {
-            // Permission check: only owner or editors can update
             const existing = allLists[existingIndex];
             const hasAccess =
                 existing.owner?.toLowerCase() === userEmail ||
@@ -67,9 +87,17 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: "Forbidden" }, { status: 403 });
             }
 
-            allLists[existingIndex] = { ...listData, updated_at: new Date().toISOString() };
+            // MERGE LOGIC: Merge items and permissions rather than full overwrite
+            const mergedItems = mergeItems(existing.items, listData.items);
+
+            allLists[existingIndex] = {
+                ...existing,
+                ...listData,
+                owner: existing.owner, // Preserve owner
+                items: mergedItems,
+                updated_at: new Date().toISOString()
+            };
         } else {
-            // New list: ensure current user is owner
             const newList = {
                 ...listData,
                 owner: userEmail,

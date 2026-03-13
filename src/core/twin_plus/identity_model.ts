@@ -1,62 +1,51 @@
-// src/core/twin_plus/identity_model.ts
-import crypto from 'crypto';
+export type TwinManifest = {
+  twin_id: string;
+  version: number;
+  created_at: string;
+  owner_email: string;
+  auth_provider: "google";
+  identity_anchor?: string;
+  salt: string;
+  issuer: string;
+};
 
-/**
- * TWIN+ IDENTITY ARCHITECTURE
- * The canonical identity anchor for the Cognitive OS.
- */
+export type DurableFacts = Record<string, string | number | boolean | null>;
 
-export interface TwinManifest {
-    twin_id: string;        // tv_... (SHA256 based)
-    version: number;
-    created_at: string;
-    owner_email: string;
-    identity_anchor: string; // e.g., "thecreator"
-    salt: string;
-}
+export type Preferences = Record<string, string | number | boolean | null>;
 
-export interface CognitiveProfile {
-    // Dynamic Sliders (0.0 - 1.0)
-    directness: number;      // Blunt vs. Descriptive
-    efficiencyBias: number;  // Speed vs. Accuracy
-    sarcasmTolerance: number;
-    challengeLevel: number;  // How much Twin+ pushes back
-    verbosity: number;       // Short vs. Long
+export type BehavioralPatterns = {
+  pattern: string;
+  confidence: number;
+  updated_at: string;
+}[];
 
-    // Reasoning Patterns
-    prefersSystems: number;  // Structural vs. Abstract thinking
-    riskTolerance: number;   // High-risk/High-reward bias
-}
+export type TwinMemoryBundle = {
+  durable_facts: DurableFacts;
+  preferences: Preferences;
+  behavioral_patterns: BehavioralPatterns;
+};
 
-export interface TwinIdentity {
-    manifest: TwinManifest;
-    userProfile: CognitiveProfile;
-    lexicon: Record<string, number>; // Learned vocabulary frequency
-    doctrines: string[];             // Learned "Laws" Michael has stated
-    version: number;
-    lastUpdated: string;
-}
+export type TwinProjection = {
+  twin_id: string;
+  subject: string;
+  facts: Record<string, string | number | boolean | null>;
+  preferences: Record<string, string | number | boolean | null>;
+  patterns: string[];
+  issued_at: string;
+  expires_at: string;
+  scope: string[];
+};
 
-export function generateTwinId(seed: string): { twin_id: string; salt: string } {
-    const salt = crypto.randomBytes(16).toString("hex");
+export type TwinPassportPayload = {
+  spec_version: "twin_passport_v1";
+  issuer: string;
+  twin_id: string;
+  subject: string;
+  issued_at: string;
+  expires_at: string;
+  projection: TwinProjection;
+};
 
-    const hash = crypto
-      .createHash("sha256")
-      .update(seed + salt)
-      .digest("hex");
-
-    return {
-      twin_id: "tv_" + hash.slice(0, 32),
-      salt
-    };
-}
-
-export const INITIAL_IDENTITY_PROFILE: CognitiveProfile = {
-    directness: 0.8,
-    efficiencyBias: 0.9,
-    sarcasmTolerance: 0.5,
-    challengeLevel: 0.4,
-    verbosity: 0.3,
-    prefersSystems: 0.9,
-    riskTolerance: 0.7
+export type TwinPassport = TwinPassportPayload & {
+  signature: string;
 };

@@ -1,0 +1,61 @@
+[
+  {
+    "list_id": "list_1773406898232",
+    "name": "Grocery",
+    "owner": "michael.gregory1@gmail.com",
+    "created_by": "michael.gregory1@gmail.com",
+    "created_at": "2026-03-13T13:01:38.262Z",
+    "updated_at": "2026-03-13T13:02:01.566Z",
+    "items": [
+      {
+        "item_id": "item_1773406921553",
+        "text": "cheeses",
+        "checked": false,
+        "category": "Dairy",
+        "created_by": "michael.gregory1@gmail.com",
+        "created_at": "2026-03-13T13:02:01.553Z",
+        "updated_at": "2026-03-13T13:02:01.553Z"
+      },
+      {
+        "item_id": "item_1773406915688",
+        "text": "bread",
+        "checked": false,
+        "category": "Bakery",
+        "created_by": "michael.gregory1@gmail.com",
+        "created_at": "2026-03-13T13:01:55.688Z",
+        "updated_at": "2026-03-13T13:01:55.688Z"
+      },
+      {
+        "item_id": "item_1773406905504",
+        "text": "Hamburger",
+        "checked": false,
+        "category": "Meat",
+        "created_by": "michael.gregory1@gmail.com",
+        "created_at": "2026-03-13T13:01:45.504Z",
+        "updated_at": "2026-03-13T13:01:45.504Z"
+      },
+      {
+        "item_id": "item_1773406903402",
+        "text": "Steak",
+        "checked": false,
+        "category": "Meat",
+        "created_by": "michael.gregory1@gmail.com",
+        "created_at": "2026-03-13T13:01:43.402Z",
+        "updated_at": "2026-03-13T13:01:43.402Z"
+      }
+    ],
+    "permissions": [],
+    "mode": "standard"
+  },
+  {
+    "list_id": "list_1773406948866",
+    "name": "Home Depot",
+    "owner": "michael.gregory1@gmail.com",
+    "created_by": "michael.gregory1@gmail.com",
+    "created_at": "2026-03-13T13:02:28.995Z",
+    "updated_at": "2026-03-13T13:02:28.995Z",
+    "items": [],
+    "permissions": [],
+    "mode": "standard"
+  }
+]
