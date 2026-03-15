@@ -8,9 +8,9 @@
     "start": "next start -p 3010",
     "lint": "eslint",
     "static": "next build && next export",
-    "cap:sync": "cap sync",
-    "cap:copy": "cap copy android",
-    "cap:open": "cap open android"
+    "cap:sync": "npx capacitor sync",
+    "cap:copy": "npx capacitor copy android",
+    "cap:open": "npx capacitor open android"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",
