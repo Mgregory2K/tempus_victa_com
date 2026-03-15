@@ -7,14 +7,14 @@
     "build": "next build",
     "start": "next start -p 3010",
     "lint": "eslint",
-    "static": "next build && next export",
+    "terminal:build": "powershell -Command \"if (Test-Path src/app/api) { Move-Item src/app/api api_shield }; try { cross-env NEXT_PUBLIC_TERMINAL_MODE=true next build } finally { if (Test-Path api_shield) { Move-Item api_shield src/app/api } }\"",
     "cap:sync": "npx capacitor sync",
     "cap:copy": "npx capacitor copy android",
     "cap:open": "npx capacitor open android"
   },
   "dependencies": {
-    "@capacitor/android": "^6.0.0",
-    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
     "googleapis": "^137.1.0",
     "next": "16.1.6",
     "next-auth": "^4.24.7",
@@ -26,13 +26,14 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0",
+    "@capacitor/cli": "^6.2.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^9.0.8",
     "babel-plugin-react-compiler": "1.0.0",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",

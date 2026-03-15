@@ -4,11 +4,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { SharedList, SharedListItem } from "@/types/shared-lists";
 
-const REGISTRY_PATH = path.join(process.cwd(), "twin_plus", "shared_lists_registry.json");
+// API remains dynamic for the server build
+export const dynamic = 'force-dynamic';
 
-/**
- * SHARED LIST REGISTRY - CANONICAL STORAGE WITH MERGING
- */
+const REGISTRY_PATH = path.join(process.cwd(), "twin_plus", "shared_lists_registry.json");
 
 async function readRegistry(): Promise<SharedList[]> {
     try {
@@ -26,18 +25,13 @@ async function writeRegistry(lists: SharedList[]) {
 
 function mergeItems(existing: SharedListItem[], incoming: SharedListItem[]): SharedListItem[] {
     const itemMap = new Map<string, SharedListItem>();
-
-    // Add existing items
     existing.forEach(item => itemMap.set(item.item_id, item));
-
-    // Merge incoming items (newer updated_at wins, or just replace if incoming is present)
     incoming.forEach(item => {
         const existingItem = itemMap.get(item.item_id);
         if (!existingItem || new Date(item.updated_at) >= new Date(existingItem.updated_at)) {
             itemMap.set(item.item_id, item);
         }
     });
-
     return Array.from(itemMap.values()).sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
@@ -87,13 +81,12 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: "Forbidden" }, { status: 403 });
             }
 
-            // MERGE LOGIC: Merge items and permissions rather than full overwrite
             const mergedItems = mergeItems(existing.items, listData.items);
 
             allLists[existingIndex] = {
                 ...existing,
                 ...listData,
-                owner: existing.owner, // Preserve owner
+                owner: existing.owner,
                 items: mergedItems,
                 updated_at: new Date().toISOString()
             };
