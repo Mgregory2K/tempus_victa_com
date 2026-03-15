@@ -2,18 +2,44 @@
 
 import { TwinEvent } from './twin_event';
 
+// Dynamic module holders to satisfy Next.js/Turbopack build-time checks
+let Capacitor: any = null;
+let TwinNative: any = null;
+
+async function loadNativeModules() {
+  if (typeof window !== 'undefined') {
+    try {
+      // Use string-based dynamic import to hide from static analysis
+      const capModuleName = '@capacitor/core';
+      const capModule: any = await import(capModuleName);
+      Capacitor = capModule.Capacitor;
+
+      if (Capacitor?.isNativePlatform()) {
+        const bridgeModuleName = '../native/TwinNativeBridge';
+        const nativeModule: any = await import(bridgeModuleName);
+        TwinNative = nativeModule.default;
+      }
+    } catch (e) {
+      // Non-native environment
+    }
+  }
+}
+
 /**
  * The TwinEventLedger is the append-only source of truth.
- * v3.4.0 - IDENTITY_ANCHORED (Enforces twin_id matching)
+ * v4.0.3 - Opaque build-safe dynamic resolution
  */
 export class TwinEventLedger {
   private events: TwinEvent[] = [];
   private currentTwinId: string | null = null;
+  private isNative = false;
 
   public static async open(twinId?: string): Promise<TwinEventLedger> {
+    await loadNativeModules();
     const ledger = new TwinEventLedger();
+    ledger.isNative = Capacitor?.isNativePlatform() || false;
     if (twinId) ledger.currentTwinId = twinId;
-    ledger.loadLocal();
+    await ledger.loadLocal();
     return ledger;
   }
 
@@ -21,13 +47,26 @@ export class TwinEventLedger {
     this.currentTwinId = id;
   }
 
-  private loadLocal() {
+  private async loadLocal() {
+    if (this.isNative && TwinNative) {
+        try {
+            const pack = await TwinNative.loadMemoryPack();
+            const bundle = JSON.parse(pack.bundleJson);
+            if (bundle.events) {
+                this.events = bundle.events;
+                console.log("Twin+ Hydrated from Native Memory Pack.");
+                return;
+            }
+        } catch (e) {
+            console.warn("Native memory pack load failed, falling back to localStorage", e);
+        }
+    }
+
     if (typeof window !== 'undefined') {
         try {
             const saved = localStorage.getItem('tv_event_history');
             if (saved) {
                 const allEvents: TwinEvent[] = JSON.parse(saved);
-                // Filter by twin_id if anchored
                 this.events = this.currentTwinId
                     ? allEvents.filter(e => e.twin_id === this.currentTwinId)
                     : allEvents;
@@ -39,18 +78,14 @@ export class TwinEventLedger {
   }
 
   public append(e: TwinEvent): void {
-    // RULE: If twin_id does not match -> memory is rejected.
     if (this.currentTwinId && e.twin_id !== 'PENDING' && e.twin_id !== this.currentTwinId) {
-        console.warn(`REJECTED: Identity mismatch. Event ${e.id} belongs to ${e.twin_id}, but current anchor is ${this.currentTwinId}`);
         return;
     }
 
-    // Auto-stamp if pending
     if (e.twin_id === 'PENDING' && this.currentTwinId) {
         e.twin_id = this.currentTwinId;
     }
 
-    // Neural Healing: Ensure payload exists
     const event = { ...e, payload: e.payload || {} };
     const existing = this.events.find(x => x.id === event.id);
 
@@ -60,13 +95,19 @@ export class TwinEventLedger {
         existing.payload = existing.payload || {};
         existing.payload.reinforcement = (existing.payload.reinforcement || 1) + 1;
     }
+
     this.saveLocal();
+
+    // If native, also enqueue a sync journal entry
+    if (this.isNative && TwinNative) {
+        TwinNative.enqueueCapture({
+            type: 'text',
+            content: JSON.stringify(event),
+            metadata: JSON.stringify({ action: 'APPEND_EVENT', objectId: event.id })
+        });
+    }
   }
 
-  /**
-   * Merges external events with Fault-Tolerance.
-   * v3.4.0: IDENTITY DRIFT PREVENTION
-   */
   public merge(externalEvents: TwinEvent[]): void {
     if (!Array.isArray(externalEvents)) return;
 
@@ -74,22 +115,15 @@ export class TwinEventLedger {
 
     externalEvents.forEach(e => {
         if (!e || !e.id) return;
+        if (this.currentTwinId && e.twin_id !== this.currentTwinId) return;
 
-        // Identity Drift Protection
-        if (this.currentTwinId && e.twin_id !== this.currentTwinId) {
-            return; // Skip foreign identity data
-        }
-
-        // Neural Healing: Pre-emptive payload stabilization
         const incoming = { ...e, payload: e.payload || {} };
         const local = localMap.get(incoming.id);
 
         if (local) {
-            // Ensure local also has a payload to prevent undefined errors
             local.payload = local.payload || {};
             local.payload.reinforcement = (local.payload.reinforcement || 1) + (incoming.payload?.reinforcement || 1);
         } else {
-            // New event from another surface.
             this.events.push({
                 ...incoming,
                 payload: { ...incoming.payload, reinforcement: incoming.payload?.reinforcement || 1 }
@@ -97,21 +131,25 @@ export class TwinEventLedger {
         }
     });
 
-    // Re-align timeline
     this.events.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
-
-    // Safety cap
-    if (this.events.length > 2000) {
-        this.events = this.events.slice(-2000);
-    }
+    if (this.events.length > 2000) this.events = this.events.slice(-2000);
 
     this.saveLocal();
   }
 
   private saveLocal() {
     if (typeof window !== 'undefined') {
-        // We save everything to localStorage, but filtering happens on load
         localStorage.setItem('tv_event_history', JSON.stringify(this.events));
+    }
+
+    // Periodically update the native memory pack for instant cold-starts
+    if (this.isNative && TwinNative) {
+        TwinNative.saveMemoryPack({
+            bundleJson: JSON.stringify({
+                events: this.events.slice(-100), // Recent context
+                updatedAt: new Date().toISOString()
+            })
+        });
     }
   }
 

@@ -2,10 +2,11 @@
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { google } from 'googleapis';
+import { refreshAccessToken } from '@/lib/auth-utils';
 
 /**
- * MOTHERSHIP SYNC v7.1 - SOVEREIGN IDENTITY & BOARD PERSISTENCE
- * Authorized for all board modules and Twin+ Sovereign Identity Pack.
+ * MOTHERSHIP SYNC v7.2 - SOVEREIGN IDENTITY & PROACTIVE AUTH
+ * Objective: Guarantee background sync without manual re-login via proactive token rotation.
  */
 
 const ALLOWED_FILES = new Set([
@@ -18,9 +19,8 @@ const ALLOWED_FILES = new Set([
     'quotes.json',
     'wishes.json',
     'notes.json',
-    'shared_lists.json', // Added for Shared Lists persistence
+    'shared_lists.json',
     'mirror_state.json',
-    // Twin+ Sovereign Identity Pack Files
     'twin_manifest.json',
     'committed_memory.json',
     'durable_facts.json',
@@ -30,6 +30,33 @@ const ALLOWED_FILES = new Set([
     'behavioral_patterns.json',
     'promotion_rules.json'
 ]);
+
+/**
+ * Helper to get an authorized Google Drive instance,
+ * performing a proactive silent refresh if the current token is expired.
+ */
+async function getAuthorizedDrive(token: any, req: Request) {
+    let currentToken = token;
+
+    // Check if token is expired or will expire in the next 30 seconds
+    const isExpired = Date.now() >= (currentToken.expiresAt as number * 1000) - 30000;
+
+    if (isExpired) {
+        console.log("[Sync] Access token expired or near expiry. Triggering proactive refresh...");
+        currentToken = await refreshAccessToken(currentToken);
+
+        if (currentToken.error) {
+            throw new Error("PROACTIVE_REFRESH_FAILED");
+        }
+    }
+
+    const auth = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+    );
+    auth.setCredentials({ access_token: currentToken.accessToken as string });
+    return google.drive({ version: 'v3', auth });
+}
 
 export async function GET(req: Request) {
   const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
@@ -42,11 +69,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Forbidden_Filename' }, { status: 403 });
   }
 
-  const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
-  auth.setCredentials({ access_token: token.accessToken as string });
-  const drive = google.drive({ version: 'v3', auth });
-
   try {
+    const drive = await getAuthorizedDrive(token, req);
     const list = await drive.files.list({
       spaces: 'appDataFolder',
       q: `name = '${filename}'`,
@@ -58,6 +82,10 @@ export async function GET(req: Request) {
     const content = await drive.files.get({ fileId: file.id!, alt: 'media' });
     return NextResponse.json(content.data);
   } catch (error: any) {
+    console.error("[Sync] GET Error:", error.message || error);
+    if (error.message === "PROACTIVE_REFRESH_FAILED") {
+        return NextResponse.json({ error: 'Auth_Session_Expired' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Sync_Failure' }, { status: 500 });
   }
 }
@@ -80,11 +108,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid_JSON' }, { status: 400 });
   }
 
-  const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
-  auth.setCredentials({ access_token: token.accessToken as string });
-  const drive = google.drive({ version: 'v3', auth });
-
   try {
+    const drive = await getAuthorizedDrive(token, req);
     const list = await drive.files.list({
       spaces: 'appDataFolder',
       q: `name = '${filename}'`,
@@ -108,6 +133,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    console.error("[Sync] POST Error:", error.message || error);
+    if (error.message === "PROACTIVE_REFRESH_FAILED") {
+        return NextResponse.json({ error: 'Auth_Session_Expired' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Transmission_Failure' }, { status: 500 });
   }
 }

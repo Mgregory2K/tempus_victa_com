@@ -1,46 +1,13 @@
 // src/app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
+import { refreshAccessToken } from "@/lib/auth-utils"
 
 /**
- * TOKEN ROTATION v3.6 - REFRESH TOKEN LOGIC
+ * TOKEN ROTATION v3.7 - REFRESH TOKEN LOGIC
  * Objective: Ensure Google API access tokens are automatically rotated before expiry.
+ * This version uses the shared refreshAccessToken utility.
  */
-
-async function refreshAccessToken(token: any) {
-  try {
-    const url = "https://oauth2.googleapis.com/token"
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        grant_type: "refresh_token",
-        refresh_token: token.refreshToken,
-      }),
-    })
-
-    const refreshedTokens = await response.json()
-
-    if (!response.ok) {
-      throw refreshedTokens
-    }
-
-    return {
-      ...token,
-      accessToken: refreshedTokens.access_token,
-      expiresAt: Math.floor(Date.now() / 1000 + refreshedTokens.expires_in),
-      refreshToken: refreshedTokens.refresh_token ?? token.refreshToken, // Fall back to old refresh token
-    }
-  } catch (error) {
-    console.error("Error refreshing access token", error)
-    return {
-      ...token,
-      error: "RefreshAccessTokenError",
-    }
-  }
-}
 
 const handler = NextAuth({
   providers: [
@@ -51,7 +18,7 @@ const handler = NextAuth({
         params: {
           scope: "openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/spreadsheets.readonly",
           access_type: "offline",
-          prompt: "consent",
+          prompt: "consent", // Ensures refresh_token is returned during initial login
         },
       },
     }),
@@ -59,7 +26,7 @@ const handler = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, account, user }) {
-      // Initial sign in
+      // Initial sign in: store the initial tokens
       if (account && user) {
         const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
         return {
@@ -71,12 +38,12 @@ const handler = NextAuth({
         }
       }
 
-      // Return previous token if the access token has not expired yet
+      // If token is still valid, return it
       if (Date.now() < (token.expiresAt as number) * 1000) {
         return token
       }
 
-      // Access token has expired, try to update it
+      // Access token has expired, use shared utility to update it
       return refreshAccessToken(token)
     },
     async session({ session, token }) {

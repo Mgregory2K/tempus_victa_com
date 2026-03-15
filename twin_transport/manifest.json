@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Twin Transport",
+  "version": "1.1.1",
+  "description": "Inject Twin context into known and detected AI chat interfaces.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://chatgpt.com/*",
+    "http://localhost:3010/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/selectors.js", "content/detector.js", "content/injector.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
