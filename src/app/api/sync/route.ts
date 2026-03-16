@@ -5,8 +5,8 @@ import { google } from 'googleapis';
 import { refreshAccessToken } from '@/lib/auth-utils';
 
 /**
- * MOTHERSHIP SYNC v7.2 - SOVEREIGN IDENTITY & PROACTIVE AUTH
- * Objective: Guarantee background sync without manual re-login via proactive token rotation.
+ * MOTHERSHIP SYNC v7.3 - SOVEREIGN IDENTITY & PROACTIVE AUTH
+ * Objective: Return defaults for bootstrap files to prevent 404 loops during first-run.
  */
 
 const ALLOWED_FILES = new Set([
@@ -31,23 +31,23 @@ const ALLOWED_FILES = new Set([
     'promotion_rules.json'
 ]);
 
-/**
- * Helper to get an authorized Google Drive instance,
- * performing a proactive silent refresh if the current token is expired.
- */
+// Map of default content for core bootstrap files to prevent 404 errors on fresh accounts
+const FILE_DEFAULTS: Record<string, any> = {
+    'twin_manifest.json': { twin_id: 'pending_anchor', version: '1.0', created_at: new Date().toISOString() },
+    'committed_memory.json': [],
+    'gemini_projection.json': {},
+    'durable_facts.json': [],
+    'identity_memory.json': {}
+};
+
 async function getAuthorizedDrive(token: any, req: Request) {
     let currentToken = token;
-
-    // Check if token is expired or will expire in the next 30 seconds
     const isExpired = Date.now() >= (currentToken.expiresAt as number * 1000) - 30000;
 
     if (isExpired) {
-        console.log("[Sync] Access token expired or near expiry. Triggering proactive refresh...");
+        console.log("[Sync] Access token expired. Refreshing...");
         currentToken = await refreshAccessToken(currentToken);
-
-        if (currentToken.error) {
-            throw new Error("PROACTIVE_REFRESH_FAILED");
-        }
+        if (currentToken.error) throw new Error("PROACTIVE_REFRESH_FAILED");
     }
 
     const auth = new google.auth.OAuth2(
@@ -76,8 +76,17 @@ export async function GET(req: Request) {
       q: `name = '${filename}'`,
       fields: 'files(id, name)',
     });
+
     const file = list.data.files?.[0];
-    if (!file) return NextResponse.json({ message: 'Not_Found' }, { status: 404 });
+
+    if (!file) {
+        // If file is missing but has a default, return the default instead of 404
+        if (FILE_DEFAULTS[filename] !== undefined) {
+            console.log(`[Sync] Returning default for missing file: ${filename}`);
+            return NextResponse.json(FILE_DEFAULTS[filename]);
+        }
+        return NextResponse.json({ message: 'Not_Found' }, { status: 404 });
+    }
 
     const content = await drive.files.get({ fileId: file.id!, alt: 'media' });
     return NextResponse.json(content.data);
