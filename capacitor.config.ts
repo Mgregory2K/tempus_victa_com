@@ -6,6 +6,8 @@ const config: CapacitorConfig = {
   appName: 'Twin+',
   webDir: 'out',
   server: {
+    url: 'https://tempusvicta.com',
+    cleartext: false,
     androidScheme: 'https'
   },
   plugins: {
