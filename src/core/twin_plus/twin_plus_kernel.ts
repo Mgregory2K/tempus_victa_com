@@ -63,6 +63,20 @@ class TwinPlusKernel {
     await loadCapacitor();
 
     this.manifest = existingManifest || null;
+
+    // WEB HYDRATION: Fetch manifest from Mothership if not provided
+    if (!this.manifest && typeof window !== 'undefined') {
+        try {
+            const res = await fetch('/api/sync?file=twin_manifest.json');
+            if (res.ok) {
+                this.manifest = await res.json();
+                console.log("[Kernel] Manifest Hydrated from Mothership.");
+            }
+        } catch (e) {
+            console.warn("[Kernel] Mothership manifest fetch failed. Staying unanchored.");
+        }
+    }
+
     const twinId = this.manifest?.twin_id;
 
     // NATIVE AUTHORITY HYDRATION
@@ -110,7 +124,24 @@ class TwinPlusKernel {
         TwinNative.triggerSync({ expedited: false });
     } else {
         this.scanExternalNodes();
+        this.hydrateMemoryArchive();
     }
+  }
+
+  private async hydrateMemoryArchive() {
+      if (typeof window === 'undefined') return;
+      try {
+          const res = await fetch('/api/sync?file=committed_memory.json');
+          if (res.ok) {
+              const events = await res.json();
+              if (Array.isArray(events) && events.length > 0) {
+                  this.ledger.merge(events);
+                  console.log(`[Kernel] Hydrated ${events.length} events from Committed Memory.`);
+              }
+          }
+      } catch (e) {
+          // Silent fail
+      }
   }
 
   private createKernelEvent(type: any, payload: any): TwinEvent {
