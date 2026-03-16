@@ -4,9 +4,8 @@ import GoogleProvider from "next-auth/providers/google"
 import { refreshAccessToken } from "@/lib/auth-utils"
 
 /**
- * TOKEN ROTATION v3.7 - REFRESH TOKEN LOGIC
- * Objective: Ensure Google API access tokens are automatically rotated before expiry.
- * This version uses the shared refreshAccessToken utility.
+ * TOKEN ROTATION v3.8 - REFRESH TOKEN LOGIC & IDENTITY PERSISTENCE
+ * Objective: Ensure Google API access tokens are automatically rotated and identity is preserved.
  */
 
 const handler = NextAuth({
@@ -18,7 +17,7 @@ const handler = NextAuth({
         params: {
           scope: "openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/spreadsheets.readonly",
           access_type: "offline",
-          prompt: "consent", // Ensures refresh_token is returned during initial login
+          prompt: "consent",
         },
       },
     }),
@@ -26,7 +25,7 @@ const handler = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, account, user }) {
-      // Initial sign in: store the initial tokens
+      // Initial sign in: store the initial tokens and user info
       if (account && user) {
         const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
         return {
@@ -34,6 +33,8 @@ const handler = NextAuth({
           expiresAt: account.expires_at,
           refreshToken: account.refresh_token,
           email: user.email,
+          name: user.name,
+          picture: user.image,
           isAdmin: adminEmails.includes(user.email?.toLowerCase() || ""),
         }
       }
@@ -53,6 +54,8 @@ const handler = NextAuth({
       session.error = token.error as string;
       if (session.user) {
         session.user.email = token.email as string;
+        session.user.name = token.name as string;
+        session.user.image = token.picture as string;
       }
       return session;
     },

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 
 const NavItem = ({ name, isLinked, isActive, onClick, subtext, description }: { name: string, isLinked?: boolean, isActive?: boolean, onClick?: () => void, subtext?: string, description?: string }) => {
     const [showTooltip, setShowTooltip] = useState(false);
@@ -67,7 +67,8 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin, onToggl
 
     useEffect(() => {
         const checkKeys = () => {
-            const storage = session ? localStorage : sessionStorage;
+            const storage = typeof window !== 'undefined' ? (session ? localStorage : sessionStorage) : null;
+            if (!storage) return;
             setStatus({
                 notion: !!storage.getItem("tv_notion_key"),
                 gemini: !!storage.getItem("tv_gemini_key"),
@@ -115,7 +116,7 @@ export default function SideNav({ activeModule, onModuleChange, isAdmin, onToggl
                 </div>
 
                 <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-none">
-                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : undefined} subtext={session ? "Briefcase Stable" : "Auth Required"} description="Identity confirmed. Cross-device sync active via Google Drive vault." />
+                    <NavItem name="Google" isLinked={!!session} onClick={!session ? () => signIn('google') : () => signOut()} subtext={session ? (session.user?.email || "Connected") : "Auth Required"} description={session ? `Identity confirmed: ${session.user?.name}. Click to disconnect.` : "Identity confirmed. Cross-device sync active via Google Drive vault."} />
                     <NavItem name="Gemini" isLinked={status.gemini} subtext="Sovereign Search" description="Google Search grounding pipeline is active." />
                     <NavItem name="OpenAI" isLinked={status.openai} subtext="Neural Synthesis" description="GPT-4o Reasoning Engine is stable." />
                     <NavItem name="Notion" isLinked={status.notion} subtext="Knowledge Base" description="Persistent bridge to Notion workspace is active." />

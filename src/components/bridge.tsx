@@ -45,7 +45,8 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
         new Date(b.completed_at || b.completedAt || 0).getTime() - new Date(a.completed_at || a.completedAt || 0).getTime()
     ).slice(0, 3);
 
-    const firstName = session?.user?.name?.split(' ')[0] || "User";
+    // Hardcoded "Michael" fallback as requested
+    const firstName = session?.user?.name?.split(' ')[0] || "Michael";
 
     // 🧬 DYNAMIC SUMMARY
     const [executiveSummary, setExecutiveSummary] = useState("System synchronization is stable. Neural patterns suggest high focus potential.");
@@ -122,7 +123,7 @@ export default function Bridge({ tasks = [], notes = [], messages = [], calendar
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fade-in">
                     <DailyBrief
                         tasks={tasks}
-                        userName={session?.user?.name || "User"}
+                        userName={session?.user?.name || "Michael"}
                         onDismiss={() => setIsBriefOpen(false)}
                     />
                 </div>

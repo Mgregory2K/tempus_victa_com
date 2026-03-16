@@ -46,42 +46,97 @@ const WEB_MOCK: TwinNativePlugin = {
   getSecret: async () => ({ value: null })
 };
 
+let pluginInstance: any = null;
+let initializationPromise: Promise<{ instance: any }> | null = null;
+
+/**
+ * Gets the plugin instance wrapped in an object to avoid the "then() is not implemented"
+ * error caused by JS engine probing the Capacitor proxy during promise resolution.
+ */
+async function getPluginWrapper(): Promise<{ instance: any } | null> {
+  if (pluginInstance) return { instance: pluginInstance };
+  if (typeof window === 'undefined') return null;
+
+  if (initializationPromise) return initializationPromise;
+
+  initializationPromise = (async () => {
+    try {
+      const { Capacitor, registerPlugin } = await import('@capacitor/core');
+
+      let instance: any;
+      if (Capacitor.isNativePlatform()) {
+        instance = registerPlugin('TwinNative');
+      } else {
+        instance = WEB_MOCK;
+      }
+      pluginInstance = instance;
+      return { instance };
+    } catch (e) {
+      console.warn("[TwinNative] Capacitor loading failed, using WEB_MOCK", e);
+      pluginInstance = WEB_MOCK;
+      return { instance: WEB_MOCK };
+    }
+  })();
+
+  return initializationPromise;
+}
+
 /**
  * TwinNative Authority Bridge.
- * Opaque implementation to satisfy Next.js/Turbopack build-time checks.
+ * Resilient implementation with timeouts to prevent UI hangs.
  */
 const TwinNative: TwinNativePlugin = {
-  getInitialState: async () => (await getPlugin())?.getInitialState() || WEB_MOCK.getInitialState(),
-  saveMemoryPack: async (d) => (await getPlugin())?.saveMemoryPack(d),
-  loadMemoryPack: async () => (await getPlugin())?.loadMemoryPack() || WEB_MOCK.loadMemoryPack(),
-  enqueueCapture: async (e) => (await getPlugin())?.enqueueCapture(e) || WEB_MOCK.enqueueCapture(e),
-  triggerSync: async (o) => (await getPlugin())?.triggerSync(o),
-  getSyncStatus: async () => (await getPlugin())?.getSyncStatus() || WEB_MOCK.getSyncStatus(),
-  setSecret: async (k, v) => (await getPlugin())?.setSecret(k, v),
-  getSecret: async (k) => (await getPlugin())?.getSecret(k) || WEB_MOCK.getSecret(k),
-  getDeviceId: async () => (await getPlugin())?.getDeviceId() || WEB_MOCK.getDeviceId()
-};
+  getInitialState: async () => {
+    const wrapper = await getPluginWrapper();
+    const p = wrapper?.instance;
+    if (!p) return WEB_MOCK.getInitialState();
 
-let pluginInstance: any = null;
+    return Promise.race([
+        p.getInitialState(),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error("BRIDGE_TIMEOUT")), 2000))
+    ]).catch((err) => {
+        console.warn("[TwinNative] getInitialState failed or timed out", err);
+        return WEB_MOCK.getInitialState();
+    });
+  },
+  saveMemoryPack: async (d) => {
+    const wrapper = await getPluginWrapper();
+    return wrapper?.instance?.saveMemoryPack(d);
+  },
+  loadMemoryPack: async () => {
+    const wrapper = await getPluginWrapper();
+    const p = wrapper?.instance;
+    if (!p) return WEB_MOCK.loadMemoryPack();
 
-async function getPlugin(): Promise<any> {
-  if (pluginInstance) return pluginInstance;
-  if (typeof window === 'undefined') return null;
-  try {
-    const { Capacitor, registerPlugin } = await import('@capacitor/core');
-
-    // Check if we are actually on a native platform
-    if (Capacitor.isNativePlatform()) {
-      pluginInstance = registerPlugin('TwinNative') as TwinNativePlugin;
-    } else {
-      // On web, return the mock directly to avoid Capacitor proxy ".then()" errors
-      pluginInstance = WEB_MOCK;
-    }
-
-    return pluginInstance;
-  } catch (e) {
-    return WEB_MOCK;
+    return Promise.race([
+        p.loadMemoryPack(),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error("BRIDGE_TIMEOUT")), 2000))
+    ]).catch(() => WEB_MOCK.loadMemoryPack());
+  },
+  enqueueCapture: async (e) => {
+    const wrapper = await getPluginWrapper();
+    return wrapper?.instance?.enqueueCapture(e) || WEB_MOCK.enqueueCapture(e);
+  },
+  triggerSync: async (o) => {
+    const wrapper = await getPluginWrapper();
+    return wrapper?.instance?.triggerSync(o);
+  },
+  getSyncStatus: async () => {
+    const wrapper = await getPluginWrapper();
+    return wrapper?.instance?.getSyncStatus() || WEB_MOCK.getSyncStatus();
+  },
+  setSecret: async (k, v) => {
+    const wrapper = await getPluginWrapper();
+    return wrapper?.instance?.setSecret(k, v);
+  },
+  getSecret: async (k) => {
+    const wrapper = await getPluginWrapper();
+    return wrapper?.instance?.getSecret(k) || WEB_MOCK.getSecret(k);
+  },
+  getDeviceId: async () => {
+    const wrapper = await getPluginWrapper();
+    return wrapper?.instance?.getDeviceId() || WEB_MOCK.getDeviceId();
   }
-}
+};
 
 export default TwinNative;

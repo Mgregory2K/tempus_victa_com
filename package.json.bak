@@ -9,7 +9,6 @@
     "server": "node server.js",
     "lint": "eslint",
     "terminal:build": "powershell -Command \"if (Test-Path src/app/api) { Move-Item src/app/api api_shield }; try { cross-env NEXT_PUBLIC_TERMINAL_MODE=true next build } finally { if (Test-Path api_shield) { Move-Item api_shield src/app/api } }\"",
-    "android:build": "powershell -Command \"Copy-Item .env.android .env.local -Force; if (Test-Path src/app/api) { Move-Item src/app/api api_shield }; try { next build } finally { if (Test-Path api_shield) { Move-Item api_shield src/app/api } }; npx cap copy android\"",
     "cap:sync": "npx capacitor sync",
     "cap:copy": "npx capacitor copy android",
     "cap:open": "npx capacitor open android"
