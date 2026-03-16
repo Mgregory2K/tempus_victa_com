@@ -22,7 +22,8 @@ if (existsSync(envPath)) {
 }
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Removed 'output: export' because the system requires a server-side runtime
+  // for Next-Auth, Google API sync, and dynamic API routes.
   reactCompiler: true,
   images: {
     unoptimized: true,

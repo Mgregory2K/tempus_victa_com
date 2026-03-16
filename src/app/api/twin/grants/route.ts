@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { GrantRegistry } from "@/core/twin_plus/grants/grant_registry";
 
+/**
+ * TWIN GRANTS API
+ * Standard dynamic route for managing sovereign permissions.
+ */
+
+// This marks the route as dynamic so it's not converted to a static JSON during 'output: export'
+// Although we've removed 'output: export' from next.config.ts, this is still best practice for dynamic APIs.
+export const dynamic = 'force-dynamic';
+
 function getAuthenticatedGoogleEmail(): string {
+  // This would typically come from the session in a real deployment
   return "michael.gregory1@gmail.com";
 }
 
