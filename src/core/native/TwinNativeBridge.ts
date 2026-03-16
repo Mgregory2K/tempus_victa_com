@@ -29,27 +29,37 @@ export interface TwinNativePlugin {
   getDeviceId(): Promise<{ id: string }>;
 }
 
+const WEB_MOCK: TwinNativePlugin = {
+  getInitialState: async () => ({
+    memoryPack: '{}',
+    pendingCaptures: [],
+    deviceId: 'web',
+    syncStatus: { lastSync: 'N/A', pendingCount: 0, isSyncing: false, deviceId: 'web' }
+  }),
+  getDeviceId: async () => ({ id: 'web' }),
+  getSyncStatus: async () => ({ lastSync: 'N/A', pendingCount: 0, isSyncing: false, deviceId: 'web' }),
+  loadMemoryPack: async () => ({ bundleJson: '{}' }),
+  saveMemoryPack: async () => {},
+  enqueueCapture: async () => ({ entryId: 'web_' + Date.now() }),
+  triggerSync: async () => {},
+  setSecret: async () => {},
+  getSecret: async () => ({ value: null })
+};
+
 /**
  * TwinNative Authority Bridge.
  * Opaque implementation to satisfy Next.js/Turbopack build-time checks.
  */
 const TwinNative: TwinNativePlugin = {
-  getInitialState: async () => (await getPlugin())?.getInitialState() || {
-    memoryPack: '{}',
-    pendingCaptures: [],
-    deviceId: 'web',
-    syncStatus: { lastSync: 'N/A', pendingCount: 0, isSyncing: false, deviceId: 'web' }
-  },
+  getInitialState: async () => (await getPlugin())?.getInitialState() || WEB_MOCK.getInitialState(),
   saveMemoryPack: async (d) => (await getPlugin())?.saveMemoryPack(d),
-  loadMemoryPack: async () => (await getPlugin())?.loadMemoryPack() || { bundleJson: '{}' },
-  enqueueCapture: async (e) => (await getPlugin())?.enqueueCapture(e) || { entryId: 'web_' + Date.now() },
+  loadMemoryPack: async () => (await getPlugin())?.loadMemoryPack() || WEB_MOCK.loadMemoryPack(),
+  enqueueCapture: async (e) => (await getPlugin())?.enqueueCapture(e) || WEB_MOCK.enqueueCapture(e),
   triggerSync: async (o) => (await getPlugin())?.triggerSync(o),
-  getSyncStatus: async () => (await getPlugin())?.getSyncStatus() || {
-    lastSync: 'N/A', pendingCount: 0, isSyncing: false, deviceId: 'web'
-  },
+  getSyncStatus: async () => (await getPlugin())?.getSyncStatus() || WEB_MOCK.getSyncStatus(),
   setSecret: async (k, v) => (await getPlugin())?.setSecret(k, v),
-  getSecret: async (k) => (await getPlugin())?.getSecret(k) || { value: null },
-  getDeviceId: async () => (await getPlugin())?.getDeviceId() || { id: 'web' }
+  getSecret: async (k) => (await getPlugin())?.getSecret(k) || WEB_MOCK.getSecret(k),
+  getDeviceId: async () => (await getPlugin())?.getDeviceId() || WEB_MOCK.getDeviceId()
 };
 
 let pluginInstance: any = null;
@@ -58,14 +68,19 @@ async function getPlugin(): Promise<any> {
   if (pluginInstance) return pluginInstance;
   if (typeof window === 'undefined') return null;
   try {
-    // We use a variable for the module name to hide it from static analysis.
-    const moduleName = '@capacitor/core';
-    const cap: any = await import(moduleName);
-    // Use an untyped call and cast the result to avoid TS generic argument errors on 'any'.
-    pluginInstance = cap.registerPlugin('TwinNative') as TwinNativePlugin;
+    const { Capacitor, registerPlugin } = await import('@capacitor/core');
+
+    // Check if we are actually on a native platform
+    if (Capacitor.isNativePlatform()) {
+      pluginInstance = registerPlugin('TwinNative') as TwinNativePlugin;
+    } else {
+      // On web, return the mock directly to avoid Capacitor proxy ".then()" errors
+      pluginInstance = WEB_MOCK;
+    }
+
     return pluginInstance;
   } catch (e) {
-    return null;
+    return WEB_MOCK;
   }
 }
 
